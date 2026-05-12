@@ -14,9 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -475,32 +476,14 @@ func setupSecondary(t *testing.T) test.Setup {
 	return s
 }
 
-// jwtAccess appears in type jwtToken.
+// jwtAccess appears in type jwtContents.
 type jwtAccess struct {
 	Type    string   `json:"type"`
 	Name    string   `json:"name"`
 	Actions []string `json:"actions"`
 }
 
-// jwtToken contains the parsed contents of the payload section of a JWT token.
-type jwtToken struct {
-	Issuer    string      `json:"iss"`
-	Subject   string      `json:"sub"`
-	Audience  string      `json:"aud"`
-	ExpiresAt int64       `json:"exp"`
-	NotBefore int64       `json:"nbf"`
-	IssuedAt  int64       `json:"iat"`
-	TokenID   string      `json:"jti"`
-	Access    []jwtAccess `json:"access"`
-	// The EmbeddedAuthorization is ignored by this test. It will be exercised
-	// indirectly in the registry API tests since the registry API uses attributes
-	// from the EmbeddedAuthorization.
-	Ignored map[string]any `json:"kea"`
-}
-
-// jwtContents contains what we expect in a JWT token payload section. This type
-// implements assert.HTTPResponseBody and can therefore be used with
-// assert.HTTPRequest.
+// jwtContents contains what we expect in a JWT token payload section.
 type jwtContents struct {
 	Issuer   string
 	Subject  string
@@ -508,75 +491,82 @@ type jwtContents struct {
 	Access   []jwtAccess
 }
 
-// AssertResponseBody implements the assert.HTTPResponseBody interface.
-func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, responseBodyBytes []byte) (ok bool) {
-	t.Helper()
+// WithinResponseBody can be used with httptest.Response.Expect() to inspect the token response from GET /keppel/v1/auth.
+func (c jwtContents) WithinResponseBody(t *testing.T, status int) func(httptest.Response) {
+	return func(resp httptest.Response) {
+		t.Helper()
+		resp.ExpectStatus(t, status)
 
-	var responseBody struct {
-		Token string `json:"token"`
-		// optional fields (all listed so that we can use DisallowUnknownFields())
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    uint64 `json:"expires_in"`
-		IssuedAt     string `json:"issued_at"`
-	}
-	dec := json.NewDecoder(bytes.NewReader(responseBodyBytes))
-	dec.DisallowUnknownFields()
-	err := dec.Decode(&responseBody)
-	if err != nil {
-		t.Logf("token was: %s", string(responseBodyBytes))
-		t.Errorf("%s: cannot decode response body: %s", requestInfo, err.Error())
-		return false
-	}
+		var responseBody struct {
+			Token string `json:"token"`
+			// optional fields (all listed so that we can use DisallowUnknownFields())
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+			ExpiresIn    uint64 `json:"expires_in"`
+			IssuedAt     string `json:"issued_at"`
+		}
+		responseBodyBytes := resp.BodyBytes()
+		dec := json.NewDecoder(bytes.NewReader(responseBodyBytes))
+		dec.DisallowUnknownFields()
+		err := dec.Decode(&responseBody)
+		if err != nil {
+			t.Logf("token was: %s", string(responseBodyBytes))
+			t.Errorf("cannot decode response body: %s", err.Error())
+			return
+		}
 
-	// extract payload from token
-	tokenFields := strings.Split(responseBody.Token, ".")
-	if len(tokenFields) != 3 {
-		t.Logf("JWT is %s", responseBody.Token)
-		t.Errorf("%s: expected token with 3 parts, got %d parts", requestInfo, len(tokenFields))
-		return false
-	}
-	tokenBytes, err := base64.RawURLEncoding.DecodeString(tokenFields[1])
-	if err != nil {
-		t.Logf("JWT is %s", responseBody.Token)
-		t.Errorf("%s: cannot decode JWT payload section: %s", requestInfo, err.Error())
-		return false
-	}
+		// extract payload from token
+		tokenFields := strings.Split(responseBody.Token, ".")
+		if len(tokenFields) != 3 {
+			t.Errorf("expected token with 3 parts, got %d parts (full JWT is %q)", len(tokenFields), responseBody.Token)
+			return
+		}
+		tokenBytes, err := base64.RawURLEncoding.DecodeString(tokenFields[1])
+		if err != nil {
+			t.Errorf("cannot decode JWT payload section: %s (full JWT is %q)", err.Error(), responseBody.Token)
+			return
+		}
 
-	// decode token
-	var token jwtToken
-	dec = json.NewDecoder(bytes.NewReader(tokenBytes))
-	dec.DisallowUnknownFields()
-	err = dec.Decode(&token)
-	if err != nil {
-		t.Logf("token JSON is %s", string(tokenBytes))
-		t.Errorf("%s: cannot deserialize JWT payload section: %s", requestInfo, err.Error())
-		return false
-	}
+		// decode token
+		var (
+			actualExpiresAt int64
+			actualNotBefore int64
+			actualIssuedAt  int64
+		)
+		expectedToken := jsonmatch.Object{
+			"iss":    c.Issuer,
+			"aud":    c.Audience,
+			"exp":    jsonmatch.CaptureField(&actualExpiresAt),
+			"nbf":    jsonmatch.CaptureField(&actualNotBefore),
+			"iat":    jsonmatch.CaptureField(&actualIssuedAt),
+			"jti":    jsonmatch.Irrelevant(), // jti = JWT token ID
+			"access": c.Access,
+			"kea":    jsonmatch.Irrelevant(), // kea = keppel embedded authorization
+		}
+		if c.Subject != "" {
+			expectedToken["sub"] = c.Subject
+		}
+		hasDiff := false
+		for _, diff := range expectedToken.DiffAgainst(tokenBytes) {
+			t.Error(diff.String())
+			hasDiff = true
+		}
+		if hasDiff {
+			return
+		}
 
-	// check token attributes for correctness
-	ok = true
-	ok = ok && assert.DeepEqual(t, "token.Access for "+requestInfo, token.Access, c.Access)
-	ok = ok && assert.DeepEqual(t, "token.Audience for "+requestInfo, token.Audience, c.Audience)
-	ok = ok && assert.DeepEqual(t, "token.Issuer for "+requestInfo, token.Issuer, c.Issuer)
-	ok = ok && assert.DeepEqual(t, "token.Subject for "+requestInfo, token.Subject, c.Subject)
-
-	// check remaining token attributes for plausibility
-	nowUnix := time.Now().Unix()
-	if nowUnix >= token.ExpiresAt {
-		t.Errorf("%s: ExpiresAt should be in the future, but is %d seconds in the past", requestInfo, nowUnix-token.ExpiresAt)
-		ok = false
+		// check remaining token attributes for plausibility
+		nowUnix := time.Now().Unix()
+		if nowUnix >= actualExpiresAt {
+			t.Errorf("ExpiresAt should be in the future, but is %d seconds in the past", nowUnix-actualExpiresAt)
+		}
+		if nowUnix < actualNotBefore {
+			t.Errorf("NotBefore should be now or in the past, but is %d seconds in the future", actualNotBefore-nowUnix)
+		}
+		if nowUnix < actualIssuedAt {
+			t.Errorf("IssuedAt should be now or in the past, but is %d seconds in the future", actualIssuedAt-nowUnix)
+		}
 	}
-	if nowUnix < token.NotBefore {
-		t.Errorf("%s: NotBefore should be now or in the past, but is %d seconds in the future", requestInfo, token.NotBefore-nowUnix)
-		ok = false
-	}
-	if nowUnix < token.IssuedAt {
-		t.Errorf("%s: IssuedAt should be now or in the past, but is %d seconds in the future", requestInfo, token.IssuedAt-nowUnix)
-		ok = false
-	}
-
-	return ok
 }
 
 func TestIssueToken(t *testing.T) {
@@ -584,95 +574,89 @@ func TestIssueToken(t *testing.T) {
 	service := s.Config.APIPublicHostname
 
 	for idx, c := range testCases {
-		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
+		t.Run(fmt.Sprintf("testcase=%d/%d", idx+1, len(testCases)), func(t *testing.T) {
+			ctx := t.Context()
 
-		// setup RBAC policies for test
-		rbacPoliciesJSONStr := ""
-		if c.RBACPolicy != nil {
-			buf := must.ReturnT(json.Marshal([]keppel.RBACPolicy{*c.RBACPolicy}))(t)
-			rbacPoliciesJSONStr = string(buf)
-		}
-		test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $1 WHERE name = $2`, rbacPoliciesJSONStr, "test1")
-
-		// setup permissions for test
-		var perms []string
-		if c.CannotDelete {
-			perms = append(perms, string(keppel.CanDeleteFromAccount)+":othertenant")
-		} else {
-			perms = append(perms, string(keppel.CanDeleteFromAccount)+":test1authtenant")
-		}
-		if c.CannotPush {
-			perms = append(perms, string(keppel.CanPushToAccount)+":othertenant")
-		} else {
-			perms = append(perms, string(keppel.CanPushToAccount)+":test1authtenant")
-		}
-		if c.CannotPull {
-			perms = append(perms, string(keppel.CanPullFromAccount)+":othertenant")
-			perms = append(perms, string(keppel.CanViewAccount)+":othertenant")
-		} else {
-			perms = append(perms, string(keppel.CanPullFromAccount)+":test1authtenant")
-			perms = append(perms, string(keppel.CanViewAccount)+":test1authtenant")
-		}
-		s.AD.GrantedPermissions = strings.Join(perms, ",")
-
-		// setup Authorization header for test
-		req := assert.HTTPRequest{
-			Method:       "GET",
-			ExpectStatus: http.StatusOK,
-		}
-		if !c.AnonymousLogin {
-			req.Header = map[string]string{
-				"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
+			// setup RBAC policies for test
+			rbacPoliciesJSONStr := ""
+			if c.RBACPolicy != nil {
+				buf := must.ReturnT(json.Marshal([]keppel.RBACPolicy{*c.RBACPolicy}))(t)
+				rbacPoliciesJSONStr = string(buf)
 			}
-		}
+			test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $1 WHERE name = $2`, rbacPoliciesJSONStr, "test1")
 
-		// build URL query string for test
-		query := url.Values{}
-		if service != "" {
-			query.Set("service", service)
-		}
-		if c.Scope != "" {
-			query.Set("scope", c.Scope)
-		}
-		req.Path = "/keppel/v1/auth?" + query.Encode()
+			// setup permissions for test
+			var perms []string
+			if c.CannotDelete {
+				perms = append(perms, string(keppel.CanDeleteFromAccount)+":othertenant")
+			} else {
+				perms = append(perms, string(keppel.CanDeleteFromAccount)+":test1authtenant")
+			}
+			if c.CannotPush {
+				perms = append(perms, string(keppel.CanPushToAccount)+":othertenant")
+			} else {
+				perms = append(perms, string(keppel.CanPushToAccount)+":test1authtenant")
+			}
+			if c.CannotPull {
+				perms = append(perms, string(keppel.CanPullFromAccount)+":othertenant")
+				perms = append(perms, string(keppel.CanViewAccount)+":othertenant")
+			} else {
+				perms = append(perms, string(keppel.CanPullFromAccount)+":test1authtenant")
+				perms = append(perms, string(keppel.CanViewAccount)+":test1authtenant")
+			}
+			s.AD.GrantedPermissions = strings.Join(perms, ",")
 
-		// build expected tokenContents to match against
-		expectedContents := jwtContents{
-			Audience: service,
-			Issuer:   "keppel-api@registry.example.org",
-			Subject:  "correctusername",
-		}
-		if c.AnonymousLogin {
-			expectedContents.Subject = ""
-		}
-		if c.GrantedActions != "" {
-			fields := strings.SplitN(c.Scope, ":", 3)
-			expectedContents.Access = []jwtAccess{{
-				Type:    fields[0],
-				Name:    fields[1],
-				Actions: strings.Split(c.GrantedActions, ","),
-			}}
-		}
-		if len(c.AdditionalScopes) > 0 {
-			for _, scope := range c.AdditionalScopes {
-				fields := strings.SplitN(scope, ":", 3)
-				expectedContents.Access = append(expectedContents.Access, jwtAccess{
+			// build URL query string for test
+			query := url.Values{}
+			if service != "" {
+				query.Set("service", service)
+			}
+			if c.Scope != "" {
+				query.Set("scope", c.Scope)
+			}
+			path := "/keppel/v1/auth?" + query.Encode()
+
+			// build expected tokenContents to match against
+			expectedContents := jwtContents{
+				Audience: service,
+				Issuer:   "keppel-api@registry.example.org",
+				Subject:  "correctusername",
+			}
+			if c.AnonymousLogin {
+				expectedContents.Subject = ""
+			}
+			if c.GrantedActions != "" {
+				fields := strings.SplitN(c.Scope, ":", 3)
+				expectedContents.Access = []jwtAccess{{
 					Type:    fields[0],
 					Name:    fields[1],
-					Actions: strings.Split(fields[2], ","),
-				})
+					Actions: strings.Split(c.GrantedActions, ","),
+				}}
 			}
-		}
-		req.ExpectBody = expectedContents
+			if len(c.AdditionalScopes) > 0 {
+				for _, scope := range c.AdditionalScopes {
+					fields := strings.SplitN(scope, ":", 3)
+					expectedContents.Access = append(expectedContents.Access, jwtAccess{
+						Type:    fields[0],
+						Name:    fields[1],
+						Actions: strings.Split(fields[2], ","),
+					})
+				}
+			}
+			options := []httptest.RequestOption{}
+			if !c.AnonymousLogin {
+				options = append(options, httptest.WithHeader("Authorization", keppel.BuildBasicAuthHeader("correctusername", "correctpassword")))
+			}
 
-		// execute request
-		req.Check(t, s.Handler)
+			s.RespondTo(ctx, "GET "+path, options...).
+				Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
+		})
 	}
 }
 
 func TestInvalidCredentials(t *testing.T) {
 	s := setupPrimary(t)
-	h := s.Handler
+	ctx := t.Context()
 	service := s.Config.APIPublicHostname
 
 	// execute normal GET requests that would result in a token with granted
@@ -685,31 +669,23 @@ func TestInvalidCredentials(t *testing.T) {
 			"scope":   {"repository:test1/foo:pull"},
 		}.Encode(),
 	}
-	req := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         urlPath.String(),
-		Header:       map[string]string{},
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.JSONObject{"details": "incorrect username or password"},
+	reqPath := urlPath.String()
+	respondTo := func(authHeader, expectedDetails string) {
+		s.RespondTo(ctx, "GET "+reqPath,
+			httptest.WithHeader("Authorization", authHeader),
+		).ExpectJSON(t, http.StatusUnauthorized, jsonmatch.Object{"details": expectedDetails})
 	}
 
 	t.Logf("----- test malformed credentials with service %q -----\n", service)
-	req.Header["Authorization"] = "Bogus 65082567y295847y62"
-	req.ExpectBody = assert.JSONObject{"details": "malformed Authorization header"}
-	req.Check(t, h)
-	req.Header["Authorization"] = "Basic 65082567y2958)*&@@"
-	req.Check(t, h)
-	req.Header["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte("onlyusername"))
-	req.Check(t, h)
+	respondTo("Bogus 65082567y295847y62", "malformed Authorization header")
+	respondTo("Basic 65082567y2958)*&@@", "malformed Authorization header")
+	respondTo("Basic "+base64.StdEncoding.EncodeToString([]byte("onlyusername")), "malformed Authorization header")
 
 	t.Logf("----- test wrong username with service %q -----\n", service)
-	req.Header["Authorization"] = keppel.BuildBasicAuthHeader("wrongusername", "correctpassword")
-	req.ExpectBody = assert.JSONObject{"details": "wrong credentials"}
-	req.Check(t, h)
+	respondTo(keppel.BuildBasicAuthHeader("wrongusername", "correctpassword"), "wrong credentials")
 
 	t.Logf("----- test wrong password with service %q -----\n", service)
-	req.Header["Authorization"] = keppel.BuildBasicAuthHeader("correctusername", "wrongpassword")
-	req.Check(t, h)
+	respondTo(keppel.BuildBasicAuthHeader("correctusername", "wrongpassword"), "wrong credentials")
 }
 
 type anycastTestCase struct {
@@ -725,6 +701,7 @@ type anycastTestCase struct {
 
 func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		ctx := t.Context()
 		s1 := setupPrimary(t)
 		s2 := setupSecondary(t)
 		h1 := s1.Handler
@@ -780,9 +757,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				HasAccess: false, Issuer: localService2},
 		}
 
-		correctAuthHeader := map[string]string{
-			"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
-		}
+		correctAuthHeader := keppel.BuildBasicAuthHeader("correctusername", "correctpassword")
 
 		for idx, c := range anycastTestCases {
 			for _, withDomainRemapping := range []bool{false, true} {
@@ -800,15 +775,12 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 					scopeRepoName = string(c.AccountName) + "/foo"
 				}
 
-				req := assert.HTTPRequest{
-					Method: "GET",
-					Path:   fmt.Sprintf("/keppel/v1/auth?scope=repository:%s:pull&service=%s%s", scopeRepoName, domainPrefix, c.Service),
-					Header: correctAuthHeader,
-				}
+				path := fmt.Sprintf("/keppel/v1/auth?scope=repository:%s:pull&service=%s%s", scopeRepoName, domainPrefix, c.Service)
+				resp := httptest.NewHandler(c.Handler).RespondTo(ctx, "GET "+path,
+					httptest.WithHeader("Authorization", correctAuthHeader),
+				)
 
 				if c.ErrorMessage == "" {
-					req.ExpectStatus = http.StatusOK
-
 					// build jwtContents struct to contain issued token against
 					expectedContents := jwtContents{
 						Audience: domainPrefix + c.Service,
@@ -822,64 +794,56 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 							Actions: []string{"pull"},
 						}}
 					}
-					req.ExpectBody = expectedContents
+					resp.Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 				} else {
 					msg := strings.ReplaceAll(c.ErrorMessage, "%SERVICE%", domainPrefix+c.Service)
-					req.ExpectStatus = http.StatusBadRequest
-					req.ExpectBody = assert.JSONObject{"details": msg}
+					resp.ExpectJSON(t, http.StatusBadRequest, jsonmatch.Object{"details": msg})
 				}
-
-				req.Check(t, c.Handler)
 			}
 		}
 
 		// test that catalog access is not allowed on anycast (since we don't know
 		// which peer to ask for authentication)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=registry:catalog:*", anycastService),
-			Header:       correctAuthHeader,
-			ExpectStatus: http.StatusOK,
-			ExpectBody: jwtContents{
-				Audience: anycastService,
-				Issuer:   "keppel-api@" + localService1,
-				Subject:  "correctusername",
-				Access:   nil,
-			},
-		}.Check(t, h1)
+		path := fmt.Sprintf("/keppel/v1/auth?service=%s&scope=registry:catalog:*", anycastService)
+		expectedContents := jwtContents{
+			Audience: anycastService,
+			Issuer:   "keppel-api@" + localService1,
+			Subject:  "correctusername",
+			Access:   nil,
+		}
+		httptest.NewHandler(h1).RespondTo(ctx, "GET "+path,
+			httptest.WithHeader("Authorization", correctAuthHeader),
+		).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 
 		// test that catalog access is allowed for domain-remapped APIs, but only
 		// for the account name specified in the domain
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         fmt.Sprintf("/keppel/v1/auth?service=test1.%s&scope=registry:catalog:*", localService1),
-			Header:       correctAuthHeader,
-			ExpectStatus: http.StatusOK,
-			ExpectBody: jwtContents{
-				Audience: "test1." + localService1,
-				Issuer:   "keppel-api@test1." + localService1,
-				Subject:  "correctusername",
-				Access: []jwtAccess{
-					{Type: "registry", Name: "catalog", Actions: []string{"*"}},
-					{Type: "keppel_account", Name: "test1", Actions: []string{"view"}},
-				},
+		path = fmt.Sprintf("/keppel/v1/auth?service=test1.%s&scope=registry:catalog:*", localService1)
+		expectedContents = jwtContents{
+			Audience: "test1." + localService1,
+			Issuer:   "keppel-api@test1." + localService1,
+			Subject:  "correctusername",
+			Access: []jwtAccess{
+				{Type: "registry", Name: "catalog", Actions: []string{"*"}},
+				{Type: "keppel_account", Name: "test1", Actions: []string{"view"}},
 			},
-		}.Check(t, h1)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         fmt.Sprintf("/keppel/v1/auth?service=something-else.%s&scope=registry:catalog:*", localService1),
-			Header:       correctAuthHeader,
-			ExpectStatus: http.StatusOK,
-			ExpectBody: jwtContents{
-				Audience: "something-else." + localService1,
-				Issuer:   "keppel-api@something-else." + localService1,
-				Subject:  "correctusername",
-				Access: []jwtAccess{
-					{Type: "registry", Name: "catalog", Actions: []string{"*"}},
-					// no keppel_account:test1:view since the API is restricted to the non-existent account "something-else"
-				},
+		}
+		httptest.NewHandler(h1).RespondTo(ctx, "GET "+path,
+			httptest.WithHeader("Authorization", correctAuthHeader),
+		).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
+
+		path = fmt.Sprintf("/keppel/v1/auth?service=something-else.%s&scope=registry:catalog:*", localService1)
+		expectedContents = jwtContents{
+			Audience: "something-else." + localService1,
+			Issuer:   "keppel-api@something-else." + localService1,
+			Subject:  "correctusername",
+			Access: []jwtAccess{
+				{Type: "registry", Name: "catalog", Actions: []string{"*"}},
+				// no keppel_account:test1:view since the API is restricted to the non-existent account "something-else"
 			},
-		}.Check(t, h1)
+		}
+		httptest.NewHandler(h1).RespondTo(ctx, "GET "+path,
+			httptest.WithHeader("Authorization", correctAuthHeader),
+		).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 	})
 }
 
@@ -889,13 +853,11 @@ func TestMultiScope(t *testing.T) {
 	// test covers some basic cases of multi-scopes.
 
 	s := setupPrimary(t)
-	h := s.Handler
+	ctx := t.Context()
 	service := s.Config.APIPublicHostname
 
 	// various shorthands for the testcases below
-	correctAuthHeader := map[string]string{
-		"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
-	}
+	correctAuthHeader := keppel.BuildBasicAuthHeader("correctusername", "correctpassword")
 	makeJWTContents := func(access []jwtAccess) jwtContents {
 		return jwtContents{
 			Audience: service,
@@ -914,113 +876,98 @@ func TestMultiScope(t *testing.T) {
 
 	// case 1: multiple actions on the same resource and we get everything we ask for
 	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount, keppel.CanDeleteFromAccount)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull&scope=repository:test1/foo:push&scope=repository:test1/foo:delete", service),
-		Header:       correctAuthHeader,
-		ExpectStatus: http.StatusOK,
-		ExpectBody: makeJWTContents([]jwtAccess{{
-			Type:    "repository",
-			Name:    "test1/foo",
-			Actions: []string{"pull", "push", "delete"},
-		}}),
-	}.Check(t, h)
+	path := fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull&scope=repository:test1/foo:push&scope=repository:test1/foo:delete", service)
+	expectedContents := makeJWTContents([]jwtAccess{{
+		Type:    "repository",
+		Name:    "test1/foo",
+		Actions: []string{"pull", "push", "delete"},
+	}})
+	s.RespondTo(ctx, "GET "+path,
+		httptest.WithHeader("Authorization", correctAuthHeader),
+	).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 
 	// case 2: overlapping actions on the same resource and we get everything except "delete"
 	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,delete&scope=repository:test1/foo:pull,push&scope=repository:test1/foo:delete", service),
-		Header:       correctAuthHeader,
-		ExpectStatus: http.StatusOK,
-		ExpectBody: makeJWTContents([]jwtAccess{{
-			Type:    "repository",
-			Name:    "test1/foo",
-			Actions: []string{"pull", "push"}, // "pull" was mentioned twice in the scopes - this verifies that it was deduplicated
-		}}),
-	}.Check(t, h)
+	path = fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,delete&scope=repository:test1/foo:pull,push&scope=repository:test1/foo:delete", service)
+	expectedContents = makeJWTContents([]jwtAccess{{
+		Type:    "repository",
+		Name:    "test1/foo",
+		Actions: []string{"pull", "push"}, // "pull" was mentioned twice in the scopes - this verifies that it was deduplicated
+	}})
+	s.RespondTo(ctx, "GET "+path,
+		httptest.WithHeader("Authorization", correctAuthHeader),
+	).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 
 	// case 3: actions on multiple resources and we reject access to one of the resources entirely
 	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,push&scope=repository:test2/foo:pull,push&scope=registry:catalog:*", service),
-		Header:       correctAuthHeader,
-		ExpectStatus: http.StatusOK,
-		ExpectBody: makeJWTContents([]jwtAccess{
-			{
-				Type:    "repository",
-				Name:    "test1/foo",
-				Actions: []string{"pull", "push"},
-			},
-			{
-				Type:    "registry",
-				Name:    "catalog",
-				Actions: []string{"*"},
-			},
-			{
-				Type:    "keppel_account",
-				Name:    "test1",
-				Actions: []string{"view"},
-			},
-		}),
-	}.Check(t, h)
+	path = fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,push&scope=repository:test2/foo:pull,push&scope=registry:catalog:*", service)
+	expectedContents = makeJWTContents([]jwtAccess{
+		{
+			Type:    "repository",
+			Name:    "test1/foo",
+			Actions: []string{"pull", "push"},
+		},
+		{
+			Type:    "registry",
+			Name:    "catalog",
+			Actions: []string{"*"},
+		},
+		{
+			Type:    "keppel_account",
+			Name:    "test1",
+			Actions: []string{"view"},
+		},
+	})
+	s.RespondTo(ctx, "GET "+path,
+		httptest.WithHeader("Authorization", correctAuthHeader),
+	).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 }
 
 func TestIssuerKeyRotation(t *testing.T) {
+	ctx := t.Context()
+
 	// phase 1: issue a token with the previous issuer key
 	s := setupPrimary(t, test.WithPreviousIssuerKey, test.WithoutCurrentIssuerKey)
-	_, respBodyBytes := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/auth?service=registry.example.org&scope=keppel_api:info:access",
-		Header:       map[string]string{"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword")},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: jwtContents{
-			Audience: "registry.example.org",
-			Issuer:   "keppel-api@registry.example.org",
-			Subject:  "correctusername",
-			Access: []jwtAccess{{
-				Type:    "keppel_api",
-				Name:    "info",
-				Actions: []string{"access"},
-			}},
-		},
-	}.Check(t, s.Handler)
+	expectedContents := jwtContents{
+		Audience: "registry.example.org",
+		Issuer:   "keppel-api@registry.example.org",
+		Subject:  "correctusername",
+		Access: []jwtAccess{{
+			Type:    "keppel_api",
+			Name:    "info",
+			Actions: []string{"access"},
+		}},
+	}
+	resp := s.RespondTo(ctx, "GET /keppel/v1/auth?service=registry.example.org&scope=keppel_api:info:access",
+		httptest.WithHeader("Authorization", keppel.BuildBasicAuthHeader("correctusername", "correctpassword")),
+	)
+	resp.Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
+
 	var respBody struct {
 		Token string `json:"token"`
 	}
-	must.SucceedT(t, json.Unmarshal(respBodyBytes, &respBody))
+	must.SucceedT(t, json.Unmarshal(resp.BodyBytes(), &respBody))
 
 	// test that it (obviously) gets accepted by the same API that issued it
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/",
-		Header:       map[string]string{"Authorization": "Bearer " + respBody.Token},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, s.Handler)
+	s.RespondTo(ctx, "GET /v2/",
+		httptest.WithHeader("Authorization", "Bearer "+respBody.Token),
+	).ExpectStatus(t, http.StatusOK)
 
 	// phase 2: check that the token still gets accepted when a new key gets rotated in
 	s = setupPrimary(t, test.WithPreviousIssuerKey)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/",
-		Header:       map[string]string{"Authorization": "Bearer " + respBody.Token},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, s.Handler)
+	s.RespondTo(ctx, "GET /v2/",
+		httptest.WithHeader("Authorization", "Bearer "+respBody.Token),
+	).ExpectStatus(t, http.StatusOK)
 
 	// phase 3: check that the token does NOT get accepted anymore when the old key has rotated out
 	s = setupPrimary(t)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/",
-		Header:       map[string]string{"Authorization": "Bearer " + respBody.Token},
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody: assert.JSONObject{
-			"errors": []assert.JSONObject{{
-				"code":    string(keppel.ErrUnauthorized),
-				"message": "token is unverifiable: error while executing keyfunc: token signed by unknown key",
-				"detail":  nil,
-			}},
-		},
-	}.Check(t, s.Handler)
+	s.RespondTo(ctx, "GET /v2/",
+		httptest.WithHeader("Authorization", "Bearer "+respBody.Token),
+	).ExpectJSON(t, http.StatusUnauthorized, jsonmatch.Object{
+		"errors": []jsonmatch.Object{{
+			"code":    string(keppel.ErrUnauthorized),
+			"message": "token is unverifiable: error while executing keyfunc: token signed by unknown key",
+			"detail":  nil,
+		}},
+	})
 }

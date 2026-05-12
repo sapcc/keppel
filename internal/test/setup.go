@@ -363,6 +363,13 @@ func MustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
 
 var looksLikeDistributionAPIEndpointRx = regexp.MustCompile(`^[A-Z]* /v2(?:/|$)`)
 
+const (
+	// versionHeaderKey is the standard version header name included in all Registry v2 API responses.
+	versionHeaderKey = "Docker-Distribution-Api-Version"
+	// versionHeaderValue is the standard version header value included in all Registry v2 API responses.
+	versionHeaderValue = "registry/2.0"
+)
+
 // RespondTo is like s.handler.RespondTo(), but also checks the following universal response properties:
 //
 //   - Requests for endpoints in the OCI Distribution API (any path at or below /v2/)
@@ -375,11 +382,11 @@ func (s Setup) RespondTo(ctx context.Context, methodAndPath string, options ...h
 	if looksLikeDistributionAPIEndpointRx.MatchString(methodAndPath) {
 		// this is written in a slightly roundabout way because RespondTo() does not get a `t` argument
 		// (yes, yes, I could add it to the method signature, but then this would not be a behavioral equivalent of s.Handler.RespondTo() anymore)
-		if resp.Header().Get(VersionHeaderKey) != VersionHeaderValue {
+		if resp.Header().Get(versionHeaderKey) != versionHeaderValue {
 			fakeHandler := httptest.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				msg := fmt.Sprintf("expected %q, but got %q",
-					fmt.Sprintf("%s: %s", VersionHeaderKey, VersionHeaderValue),
-					fmt.Sprintf("%s: %s", VersionHeaderKey, cmp.Or(resp.Header().Get(VersionHeaderKey), "<missing>")),
+					fmt.Sprintf("%s: %s", versionHeaderKey, versionHeaderValue),
+					fmt.Sprintf("%s: %s", versionHeaderKey, cmp.Or(resp.Header().Get(versionHeaderKey), "<missing>")),
 				)
 				http.Error(w, msg, 999)
 			}))

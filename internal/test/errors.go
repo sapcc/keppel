@@ -4,17 +4,12 @@
 package test
 
 import (
-	"encoding/json"
-	"fmt"
-	"testing"
-
 	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-// ErrorCode wraps keppel.RegistryV2ErrorCode with an implementation of the
-// assert.HTTPResponseBody and the jsonmatch.Diffable interfaces.
+// ErrorCode wraps keppel.RegistryV2ErrorCode with an implementation of the [jsonmatch.Diffable] interface.
 type ErrorCode keppel.RegistryV2ErrorCode
 
 // DiffAgainst implements the jsonmatch.Diffable interface.
@@ -26,15 +21,6 @@ func (e ErrorCode) DiffAgainst(buf []byte) []jsonmatch.Diff {
 			"detail":  jsonmatch.Irrelevant(),
 		}},
 	}.DiffAgainst(buf)
-}
-
-// AssertResponseBody implements the assert.HTTPResponseBody interface.
-//
-// TODO: remove after all assert.HTTPRequests usage has been replaced with httptest.Handler.RespondTo()
-func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
-	t.Helper()
-	wrapped := ErrorCodeWithMessage{keppel.RegistryV2ErrorCode(e), ""}
-	return wrapped.AssertResponseBody(t, requestInfo, responseBody)
 }
 
 // ErrorCodeWithMessage extends ErrorCode with an expected detail message.
@@ -52,46 +38,4 @@ func (e ErrorCodeWithMessage) DiffAgainst(buf []byte) []jsonmatch.Diff {
 			"detail":  jsonmatch.Irrelevant(),
 		}},
 	}.DiffAgainst(buf)
-}
-
-// AssertResponseBody implements the assert.HTTPResponseBody interface.
-//
-// TODO: remove after all assert.HTTPRequests usage has been replaced with httptest.Handler.RespondTo()
-func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
-	t.Helper()
-	var data struct {
-		Errors []struct {
-			Code    keppel.RegistryV2ErrorCode `json:"code"`
-			Message string                     `json:"message"`
-		} `json:"errors"`
-	}
-	err := json.Unmarshal(responseBody, &data)
-	if err != nil {
-		t.Errorf("%s: cannot decode JSON: %s", requestInfo, err.Error())
-		t.Logf("\tresponse body = %q", string(responseBody))
-		return false
-	}
-
-	expectedStr := string(e.Code)
-	if e.Message != "" {
-		expectedStr = fmt.Sprintf("%s with message: %s", e.Code, e.Message)
-	}
-
-	var matches bool
-	responseStr := string(responseBody)
-	if len(data.Errors) == 1 {
-		responseStr = fmt.Sprintf("%s with message: %s", data.Errors[0].Code, data.Errors[0].Message)
-
-		if data.Errors[0].Code == e.Code {
-			matches = e.Message == "" || data.Errors[0].Message == e.Message
-		}
-	}
-
-	if !matches {
-		t.Error(requestInfo + ": got unexpected error")
-		t.Logf("\texpected = %q\n", expectedStr)
-		t.Logf("\tactual = %q\n", responseStr)
-	}
-
-	return matches
 }

@@ -4,34 +4,19 @@
 package test
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"strconv"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
-
-// TODO: make private once assert.HTTPRequest is removed
-const (
-	// VersionHeaderKey is the standard version header name included in all
-	// Registry v2 API responses.
-	VersionHeaderKey = "Docker-Distribution-Api-Version"
-	// VersionHeaderValue is the standard version header value included in all
-	// Registry v2 API responses.
-	VersionHeaderValue = "registry/2.0"
-)
-
-// VersionHeader is the standard version header included in all Registry v2 API
-// responses.
-//
-// TODO: remove once assert.HTTPRequest is removed
-var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 
 // MustUpload uploads the blob via the Registry V2 API.
 //
@@ -43,16 +28,12 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.
 	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 
 	// create blob with a monolithic upload
-	assert.HTTPRequest{
-		Method: "POST",
-		Path:   fmt.Sprintf("/v2/%s/blobs/uploads/?digest=%s", repo.FullName(), b.Digest),
-		Header: FlattenHeaders(tokenHeaders, map[string]string{
-			"Content-Length": strconv.Itoa(len(b.Contents)),
-			"Content-Type":   b.MediaType,
-		}),
-		Body:         assert.ByteData(b.Contents),
-		ExpectStatus: http.StatusCreated,
-	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
+	s.RespondTo(t.Context(), fmt.Sprintf("POST /v2/%s/blobs/uploads/?digest=%s", repo.FullName(), b.Digest),
+		httptest.WithHeaders(tokenHeaders),
+		httptest.WithHeader("Content-Length", strconv.Itoa(len(b.Contents))),
+		httptest.WithHeader("Content-Type", b.MediaType),
+		httptest.WithBody(bytes.NewReader(b.Contents)),
+	).ExpectStatus(t, http.StatusCreated)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -97,15 +78,11 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
 	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   urlPath,
-		Header: FlattenHeaders(tokenHeaders, map[string]string{
-			"Content-Type": i.Manifest.MediaType,
-		}),
-		Body:         assert.ByteData(i.Manifest.Contents),
-		ExpectStatus: http.StatusCreated,
-	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
+	s.RespondTo(t.Context(), "PUT "+urlPath,
+		httptest.WithHeaders(tokenHeaders),
+		httptest.WithHeader("Content-Type", i.Manifest.MediaType),
+		httptest.WithBody(bytes.NewReader(i.Manifest.Contents)),
+	).ExpectStatus(t, http.StatusCreated)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -150,15 +127,11 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tag
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
 	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   urlPath,
-		Header: FlattenHeaders(tokenHeaders, map[string]string{
-			"Content-Type": l.Manifest.MediaType,
-		}),
-		Body:         assert.ByteData(l.Manifest.Contents),
-		ExpectStatus: http.StatusCreated,
-	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
+	s.RespondTo(t.Context(), "PUT "+urlPath,
+		httptest.WithHeaders(tokenHeaders),
+		httptest.WithHeader("Content-Type", l.Manifest.MediaType),
+		httptest.WithBody(bytes.NewReader(l.Manifest.Contents)),
+	).ExpectStatus(t, http.StatusCreated)
 	if t.Failed() {
 		t.FailNow()
 	}

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -22,6 +22,7 @@ import (
 
 func TestReplicationSimpleImage(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
 		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
@@ -29,20 +30,14 @@ func TestReplicationSimpleImage(t *testing.T) {
 
 		// test pull by manifest in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
-			h2 := s2.Handler
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 
 			if firstPass {
 				// replication will not take place while the account is being deleted
 				testWithAccountIsDeleting(t, s2.DB, "test1", func() {
-					assert.HTTPRequest{
-						Method:       "GET",
-						Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-						Header:       test.FlattenHeaders(tokenHeaders),
-						ExpectStatus: http.StatusNotFound,
-						ExpectHeader: test.VersionHeader,
-						ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-					}.Check(t, h2)
+					s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+						httptest.WithHeaders(tokenHeaders),
+					).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
 				})
 			} else {
 				// if manifest is already present locally, we don't care about the IsDeleting flag
@@ -115,6 +110,7 @@ func TestReplicationImageList(t *testing.T) {
 
 func TestReplicationMissingEntities(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
 		// ensure that the `test1/foo` repo exists upstream; otherwise we'll just get NAME_UNKNOWN
 		_ = must.ReturnT(keppel.FindOrCreateRepository(s1.DB, "foo", models.AccountName("test1")))(t)
 
@@ -130,47 +126,31 @@ func TestReplicationMissingEntities(t *testing.T) {
 			}
 
 			// try to pull a manifest by tag that exists neither locally nor upstream
-			h2 := s2.Handler
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/thisdoesnotexist",
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: expectedStatus,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(expectedManifestError),
-			}.Check(t, h2)
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/thisdoesnotexist",
+				httptest.WithHeaders(tokenHeaders),
+			).ExpectJSON(t, expectedStatus, test.ErrorCode(expectedManifestError))
 
 			// try to pull a manifest by hash that exists neither locally nor upstream
 			bogusDigest := "sha256:" + strings.Repeat("0", 64)
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: expectedStatus,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(expectedManifestError),
-			}.Check(t, h2)
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+bogusDigest,
+				httptest.WithHeaders(tokenHeaders),
+			).ExpectJSON(t, expectedStatus, test.ErrorCode(expectedManifestError))
 
 			// try to pull a blob that exists neither locally nor upstream
 			// (this always gives 404 because we don't even try to replicate blobs that
 			// are not referenced by a manifest that was already replicated)
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/blobs/" + bogusDigest,
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: http.StatusNotFound,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
-			}.Check(t, h2)
+			s2.RespondTo(ctx, "GET /v2/test1/foo/blobs/"+bogusDigest,
+				httptest.WithHeaders(tokenHeaders),
+			).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrBlobUnknown))
 		})
 	})
 }
 
 func TestReplicationForbidDirectUpload(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
-			h2 := s2.Handler
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 			deniedMessage := test.ErrorCodeWithMessage{
@@ -181,30 +161,21 @@ func TestReplicationForbidDirectUpload(t *testing.T) {
 				deniedMessage.Message = "cannot push into external replica account (push to registry.example.org/test1/foo instead!)"
 			}
 
-			assert.HTTPRequest{
-				Method:       "POST",
-				Path:         "/v2/test1/foo/blobs/uploads/",
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: http.StatusMethodNotAllowed,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   deniedMessage,
-			}.Check(t, h2)
+			s2.RespondTo(ctx, "POST /v2/test1/foo/blobs/uploads/",
+				httptest.WithHeaders(tokenHeaders),
+			).ExpectJSON(t, http.StatusMethodNotAllowed, deniedMessage)
 
-			assert.HTTPRequest{
-				Method:       "PUT",
-				Path:         "/v2/test1/foo/manifests/anotherone",
-				Header:       test.FlattenHeaders(tokenHeaders),
-				Body:         assert.StringData("request body does not matter"),
-				ExpectStatus: http.StatusMethodNotAllowed,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   deniedMessage,
-			}.Check(t, h2)
+			s2.RespondTo(ctx, "PUT /v2/test1/foo/manifests/anotherone",
+				httptest.WithHeaders(tokenHeaders),
+				httptest.WithBody(strings.NewReader("request body does not matter")),
+			).ExpectJSON(t, http.StatusMethodNotAllowed, deniedMessage)
 		})
 	})
 }
 
 func TestReplicationManifestQuotaExceeded(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
 		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
@@ -224,23 +195,18 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 				Message: "manifest quota exceeded (quota = 0, usage = 0)",
 			}
 
-			h2 := s2.Handler
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/first",
-				Header:       test.FlattenHeaders(tokenHeaders),
-				Body:         assert.StringData("request body does not matter"),
-				ExpectStatus: http.StatusConflict,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   quotaExceededMessage,
-			}.Check(t, h2)
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/first",
+				httptest.WithHeaders(tokenHeaders),
+				httptest.WithBody(strings.NewReader("request body does not matter")),
+			).ExpectJSON(t, http.StatusConflict, quotaExceededMessage)
 		})
 	})
 }
 
 func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
 		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
@@ -248,7 +214,6 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			// in the first pass, just replicate the manifest
-			h2 := s2.Handler
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "first")
 
@@ -256,18 +221,13 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 			// though the blob contents are not replicated since all necessary metadata
 			// can be obtained from the manifest
 			for _, blob := range []test.Bytes{image.Config, image.Layers[0]} {
-				assert.HTTPRequest{
-					Method:       "HEAD",
-					Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-					Header:       test.FlattenHeaders(tokenHeaders),
-					ExpectStatus: http.StatusOK,
-					ExpectHeader: map[string]string{
-						test.VersionHeaderKey:   test.VersionHeaderValue,
-						"Content-Length":        strconv.Itoa(len(blob.Contents)),
-						"Content-Type":          blob.MediaType,
-						"Docker-Content-Digest": blob.Digest.String(),
-					},
-				}.Check(t, h2)
+				s2.RespondTo(ctx, "HEAD /v2/test1/foo/blobs/"+blob.Digest.String(),
+					httptest.WithHeaders(tokenHeaders),
+				).ExpectHeaders(t, http.Header{
+					"Content-Length":        {strconv.Itoa(len(blob.Contents))},
+					"Content-Type":          {blob.MediaType},
+					"Docker-Content-Digest": {blob.Digest.String()},
+				}).ExpectStatus(t, http.StatusOK)
 			}
 		})
 	})
@@ -275,6 +235,7 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 
 func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
 		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
@@ -289,7 +250,6 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 
 			// make sure that the "test1/foo" repo exists on secondary (otherwise we
 			// will get useless NAME_UNKNOWN errors later, not the errors we're interested in)
-			h2 := s2.Handler
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "second")
 
@@ -304,17 +264,12 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			anonTokenHeaders := s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull"})
 
 			// replicating pull is forbidden with an anonymous token...
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/first",
-				Header:       test.FlattenHeaders(anonTokenHeaders),
-				ExpectHeader: map[string]string{"Www-Authenticate": `Bearer realm="https://registry-secondary.example.org/keppel/v1/auth",service="registry-secondary.example.org",scope="repository:test1/foo:pull"`},
-				ExpectStatus: http.StatusUnauthorized,
-				ExpectBody: test.ErrorCodeWithMessage{
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/first", httptest.WithHeaders(anonTokenHeaders)).
+				ExpectHeader(t, "Www-Authenticate", `Bearer realm="https://registry-secondary.example.org/keppel/v1/auth",service="registry-secondary.example.org",scope="repository:test1/foo:pull"`).
+				ExpectJSON(t, http.StatusUnauthorized, test.ErrorCodeWithMessage{
 					Code:    keppel.ErrDenied,
 					Message: "image does not exist here, and anonymous users may not replicate images",
-				},
-			}.Check(t, h2)
+				})
 
 			// ...but allowed with a non-anonymous token...
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "first")
@@ -354,6 +309,7 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 
 func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
 		// This test is mostly identical to TestReplicationImageList(), but the
 		// replica will get a platform_filter and thus not replicate all
 		// submanifests.
@@ -371,7 +327,6 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 			// TestReplicationImageList()
 			test.MustExec(t, s2.DB, `UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
 
-			h2 := s2.Handler
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 
 			if firstPass {
@@ -392,14 +347,9 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 
 				// when now requesting the unreplicated manifest, the replica will try
 				// to replicate and therefore run into a network error
-				assert.HTTPRequest{
-					Method:       "GET",
-					Path:         "/v2/test1/foo/manifests/" + image2.Manifest.Digest.String(),
-					Header:       test.FlattenHeaders(tokenHeaders),
-					ExpectStatus: http.StatusServiceUnavailable,
-					ExpectHeader: test.VersionHeader,
-					ExpectBody:   test.ErrorCode(keppel.ErrUnavailable),
-				}.Check(t, h2)
+				s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image2.Manifest.Digest.String(),
+					httptest.WithHeaders(tokenHeaders),
+				).ExpectJSON(t, http.StatusServiceUnavailable, test.ErrorCode(keppel.ErrUnavailable))
 			}
 		})
 	})
@@ -416,13 +366,12 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 	}
 
 	testWithPrimary(t, setupOptions, func(s1 test.Setup) {
+		ctx := t.Context()
 		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
 			if !firstPass {
 				return // no second pass needed
 			}
 
-			h1 := s1.Handler
-			h2 := s2.Handler
 			tokenHeaders1 := s1.GetTokenHeaders(t, "repository:test1/foo:pull")
 			tokenHeaders2 := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 
@@ -466,33 +415,24 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 
 			// test successful pull delegation (from secondary to primary)
 			requestCounter = 0
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-				Header:       test.FlattenHeaders(tokenHeaders2),
-				ExpectStatus: http.StatusOK,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   assert.ByteData(image.Manifest.Contents),
-			}.Check(t, h2)
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+				httptest.WithHeaders(tokenHeaders2),
+			).ExpectBody(t, http.StatusOK, image.Manifest.Contents)
 
 			// test failed pull delegation (from primary to secondary; primary does
 			// not have a password for secondary's peering API, so delegation fails
 			// and we see the original 429 response instead)
 			requestCounter = 0
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-				Header:       test.FlattenHeaders(tokenHeaders1),
-				ExpectStatus: http.StatusTooManyRequests,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),
-			}.Check(t, h1)
+			s1.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+				httptest.WithHeaders(tokenHeaders1),
+			).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
 		})
 	})
 }
 
 func TestReplicationFailingFromHarbor(t *testing.T) {
 	testWithPrimary(t, []test.SetupOption{test.WithPeerAPI}, func(s1 test.Setup) {
+		ctx := t.Context()
 		// setup second as a mostly static responder
 		http.DefaultTransport.(*test.RoundTripper).Handlers["registry-secondary.example.org"] = http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
@@ -503,19 +443,15 @@ func TestReplicationFailingFromHarbor(t *testing.T) {
 		test.MustExec(t, s1.DB, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 			"test1", "registry-secondary.example.org")
 
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/manifests/latest",
-			Header:       test.FlattenHeaders(s1.GetTokenHeaders(t, "repository:test1/foo:pull")),
-			ExpectStatus: http.StatusNotFound,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrNonStandardHarborNotFound),
-		}.Check(t, s1.Handler)
+		s1.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(s1.GetTokenHeaders(t, "repository:test1/foo:pull")),
+		).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrNonStandardHarborNotFound))
 	})
 }
 
 func TestReplicationFailingFromGHCRio(t *testing.T) {
 	testWithPrimary(t, []test.SetupOption{test.WithPeerAPI}, func(s1 test.Setup) {
+		ctx := t.Context()
 		// setup second as a mostly static responder
 		http.DefaultTransport.(*test.RoundTripper).Handlers["registry-secondary.example.org"] = http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
@@ -534,17 +470,11 @@ func TestReplicationFailingFromGHCRio(t *testing.T) {
 		test.MustExec(t, s1.DB, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 			"test1", "registry-secondary.example.org")
 
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/manifests/latest",
-			Header:       test.FlattenHeaders(s1.GetTokenHeaders(t, "repository:test1/foo:pull")),
-			ExpectStatus: http.StatusUnauthorized,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey: test.VersionHeaderValue,
-				// even though we return 401, no Www-Authenticate header shall be rendered because would be futile for the user performing this request to authenticate
-				"Www-Authenticate": "",
-			},
-			ExpectBody: test.ErrorCode(keppel.ErrDenied),
-		}.Check(t, s1.Handler)
+		s1.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(s1.GetTokenHeaders(t, "repository:test1/foo:pull")),
+		).
+			// even though we return 401, no Www-Authenticate header shall be rendered because would be futile for the user performing this request to authenticate
+			ExpectHeader(t, "Www-Authenticate", "").
+			ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
 	})
 }
