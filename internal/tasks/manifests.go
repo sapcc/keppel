@@ -795,15 +795,18 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		return false, nil, err
 	}
 
-	// Skip buildkit cache, which are not really images and which Trivy does not support
-	// unsupported artifact type "application/vnd.buildkit.cacheconfig.v0" for image "..."
-	if blobInfo := parsedManifest.FindImageConfigBlob(); blobInfo != nil {
-		if blobInfo.MediaType == "application/vnd.buildkit.cacheconfig.v0" {
-			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
+	// Skip unsupported oci manifests like ORAS images have application-specific MediaTypes that we do not know how to
+	// inspect (e.g. `application/vnd.aquasec.trivy.config.v1+json` for Trivy vulnerability DBs) or buildkit cache "application/vnd.buildkit.cacheconfig.v0"
+	if blobInfo := parsedManifest.FindImageConfigBlob(); blobInfo == nil && manifest.MediaType != imagespecs.MediaTypeImageIndex && manifest.MediaType != imageManifest.DockerV2ListMediaType ||
+		blobInfo != nil && blobInfo.MediaType != imagespecs.MediaTypeImageConfig && blobInfo.MediaType != imageManifest.DockerV2Schema2ConfigMediaType {
+		securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
+		if blobInfo == nil {
+			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for manifests with media type %q because no supported config blob is present", manifest.MediaType)
+		} else {
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for manifests with config media type %q", blobInfo.MediaType)
-			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
-			return false, layerBlobs, nil
 		}
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
+		return false, layerBlobs, nil
 	}
 
 	// filter media types that trivy is known to support

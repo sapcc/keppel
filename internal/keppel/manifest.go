@@ -271,16 +271,8 @@ func (a ociManifestAdapter) BlobReferences() []manifest.LayerInfo {
 
 // FindImageConfigBlob implements the ParsedManifests interface.
 func (a ociManifestAdapter) FindImageConfigBlob() *types.BlobInfo {
-	// Standard OCI images have this specific MediaType for their config blob, and
-	// this is the format that we can inspect.
-	if a.m.Config.MediaType == imagespecs.MediaTypeImageConfig {
-		config := a.m.ConfigInfo()
-		return &config
-	}
-	// ORAS images have application-specific MediaTypes that we do not know how to
-	// inspect (e.g. `application/vnd.aquasec.trivy.config.v1+json` for Trivy
-	// vulnerability DBs). We have to ignore these since we cannot parse them.
-	return nil
+	config := a.m.ConfigInfo()
+	return &config
 }
 
 // FindImageLayerBlobs implements the ParsedManifests interface.

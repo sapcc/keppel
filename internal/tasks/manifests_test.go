@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -1029,5 +1030,40 @@ func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 			DELETE FROM unknown_manifests WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s';
 			DELETE FROM unknown_trivy_reports WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s' AND format = 'json';
 		`, s.Clock.Now().Add(6*time.Hour).Unix(), image.Manifest.Digest)
+	})
+}
+
+func TestCheckTrivySecurityStatusWithUnsupportedMediaTypes(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+
+		trivyMediaType := "application/vnd.aquasec.trivy.config.v1+json"
+		buildKitCacheMediaType := "application/vnd.buildkit.cacheconfig.v0"
+
+		trivyDB := test.GenerateOCIImage(test.OCIArgs{
+			ConfigMediaType: trivyMediaType,
+		})
+		trivyBlob := test.GenerateImage(test.GenerateExampleLayer(0))
+		trivyDB.MustUpload(t, s, fooRepoRef, strings.ReplaceAll(trivyBlob.Manifest.Digest.String(), ":", "-"))
+
+		buildkitCache := test.GenerateOCIImage(test.OCIArgs{
+			ConfigMediaType: buildKitCacheMediaType,
+		})
+		buildkitCacheBlob := test.GenerateImage(test.GenerateExampleLayer(0))
+		buildkitCache.MustUpload(t, s, fooRepoRef, strings.ReplaceAll(buildkitCacheBlob.Manifest.Digest.String(), ":", "-"))
+
+		tr.DBChanges().Ignore()
+
+		// check that those media types are marked as not supported for vulnerability scanning
+		s.Clock.StepBy(1 * time.Hour)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
+		tr.DBChanges().AssertEqualf(`
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for manifests with config media type "%[2]s"', next_check_at = %[5]d WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for manifests with config media type "%[1]s"', next_check_at = %[5]d WHERE repo_id = 1 AND digest = '%[3]s';
+		`, trivyMediaType, buildKitCacheMediaType, trivyDB.Manifest.Digest, buildkitCache.Manifest.Digest, s.Clock.Now().Add(24*time.Hour).Unix(),
+		)
 	})
 }
