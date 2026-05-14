@@ -11,6 +11,7 @@ path = [
   ".gitignore",
   ".license-scan-overrides.jsonl",
   ".license-scan-rules.json",
+  "build/**/*",
 ]
 SPDX-FileCopyrightText = "SAP SE or an SAP affiliate company"
 SPDX-License-Identifier = "Apache-2.0"
