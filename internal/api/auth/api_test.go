@@ -690,9 +690,9 @@ func TestInvalidCredentials(t *testing.T) {
 
 type anycastTestCase struct {
 	// request
-	AccountName models.AccountName
-	Service     string
-	Handler     http.Handler
+	AccountName   models.AccountName
+	Service       string
+	HandlingSetup test.Setup
 	// result
 	ErrorMessage string
 	HasAccess    bool
@@ -704,8 +704,6 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 		ctx := t.Context()
 		s1 := setupPrimary(t)
 		s2 := setupSecondary(t)
-		h1 := s1.Handler
-		h2 := s2.Handler
 
 		// setup permissions for test
 		perms := fmt.Sprintf("%s:test1authtenant,%s:test1authtenant", keppel.CanPullFromAccount, keppel.CanViewAccount)
@@ -718,42 +716,42 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 		anycastTestCases := []anycastTestCase{
 			// when asking for a local token (i.e. not giving the anycast hostname as
 			// service), no reverse-proxying is done and we only see the local accounts
-			{AccountName: "test1", Service: localService1, Handler: h1,
+			{AccountName: "test1", Service: localService1, HandlingSetup: s1,
 				HasAccess: true, Issuer: localService1},
-			{AccountName: "test2", Service: localService1, Handler: h1,
+			{AccountName: "test2", Service: localService1, HandlingSetup: s1,
 				HasAccess: false, Issuer: localService1},
-			{AccountName: "test1", Service: localService2, Handler: h2,
+			{AccountName: "test1", Service: localService2, HandlingSetup: s2,
 				HasAccess: false, Issuer: localService2},
-			{AccountName: "test2", Service: localService2, Handler: h2,
+			{AccountName: "test2", Service: localService2, HandlingSetup: s2,
 				HasAccess: true, Issuer: localService2},
 			// asking for a token for someone else's local service will never work
-			{AccountName: "test1", Service: localService2, Handler: h1,
+			{AccountName: "test1", Service: localService2, HandlingSetup: s1,
 				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
-			{AccountName: "test2", Service: localService2, Handler: h1,
+			{AccountName: "test2", Service: localService2, HandlingSetup: s1,
 				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
-			{AccountName: "test1", Service: localService1, Handler: h2,
+			{AccountName: "test1", Service: localService1, HandlingSetup: s2,
 				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
-			{AccountName: "test2", Service: localService1, Handler: h2,
+			{AccountName: "test2", Service: localService1, HandlingSetup: s2,
 				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
 			// when asking for an anycast token, the request if reverse-proxied if
 			// necessary and we will see the Keppel hosting the primary account as
 			// issuer
-			{AccountName: "test1", Service: anycastService, Handler: h1,
+			{AccountName: "test1", Service: anycastService, HandlingSetup: s1,
 				HasAccess: true, Issuer: localService1},
-			{AccountName: "test2", Service: anycastService, Handler: h1,
+			{AccountName: "test2", Service: anycastService, HandlingSetup: s1,
 				HasAccess: true, Issuer: localService2},
-			{AccountName: "test1", Service: anycastService, Handler: h2,
+			{AccountName: "test1", Service: anycastService, HandlingSetup: s2,
 				HasAccess: true, Issuer: localService1},
-			{AccountName: "test2", Service: anycastService, Handler: h2,
+			{AccountName: "test2", Service: anycastService, HandlingSetup: s2,
 				HasAccess: true, Issuer: localService2},
 			// asking for a token for an account that doesn't exist will never work
-			{AccountName: "test3", Service: localService1, Handler: h1,
+			{AccountName: "test3", Service: localService1, HandlingSetup: s1,
 				HasAccess: false, Issuer: localService1},
-			{AccountName: "test3", Service: localService2, Handler: h2,
+			{AccountName: "test3", Service: localService2, HandlingSetup: s2,
 				HasAccess: false, Issuer: localService2},
-			{AccountName: "test3", Service: anycastService, Handler: h1,
+			{AccountName: "test3", Service: anycastService, HandlingSetup: s1,
 				HasAccess: false, Issuer: localService1},
-			{AccountName: "test3", Service: anycastService, Handler: h2,
+			{AccountName: "test3", Service: anycastService, HandlingSetup: s2,
 				HasAccess: false, Issuer: localService2},
 		}
 
@@ -776,7 +774,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				}
 
 				path := fmt.Sprintf("/keppel/v1/auth?scope=repository:%s:pull&service=%s%s", scopeRepoName, domainPrefix, c.Service)
-				resp := httptest.NewHandler(c.Handler).RespondTo(ctx, "GET "+path,
+				resp := c.HandlingSetup.RespondTo(ctx, "GET "+path,
 					httptest.WithHeader("Authorization", correctAuthHeader),
 				)
 
@@ -811,7 +809,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 			Subject:  "correctusername",
 			Access:   nil,
 		}
-		httptest.NewHandler(h1).RespondTo(ctx, "GET "+path,
+		s1.RespondTo(ctx, "GET "+path,
 			httptest.WithHeader("Authorization", correctAuthHeader),
 		).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 
@@ -827,7 +825,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				{Type: "keppel_account", Name: "test1", Actions: []string{"view"}},
 			},
 		}
-		httptest.NewHandler(h1).RespondTo(ctx, "GET "+path,
+		s1.RespondTo(ctx, "GET "+path,
 			httptest.WithHeader("Authorization", correctAuthHeader),
 		).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 
@@ -841,7 +839,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				// no keppel_account:test1:view since the API is restricted to the non-existent account "something-else"
 			},
 		}
-		httptest.NewHandler(h1).RespondTo(ctx, "GET "+path,
+		s1.RespondTo(ctx, "GET "+path,
 			httptest.WithHeader("Authorization", correctAuthHeader),
 		).Expect(expectedContents.WithinResponseBody(t, http.StatusOK))
 	})
