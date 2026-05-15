@@ -961,11 +961,8 @@ func TestIssuerKeyRotation(t *testing.T) {
 	s = setupPrimary(t)
 	s.RespondTo(ctx, "GET /v2/",
 		httptest.WithHeader("Authorization", "Bearer "+respBody.Token),
-	).ExpectJSON(t, http.StatusUnauthorized, jsonmatch.Object{
-		"errors": []jsonmatch.Object{{
-			"code":    string(keppel.ErrUnauthorized),
-			"message": "token is unverifiable: error while executing keyfunc: token signed by unknown key",
-			"detail":  nil,
-		}},
+	).ExpectJSON(t, http.StatusUnauthorized, test.ErrorCodeWithMessage{
+		Code:    keppel.ErrUnauthorized,
+		Message: "token is unverifiable: error while executing keyfunc: token signed by unknown key",
 	})
 }

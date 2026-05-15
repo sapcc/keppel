@@ -395,12 +395,9 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 				"X-RateLimit-Remaining": {"0"},
 				"X-RateLimit-Reset":     {strconv.Itoa(reset)},
 				"Retry-After":           {strconv.Itoa(retryAfter)},
-			}).ExpectJSON(t, http.StatusTooManyRequests, jsonmatch.Object{
-				"errors": jsonmatch.Array{jsonmatch.Object{
-					"code":    "TOOMANYREQUESTS",
-					"message": "too many requests; please slow down",
-					"detail":  nil,
-				}},
+			}).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCodeWithMessage{
+				Code:    keppel.ErrTooManyRequests,
+				Message: "too many requests; please slow down",
 			})
 		}
 
