@@ -108,6 +108,7 @@ func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models
 }
 
 // ExpectTrivyReportExistsInStorage is a test assertion.
+// TODO: remove usage of assert.HTTPResponseBody (in definition here) and assert.JSONFixtureFile (in callsites)
 func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Manifest, format string, contents assert.HTTPResponseBody) {
 	t.Helper()
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)

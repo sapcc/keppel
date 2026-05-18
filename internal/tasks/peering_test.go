@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -21,6 +22,8 @@ import (
 )
 
 func TestIssueNewPasswordForPeer(t *testing.T) {
+	ctx := t.Context()
+
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		s := test.NewSetup(t)
 
@@ -61,19 +64,15 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 
 			for idx, password := range issuedPasswords {
 				// test that the current password and previous password (if any) can be used to authenticate on our side...
-				req := assert.HTTPRequest{
-					Method: "GET",
-					Path:   "/keppel/v1/auth?service=registry.example.org",
-					Header: map[string]string{
-						"Authorization": keppel.BuildBasicAuthHeader("replication@peer.example.org", password),
-					},
-					ExpectStatus: http.StatusOK,
-				}
+				resp := s.RespondTo(ctx, "GET /keppel/v1/auth?service=registry.example.org",
+					httptest.WithHeader("Authorization", keppel.BuildBasicAuthHeader("replication@peer.example.org", password)),
+				)
 				if idx < len(issuedPasswords)-2 {
 					// ...but any older passwords will not work
-					req.ExpectStatus = http.StatusUnauthorized
+					resp.ExpectStatus(t, http.StatusUnauthorized)
+				} else {
+					resp.ExpectStatus(t, http.StatusOK)
 				}
-				req.Check(t, s.Handler)
 			}
 		}
 

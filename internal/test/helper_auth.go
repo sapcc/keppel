@@ -6,39 +6,17 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
-
-// FlattenHeaders converts a http.Header into map[string]string.
-// This is a temporary helper function to support old assert.HTTPRequest usage.
-//
-// TODO: when refactoring callsites into httptest.Handler.RespondTo(), convert:
-// - calls without variadic arguments into just `httptest.WithHeaders(hdr)`
-// - calls with variadic arguments into `httptest.WithHeaders(hdr)` plus one `httptest.WithHeader(key, value)` per extra header
-//
-// TODO: remove once refactoring from assert.HTTPRequest to httptest.Handler.RespondTo() is complete
-func FlattenHeaders(hdr http.Header, extraHeaders ...map[string]string) map[string]string {
-	result := make(map[string]string, len(hdr))
-	for k, v := range hdr {
-		if len(v) > 0 {
-			result[k] = v[0]
-		}
-	}
-	for _, extraHeader := range extraHeaders {
-		maps.Copy(result, extraHeader)
-	}
-	return result
-}
 
 // GetTokenHeaders obtains a token for use with the Registry V2 API.
 //
@@ -169,23 +147,20 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 func (s Setup) GetAnonTokenHeaders(t *testing.T, repo string, scopes []string) http.Header {
 	t.Helper()
 
-	resp, tokenBodyBytes := assert.HTTPRequest{
-		Method: "GET",
-		Path:   fmt.Sprintf("/keppel/v1/auth?service=%s&scope=%s:%s", s.Config.APIPublicHostname, repo, strings.Join(scopes, ",")),
-		Header: map[string]string{
-			"X-Forwarded-Host":  s.Config.APIPublicHostname,
-			"X-Forwarded-Proto": "https",
-		},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, s.Handler)
-	resp.Body.Close()
-	var tokenBodyData struct {
+	path := fmt.Sprintf("/keppel/v1/auth?service=%s&scope=%s:%s", s.Config.APIPublicHostname, repo, strings.Join(scopes, ","))
+	resp := s.RespondTo(t.Context(), "GET "+path, httptest.WithHeaders(http.Header{
+		"X-Forwarded-Host":  {s.Config.APIPublicHostname},
+		"X-Forwarded-Proto": {"https"},
+	}))
+	resp.ExpectStatus(t, http.StatusOK)
+
+	var data struct {
 		Token string `json:"token"`
 	}
-	must.SucceedT(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
+	must.SucceedT(t, json.Unmarshal(resp.BodyBytes(), &data))
 
 	return http.Header{
-		"Authorization": {"Bearer " + tokenBodyData.Token},
+		"Authorization": {"Bearer " + data.Token},
 	}
 }
 

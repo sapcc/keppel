@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-api-declarations/cadf"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
@@ -941,7 +940,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull" or "pull"`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"permissions":      []string{"anonymous_first_pull", "anonymous_pull"},
 			},

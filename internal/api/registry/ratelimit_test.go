@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
@@ -21,6 +20,8 @@ import (
 )
 
 func TestRateLimits(t *testing.T) {
+	ctx := t.Context()
+
 	limit := redis_rate.Limit{Rate: 2, Period: time.Minute, Burst: 3}
 	rateLimitIntervalSeconds := int(limit.Period.Seconds()) / limit.Rate
 	rld := &basic.RateLimitDriver{
@@ -40,56 +41,45 @@ func TestRateLimits(t *testing.T) {
 		// create the "test1/foo" repository to ensure that we don't just always hit NAME_UNKNOWN errors
 		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
-		h := s.Handler
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 		bogusDigest := test.DeterministicDummyDigest(1).String()
 
 		// prepare some test requests that should be affected by rate limiting
 		// (some of these fail with 404 or 400, but that's okay; the important part is
 		// whether they fail with 429 or not)
-		testRequests := []assert.HTTPRequest{
+		type testRequest struct {
+			MethodAndPath   string
+			RateLimitAction keppel.RateLimitedAction
+			OnSuccess       func(httptest.Response)
+		}
+		testRequests := []testRequest{
 			{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/blobs/" + bogusDigest,
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: http.StatusNotFound,
-				ExpectHeader: map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"X-RateLimit-Action":  string(keppel.BlobPullAction),
-				},
-				ExpectBody: test.ErrorCode(keppel.ErrBlobUnknown),
-			},
-			{
-				Method:       "POST",
-				Path:         "/v2/test1/foo/blobs/uploads/",
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: http.StatusAccepted,
-				ExpectHeader: map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"X-RateLimit-Action":  string(keppel.BlobPushAction),
+				MethodAndPath:   "GET /v2/test1/foo/blobs/" + bogusDigest,
+				RateLimitAction: keppel.BlobPullAction,
+				OnSuccess: func(resp httptest.Response) {
+					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrBlobUnknown))
 				},
 			},
 			{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: http.StatusNotFound,
-				ExpectHeader: map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"X-RateLimit-Action":  string(keppel.ManifestPullAction),
+				MethodAndPath:   "POST /v2/test1/foo/blobs/uploads/",
+				RateLimitAction: keppel.BlobPushAction,
+				OnSuccess: func(resp httptest.Response) {
+					resp.ExpectStatus(t, http.StatusAccepted)
 				},
-				ExpectBody: test.ErrorCode(keppel.ErrManifestUnknown),
 			},
 			{
-				Method:       "PUT",
-				Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: http.StatusBadRequest,
-				ExpectHeader: map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"X-RateLimit-Action":  string(keppel.ManifestPushAction),
+				MethodAndPath:   "GET /v2/test1/foo/manifests/" + bogusDigest,
+				RateLimitAction: keppel.ManifestPullAction,
+				OnSuccess: func(resp httptest.Response) {
+					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
 				},
-				ExpectBody: test.ErrorCode(keppel.ErrManifestInvalid),
+			},
+			{
+				MethodAndPath:   "PUT /v2/test1/foo/manifests/" + bogusDigest,
+				RateLimitAction: keppel.ManifestPushAction,
+				OnSuccess: func(resp httptest.Response) {
+					resp.ExpectJSON(t, http.StatusBadRequest, test.ErrorCode(keppel.ErrManifestInvalid))
+				},
 			},
 		}
 
@@ -99,43 +89,47 @@ func TestRateLimits(t *testing.T) {
 			// we can always execute 1 request initially, and then we can burst on top of that
 			timeElapsedDuringRequests := 0
 			for range limit.Burst {
-				req.Check(t, h)
+				s.RespondTo(ctx, req.MethodAndPath, httptest.WithHeaders(tokenHeaders)).
+					ExpectHeader(t, "X-RateLimit-Action", string(req.RateLimitAction)).
+					Expect(req.OnSuccess)
 				s.Clock.StepBy(time.Second)
 				timeElapsedDuringRequests++
 			}
 
 			// then the next request should be rate-limited
-			failingReq := req
-			failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
-			failingReq.ExpectStatus = http.StatusTooManyRequests
-			failingReq.ExpectHeader = map[string]string{
-				test.VersionHeaderKey:   test.VersionHeaderValue,
-				"X-RateLimit-Limit":     strconv.Itoa(limit.Burst),
-				"X-RateLimit-Remaining": "0",
-				"X-RateLimit-Reset":     strconv.Itoa(rateLimitIntervalSeconds*limit.Burst - timeElapsedDuringRequests),
-				"Retry-After":           strconv.Itoa(rateLimitIntervalSeconds - limit.Burst),
-			}
-			failingReq.Check(t, h)
+			s.RespondTo(ctx, req.MethodAndPath, httptest.WithHeaders(tokenHeaders)).ExpectHeaders(t, http.Header{
+				"X-RateLimit-Action":    {string(req.RateLimitAction)},
+				"X-RateLimit-Limit":     {strconv.Itoa(limit.Burst)},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Reset":     {strconv.Itoa(rateLimitIntervalSeconds*limit.Burst - timeElapsedDuringRequests)},
+				"Retry-After":           {strconv.Itoa(rateLimitIntervalSeconds - limit.Burst)},
+			}).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
 
 			// be impatient
 			s.Clock.StepBy(time.Duration(29-limit.Burst) * time.Second)
-			failingReq.ExpectHeader["X-RateLimit-Limit"] = strconv.Itoa(limit.Burst)
-			failingReq.ExpectHeader["X-RateLimit-Remaining"] = "0"
-			failingReq.ExpectHeader["X-RateLimit-Reset"] = strconv.Itoa(rateLimitIntervalSeconds*limit.Burst - 29)
-			failingReq.ExpectHeader["Retry-After"] = strconv.Itoa(rateLimitIntervalSeconds - 29)
-			failingReq.Check(t, h)
+			s.RespondTo(ctx, req.MethodAndPath, httptest.WithHeaders(tokenHeaders)).ExpectHeaders(t, http.Header{
+				"X-RateLimit-Action":    {string(req.RateLimitAction)},
+				"X-RateLimit-Limit":     {strconv.Itoa(limit.Burst)},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Reset":     {strconv.Itoa(rateLimitIntervalSeconds*limit.Burst - 29)},
+				"Retry-After":           {strconv.Itoa(rateLimitIntervalSeconds - 29)},
+			}).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
 
 			// finally!
 			s.Clock.StepBy(time.Second)
-			req.Check(t, h)
+			s.RespondTo(ctx, req.MethodAndPath, httptest.WithHeaders(tokenHeaders)).
+				ExpectHeader(t, "X-RateLimit-Action", string(req.RateLimitAction)).
+				Expect(req.OnSuccess)
 
 			// aaaand... we're rate-limited again immediately because we haven't
 			// recovered our burst budget yet
-			failingReq.ExpectHeader["X-RateLimit-Limit"] = strconv.Itoa(limit.Burst)
-			failingReq.ExpectHeader["X-RateLimit-Remaining"] = "0"
-			failingReq.ExpectHeader["X-RateLimit-Reset"] = strconv.Itoa(rateLimitIntervalSeconds * limit.Burst)
-			failingReq.ExpectHeader["Retry-After"] = strconv.Itoa(rateLimitIntervalSeconds)
-			failingReq.Check(t, h)
+			s.RespondTo(ctx, req.MethodAndPath, httptest.WithHeaders(tokenHeaders)).ExpectHeaders(t, http.Header{
+				"X-RateLimit-Action":    {string(req.RateLimitAction)},
+				"X-RateLimit-Limit":     {strconv.Itoa(limit.Burst)},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Reset":     {strconv.Itoa(rateLimitIntervalSeconds * limit.Burst)},
+				"Retry-After":           {strconv.Itoa(rateLimitIntervalSeconds)},
+			}).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
 		}
 	})
 }
@@ -198,6 +192,8 @@ func TestAnycastRateLimits(t *testing.T) {
 }
 
 func TestRateLimitRounding(t *testing.T) {
+	ctx := t.Context()
+
 	// NOTE: this must be that high as we otherwise do not observe rounding errors when calculating the rate limit values
 	limit := redis_rate.Limit{Rate: 1000, Period: time.Minute, Burst: 1200}
 	rld := &basic.RateLimitDriver{
@@ -211,42 +207,29 @@ func TestRateLimitRounding(t *testing.T) {
 	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
 	setupOptions := []test.SetupOption{
 		test.WithRateLimitEngine(rle),
+		test.WithRepo(models.Repository{AccountName: "test1", Name: "foo"}),
 	}
 
 	testWithPrimary(t, setupOptions, func(s test.Setup) {
-		h := s.Handler
-
-		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
-		testRequest := assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/blobs/" + test.DeterministicDummyDigest(1).String(),
-			Header:       test.FlattenHeaders(s.GetTokenHeaders(t, "repository:test1/foo:pull,push")),
-			ExpectStatus: http.StatusNotFound,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey: test.VersionHeaderValue,
-				"X-RateLimit-Action":  string(keppel.BlobPullAction),
-			},
-			ExpectBody: test.ErrorCode(keppel.ErrBlobUnknown),
-		}
-
-		s.Clock.StepBy(time.Second)
+		methodAndPath := "GET /v2/test1/foo/blobs/" + test.DeterministicDummyDigest(1).String()
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		for i := 1; i <= limit.Burst; i++ {
-			testRequest.Check(t, h)
+			s.RespondTo(ctx, methodAndPath, httptest.WithHeaders(tokenHeaders)).
+				ExpectHeader(t, "X-RateLimit-Action", string(keppel.BlobPullAction)).
+				ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrBlobUnknown))
 		}
 
 		// next request should be rate-limited
-		failingReq := testRequest
-		failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
-		failingReq.ExpectStatus = http.StatusTooManyRequests
-		failingReq.ExpectHeader = map[string]string{
-			test.VersionHeaderKey:   test.VersionHeaderValue,
-			"X-RateLimit-Limit":     strconv.Itoa(limit.Burst),
-			"X-RateLimit-Remaining": "0",
-			"X-RateLimit-Reset":     "72",
+		s.RespondTo(ctx, methodAndPath,
+			httptest.WithHeaders(tokenHeaders),
+		).ExpectHeaders(t, http.Header{
+			"X-RateLimit-Action":    {string(keppel.BlobPullAction)},
+			"X-RateLimit-Limit":     {strconv.Itoa(limit.Burst)},
+			"X-RateLimit-Remaining": {"0"},
+			"X-RateLimit-Reset":     {"72"},
 			// we used to see a value of 0 here because the rate limit refills very quickly, and thus the wait is significantly shorter than 0.5 seconds, which was rounded to 0
-			"Retry-After": "1",
-		}
-		failingReq.Check(t, h)
+			"Retry-After": {"1"},
+		}).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
 	})
 }

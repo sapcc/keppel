@@ -15,6 +15,7 @@ import (
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	. "go.xyrillian.de/gg/option"
 
@@ -183,6 +184,8 @@ func TestManifestValidationJobError(t *testing.T) {
 // tests for ManifestSyncJob
 
 func TestManifestSyncJob(t *testing.T) {
+	ctx := t.Context()
+
 	forAllReplicaTypes(t, func(strategy string) {
 		test.WithRoundTripper(func(_ *test.RoundTripper) {
 			j1, s1 := setup(t)
@@ -206,13 +209,9 @@ func TestManifestSyncJob(t *testing.T) {
 
 				// ...and most of them also to the replica account (to simulate replication having taken place)
 				if idx != 0 {
-					assert.HTTPRequest{
-						Method:       "GET",
-						Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", image.Manifest.Digest),
-						Header:       test.FlattenHeaders(replicaTokenHeaders),
-						ExpectStatus: http.StatusOK,
-						ExpectBody:   assert.ByteData(image.Manifest.Contents),
-					}.Check(t, s2.Handler)
+					s2.RespondTo(ctx, fmt.Sprintf("GET /v2/test1/foo/manifests/%s", image.Manifest.Digest),
+						httptest.WithHeaders(replicaTokenHeaders),
+					).ExpectBody(t, http.StatusOK, image.Manifest.Contents)
 				}
 			}
 
@@ -233,13 +232,9 @@ func TestManifestSyncJob(t *testing.T) {
 			imageList := test.GenerateImageList(images[1], images[2])
 			imageList.MustUpload(t, s1, fooRepoRef, "")
 			// this one is replicated as well
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", imageList.Manifest.Digest),
-				Header:       test.FlattenHeaders(replicaTokenHeaders),
-				ExpectStatus: http.StatusOK,
-				ExpectBody:   assert.ByteData(imageList.Manifest.Contents),
-			}.Check(t, s2.Handler)
+			s2.RespondTo(ctx, fmt.Sprintf("GET /v2/test1/foo/manifests/%s", imageList.Manifest.Digest),
+				httptest.WithHeaders(replicaTokenHeaders),
+			).ExpectBody(t, http.StatusOK, imageList.Manifest.Contents)
 
 			// set a well-known last_pulled_at timestamp on all manifests in the primary
 			// DB (we will later verify that this was not touched by the manifest sync)

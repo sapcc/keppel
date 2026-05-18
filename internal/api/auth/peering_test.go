@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/respondwith"
 
@@ -20,7 +20,7 @@ import (
 func TestPeeringAPI(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		s := test.NewSetup(t)
-		h := s.Handler
+		ctx := t.Context()
 
 		// set up peer.example.org as a peer of us, otherwise we will reject peering
 		// attempts from that source
@@ -49,57 +49,41 @@ func TestPeeringAPI(t *testing.T) {
 		})
 
 		// error cases
-		assert.HTTPRequest{
-			Method: "POST",
-			Path:   "/keppel/v1/auth/peering",
-			Body: assert.JSONObject{
+		s.RespondTo(ctx, "POST /keppel/v1/auth/peering",
+			httptest.WithJSONBody(map[string]string{
 				"peer":     "unknown-peer.example.org", // unknown peer
 				"username": "replication@registry.example.org",
 				"password": "supersecret",
-			},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectBody:   assert.StringData("unknown issuer\n"),
-		}.Check(t, h)
+			}),
+		).ExpectText(t, http.StatusBadRequest, "unknown issuer\n")
 
-		assert.HTTPRequest{
-			Method: "POST",
-			Path:   "/keppel/v1/auth/peering",
-			Body: assert.JSONObject{
+		s.RespondTo(ctx, "POST /keppel/v1/auth/peering",
+			httptest.WithJSONBody(map[string]string{
 				"peer":     "peer.example.org",
 				"username": "replication@someone-else.example.org", // wrong username
 				"password": "supersecret",
-			},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectBody:   assert.StringData("wrong audience\n"),
-		}.Check(t, h)
+			}),
+		).ExpectText(t, http.StatusBadRequest, "wrong audience\n")
 
-		assert.HTTPRequest{
-			Method: "POST",
-			Path:   "/keppel/v1/auth/peering",
-			Body: assert.JSONObject{
+		s.RespondTo(ctx, "POST /keppel/v1/auth/peering",
+			httptest.WithJSONBody(map[string]string{
 				"peer":     "peer.example.org",
 				"username": "replication@registry.example.org",
 				"password": "incorrect", // wrong password
-			},
-			ExpectStatus: http.StatusUnauthorized,
-			ExpectBody:   assert.StringData("could not validate credentials: expected 200 OK, but got 401 Unauthorized\n"),
-		}.Check(t, h)
+			}),
+		).ExpectText(t, http.StatusUnauthorized, "could not validate credentials: expected 200 OK, but got 401 Unauthorized\n")
 
 		// error cases should not touch the DB
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-peering.sql")
 
 		// success case
-		assert.HTTPRequest{
-			Method: "POST",
-			Path:   "/keppel/v1/auth/peering",
-			Body: assert.JSONObject{
+		s.RespondTo(ctx, "POST /keppel/v1/auth/peering",
+			httptest.WithJSONBody(map[string]string{
 				"peer":     "peer.example.org",
 				"username": "replication@registry.example.org",
 				"password": "supersecret",
-			},
-			ExpectStatus: http.StatusNoContent,
-			ExpectBody:   assert.StringData(""),
-		}.Check(t, h)
+			}),
+		).ExpectText(t, http.StatusNoContent, "")
 
 		// success case should have touched the DB
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-peering.sql")

@@ -107,12 +107,9 @@ func TestAPIAuthNotGrantingAnyScopes(t *testing.T) {
 		// any endpoint, when provided with a token that does not grant the right scopes,
 		// should respond with 403 (though actually it's 401 for bug-for-bug compatibility with Docker Hub)
 		tokenHeaders := s.GetTokenHeaders(t /*, no scopes */)
-		deniedMessage := jsonmatch.Object{
-			"errors": []jsonmatch.Object{{
-				"code":    keppel.ErrDenied,
-				"message": "token does not cover scope repository:test1/foo:pull",
-				"detail":  nil,
-			}},
+		deniedMessage := test.ErrorCodeWithMessage{
+			Code:    keppel.ErrDenied,
+			Message: "token does not cover scope repository:test1/foo:pull",
 		}
 		s.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(tokenHeaders)).
 			ExpectJSON(t, http.StatusUnauthorized, deniedMessage)

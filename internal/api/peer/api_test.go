@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/test"
@@ -19,18 +18,12 @@ func TestMain(m *testing.M) {
 
 func TestAlternativeAuthSchemes(t *testing.T) {
 	s := test.NewSetup(t, test.WithPeerAPI)
-	h := s.Handler
+	ctx := t.Context()
 
 	// anonymous auth is never allowed, generates an auth challenge for auth.PeerAPIScope
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/peer/v1/sync-replica/test1/foo",
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectHeader: map[string]string{
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_api:peer:access"`,
-		},
-		ExpectBody: assert.StringData("no bearer token found in request headers\n"),
-	}.Check(t, h)
+	s.RespondTo(ctx, "POST /peer/v1/sync-replica/test1/foo").
+		ExpectHeader(t, "Www-Authenticate", `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_api:peer:access"`).
+		ExpectText(t, http.StatusUnauthorized, "no bearer token found in request headers\n")
 
 	// Testing other auth schemes is pretty much nonsensical because both regular
 	// bearer token auth and Keppel API auth do not even allow obtaining a token
