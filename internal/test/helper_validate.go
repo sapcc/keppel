@@ -4,13 +4,14 @@
 package test
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -108,8 +109,7 @@ func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models
 }
 
 // ExpectTrivyReportExistsInStorage is a test assertion.
-// TODO: remove usage of assert.HTTPResponseBody (in definition here) and assert.JSONFixtureFile (in callsites)
-func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Manifest, format string, contents assert.HTTPResponseBody) {
+func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Manifest, format string, expectedContents []byte) {
 	t.Helper()
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
 	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
@@ -119,8 +119,20 @@ func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Ma
 		return
 	}
 	defer reader.Close()
-	buf := must.ReturnT(io.ReadAll(reader))(t)
-	contents.AssertResponseBody(t, fmt.Sprintf("Trivy report %s/%s", manifest.Digest, format), bytes.TrimSpace(buf))
+	actualContents := must.ReturnT(io.ReadAll(reader))(t)
+
+	switch format {
+	case "json":
+		var expectedPayload jsonmatch.Object
+		must.SucceedT(t, json.Unmarshal(expectedContents, &expectedPayload))
+		for _, diff := range expectedPayload.DiffAgainst(actualContents) {
+			t.Errorf("in Trivy report %s/%s: %s", manifest.Digest, format, diff.String())
+		}
+	default:
+		// fallback for unknown formats, yields very suboptimal diff reports
+		// (when adding a new format, you probably want to add specific support for it with a different branch)
+		assert.DeepEqual(t, fmt.Sprintf("Trivy report %s/%s", manifest.Digest, format), actualContents, expectedContents)
+	}
 }
 
 // ExpectTrivyReportMissingInStorage is a test assertion.

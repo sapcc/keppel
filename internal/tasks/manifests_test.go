@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -616,9 +617,9 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest, images[4].Layers[0].Digest, images[5].Layers[0].Digest)
 
 		// for scannable images, a report should now be cached in storage
-		s.ExpectTrivyReportExistsInStorage(t, imageManifests[0], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
-		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", assert.JSONFixtureFile("fixtures/trivy/report-clean.json"))
-		s.ExpectTrivyReportExistsInStorage(t, imageManifests[2], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[0], "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-vulnerable.json"))(t))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-clean.json"))(t))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[2], "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-vulnerable.json"))(t))
 		s.ExpectTrivyReportMissingInStorage(t, imageManifests[3], "json")
 		s.ExpectTrivyReportMissingInStorage(t, imageListManifest, "json")
 
@@ -650,7 +651,7 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		)
 
 		// the changed vulnerability report was reflected in the cache
-		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-vulnerable.json"))(t))
 	})
 }
 
@@ -689,7 +690,7 @@ func TestCheckTrivySecurityStatusWithError(t *testing.T) {
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), models.LowSeverity)
 
 		// after successful scan, a report gets cached
-		s.ExpectTrivyReportExistsInStorage(t, imageManifest, "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifest, "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-vulnerable.json"))(t))
 	})
 }
 
@@ -846,7 +847,7 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = NULL, checked_at = %[3]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
 		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Unix(), image.Manifest.Digest)
 
-		s.ExpectTrivyReportExistsInStorage(t, manifest, "json", assert.JSONFixtureFile("fixtures/trivy/report-eosl-with-enriched.json"))
+		s.ExpectTrivyReportExistsInStorage(t, manifest, "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-eosl-with-enriched.json"))(t))
 	})
 }
 
@@ -937,8 +938,8 @@ func TestVulnerabilityStatusChanged(t *testing.T) {
 			images[0].Layers[0].Digest, images[1].Layers[0].Digest)
 
 		// for scannable images, a report should now be cached in storage
-		s.ExpectTrivyReportExistsInStorage(t, imageManifests[0], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
-		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", assert.JSONFixtureFile("fixtures/trivy/report-clean.json"))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[0], "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-vulnerable.json"))(t))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", must.ReturnT(os.ReadFile("fixtures/trivy/report-clean.json"))(t))
 		s.ExpectTrivyReportMissingInStorage(t, imageListManifest, "json")
 
 		// check that a changed vulnerability status does not have any unexpected side effects

@@ -73,7 +73,7 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, report.buf)
 		}
 	}
 
@@ -163,7 +163,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, report.buf)
 		}
 	}
 
@@ -208,7 +208,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, report.buf)
 		}
 	}
 }
@@ -251,7 +251,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, report.buf)
 		}
 	}
 
@@ -293,7 +293,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, report.buf)
 		}
 	}
 }
@@ -330,11 +330,11 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, report.buf)
 		}
 	}
-	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, assert.ByteData(dummyReportBytes1))
-	s.ExpectTrivyReportExistsInStorage(t, listManifest2, dummyReport2.Format, assert.ByteData(dummyReportBytes2))
+	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, dummyReportBytes1)
+	s.ExpectTrivyReportExistsInStorage(t, listManifest2, dummyReport2.Format, dummyReportBytes2)
 
 	// create a DB entry for the first Trivy report (to sort of simulate a Trivy report
 	// upload that happened during StorageSweepJob was running: report was written
@@ -362,9 +362,9 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, report.buf)
 		}
 	}
-	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, assert.ByteData(dummyReportBytes1))
+	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, dummyReportBytes1)
 	s.ExpectTrivyReportMissingInStorage(t, listManifest2, dummyReport2.Format)
 }
