@@ -432,7 +432,7 @@ type manifestConfigInfo struct {
 func parseManifestConfig(ctx context.Context, tx *gorp.Transaction, sd keppel.StorageDriver, account models.ReducedAccount, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
 	// is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
-	if configBlob == nil {
+	if configBlob == nil || configBlob.MediaType != imagespecs.MediaTypeImageConfig && configBlob.MediaType != imageManifest.DockerV2Schema2ConfigMediaType {
 		return manifestConfigInfo{}, nil
 	}
 
