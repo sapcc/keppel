@@ -17,7 +17,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
 
@@ -233,7 +232,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 	manifestData := map[string]any{
 		"schemaVersion": 2,
 		"mediaType":     manifest.DockerV2Schema2MediaType,
-		"config": assert.JSONObject{
+		"config": map[string]any{
 			"mediaType": imageConfigBytesObj.MediaType,
 			"size":      len(imageConfigBytes),
 			"digest":    imageConfigBytesObj.Digest,
