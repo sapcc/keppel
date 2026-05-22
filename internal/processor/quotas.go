@@ -4,6 +4,7 @@
 package processor
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -50,8 +51,8 @@ func (e ImpossibleQuotaError) Error() string {
 }
 
 // GetQuotas builds a response for GET /keppel/v1/quotas/:auth_tenant_id.
-func (p *Processor) GetQuotas(authTenantID string) (*QuotaResponse, error) {
-	quotas, err := keppel.FindQuotas(p.db, authTenantID)
+func (p *Processor) GetQuotas(ctx context.Context, authTenantID string) (*QuotaResponse, error) {
+	quotas, err := keppel.FindQuotas(ctx, p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
 		quotas = models.DefaultQuotas(authTenantID)
 	} else if err != nil {
@@ -73,12 +74,10 @@ func (p *Processor) GetQuotas(authTenantID string) (*QuotaResponse, error) {
 
 // SetQuotas changes quotas for an auth tenant and then renders a response
 // for PUT /keppel/v1/quotas/:auth_tenant_id.
-func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo audittools.UserInfo, r *http.Request) (*QuotaResponse, error) {
-	isUpdate := true
-	quotas, err := keppel.FindQuotas(p.db, authTenantID)
+func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req QuotaRequest, userInfo audittools.UserInfo, r *http.Request) (*QuotaResponse, error) {
+	quotas, err := keppel.FindQuotas(ctx, p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
 		quotas = models.DefaultQuotas(authTenantID)
-		isUpdate = false
 	} else if err != nil {
 		return nil, err
 	}
@@ -104,11 +103,7 @@ func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo au
 	if quotas.ManifestCount != req.Manifests.Quota {
 		// apply quotas if necessary
 		quotas.ManifestCount = req.Manifests.Quota
-		if isUpdate {
-			_, err = tx.Update(&quotas)
-		} else {
-			err = tx.Insert(&quotas)
-		}
+		err := models.QuotasStore.Upsert(ctx, tx, &quotas)
 		if err != nil {
 			return nil, err
 		}

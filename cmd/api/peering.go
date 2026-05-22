@@ -15,6 +15,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -31,7 +32,7 @@ var createOrUpdatePeerQuery = sqlext.SimplifyWhitespace(`
 		ON CONFLICT (hostname) DO UPDATE SET use_for_pull_delegation = EXCLUDED.use_for_pull_delegation
 `)
 
-func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
+func runPeering(ctx context.Context, cfg keppel.Configuration, db *oblast.DB) {
 	isPeerHostName := make(map[string]bool)
 
 	var peeringCfg peeringConfig
@@ -51,11 +52,10 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 	}
 
 	// remove old entries from `peers` table
-	var allPeers []models.Peer
-	_ = must.Return(db.Select(&allPeers, `SELECT * FROM peers`))
+	allPeers := must.Return(models.PeerStore.Select(ctx, db, `SELECT * FROM peers`))
 	for _, peer := range allPeers {
 		if !isPeerHostName[peer.HostName] {
-			_ = must.Return(db.Delete(&peer))
+			must.Succeed(models.PeerStore.Delete(ctx, db, peer))
 		}
 	}
 
@@ -86,7 +86,7 @@ var getNextPeerQuery = sqlext.SimplifyWhitespace(`
 	   FOR UPDATE SKIP LOCKED
 `)
 
-func tryIssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) error {
+func tryIssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *oblast.DB) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -94,8 +94,7 @@ func tryIssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, d
 	defer sqlext.RollbackUnlessCommitted(tx)
 
 	// select next peer that needs a new password, if any
-	var peer models.Peer
-	err = tx.SelectOne(&peer, getNextPeerQuery, time.Now().Add(-10*time.Minute))
+	peer, err := models.PeerStore.SelectOne(ctx, tx, getNextPeerQuery, time.Now().Add(-10*time.Minute))
 	if errors.Is(err, sql.ErrNoRows) {
 		// nothing to do
 		//nolint:errcheck

@@ -11,21 +11,18 @@ import (
 	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/httpapi"
-	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/models"
 )
 
-var getManifestBySubjectQuery = sqlext.SimplifyWhitespace(`
-  SELECT * FROM manifests WHERE repo_id = $1 AND subject_digest = $2
-`)
-
-var getManifestBySubjectAndArtifactTypeQuery = sqlext.SimplifyWhitespace(`
-  SELECT * FROM manifests WHERE repo_id = $1 AND subject_digest = $2 AND artifact_type = $3
-`)
+var (
+	getManifestBySubjectQuery                = models.ManifestStore.MustPrepareSelectQueryWhere(`repo_id = $1 AND subject_digest = $2`)
+	getManifestBySubjectAndArtifactTypeQuery = models.ManifestStore.MustPrepareSelectQueryWhere(`repo_id = $1 AND subject_digest = $2 AND artifact_type = $3`)
+)
 
 func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/referrers/:reference")
+	ctx := r.Context()
 
 	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
@@ -33,21 +30,22 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	digest := mux.Vars(r)["reference"]
-	var dbManifests []models.Manifest
-
 	filterArtifactType := r.URL.Query().Get("artifactType")
-	var err error
+	var (
+		dbManifests []models.Manifest
+		err         error
+	)
 	if filterArtifactType == "" {
-		_, err = a.db.Select(&dbManifests, getManifestBySubjectQuery, repo.ID, digest)
+		dbManifests, err = getManifestBySubjectQuery.Select(ctx, a.db, repo.ID, digest)
 	} else {
-		_, err = a.db.Select(&dbManifests, getManifestBySubjectAndArtifactTypeQuery, repo.ID, digest, filterArtifactType)
+		dbManifests, err = getManifestBySubjectAndArtifactTypeQuery.Select(ctx, a.db, repo.ID, digest, filterArtifactType)
 	}
 	if respondWithError(w, r, err) {
 		return
 	}
 
 	// the spec expects an empty list not null!
-	manifests := make([]imgspecv1.Descriptor, 0)
+	manifests := make([]imgspecv1.Descriptor, 0, len(dbManifests))
 	for _, dbManifest := range dbManifests {
 		var annotations map[string]string
 		if dbManifest.AnnotationsJSON != "" {

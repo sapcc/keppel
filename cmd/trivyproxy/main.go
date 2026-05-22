@@ -88,6 +88,7 @@ func (a *API) AddTo(r *mux.Router) {
 
 func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/trivy")
+	ctx := r.Context()
 
 	secretHeader := r.Header[http.CanonicalHeaderKey(trivy.TokenHeader)]
 	if !slices.Contains(secretHeader, a.token) {
@@ -109,7 +110,7 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 
 	keppelToken := r.Header.Get(trivy.KeppelTokenHeader)
 
-	stdout, stderr, err := a.runTrivy(r.Context(), imageURL, format, keppelToken)
+	stdout, stderr, err := a.runTrivy(ctx, imageURL, format, keppelToken)
 	if err != nil {
 		cleanedErr := strings.ReplaceAll(strings.TrimSpace(stderr.String()), "\n", " ")
 		http.Error(w, fmt.Sprintf("trivy: %s: %s", err, cleanedErr), http.StatusInternalServerError)

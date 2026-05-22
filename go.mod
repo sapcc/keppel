@@ -1,6 +1,6 @@
 module github.com/sapcc/keppel
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
@@ -27,6 +27,7 @@ require (
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.40.0
 	go.xyrillian.de/gg v1.7.0
+	go.xyrillian.de/oblast v0.10.0
 	go.xyrillian.de/schwift/v2 v2.1.0
 )
 

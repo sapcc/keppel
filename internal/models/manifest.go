@@ -8,6 +8,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 )
 
 // Manifest contains a record from the `manifests` table.
@@ -34,6 +35,13 @@ type Manifest struct {
 	SubjectDigest   digest.Digest `db:"subject_digest"`
 }
 
+// ManifestStore provides loading and storing of [Manifest] objects from the DB.
+var ManifestStore = oblast.MustNewStore[Manifest](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("manifests"),
+	oblast.PrimaryKeyIs("repo_id", "digest"),
+)
+
 const (
 	// ManifestValidationInterval is how often each manifest will be validated by ManifestValidationJob.
 	// This is here instead of near the job because package processor also needs to know it.
@@ -51,9 +59,23 @@ type Tag struct {
 	LastPulledAt Option[time.Time] `db:"last_pulled_at"`
 }
 
+// TagStore provides loading and storing of [Tag] objects from the DB.
+var TagStore = oblast.MustNewStore[Tag](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("tags"),
+	oblast.PrimaryKeyIs("repo_id", "name"),
+)
+
 // ManifestContent contains a record from the `manifest_contents` table.
 type ManifestContent struct {
 	RepositoryID int64  `db:"repo_id"`
 	Digest       string `db:"digest"`
 	Content      []byte `db:"content"`
 }
+
+// ManifestContentStore provides loading and storing of [ManifestContent] objects from the DB.
+var ManifestContentStore = oblast.MustNewStore[ManifestContent](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("manifest_contents"),
+	oblast.PrimaryKeyIs("repo_id", "digest"),
+)

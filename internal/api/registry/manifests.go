@@ -4,6 +4,7 @@
 package registryv2
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -30,6 +31,8 @@ import (
 // This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
+	ctx := r.Context()
+
 	account, repo, authz, challenge := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
 	if account == nil {
 		return
@@ -41,7 +44,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reference := models.ParseManifestReference(mux.Vars(r)["reference"])
-	dbManifest, err := a.findManifestInDB(*repo, reference)
+	dbManifest, err := a.findManifestInDB(ctx, *repo, reference)
 	var manifestBytes []byte
 
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -77,7 +80,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(r.Context(), *account, *repo, reference, tagPolicies, keppel.AuditContext{
+			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(ctx, *account, *repo, reference, tagPolicies, keppel.AuditContext{
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})
@@ -97,7 +100,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				logg.Info("could not read manifest %s@%s from DB (falling back to read from storage): %s",
 					repo.FullName(), dbManifest.Digest, err.Error())
 			}
-			manifestBytes, err = a.sd.ReadManifest(r.Context(), *account, repo.Name, dbManifest.Digest)
+			manifestBytes, err = a.sd.ReadManifest(ctx, *account, repo.Name, dbManifest.Digest)
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -160,7 +163,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		return strconv.FormatInt(t.Unix(), 10)
 	}
 
-	securityInfo, err := keppel.GetSecurityInfo(a.db, dbManifest.RepositoryID, dbManifest.Digest)
+	securityInfo, err := keppel.GetSecurityInfo(ctx, a.db, dbManifest.RepositoryID, dbManifest.Digest)
 	withoutSecurityInfo := errors.Is(err, sql.ErrNoRows)
 	if !withoutSecurityInfo {
 		if respondWithError(w, r, err) {
@@ -223,11 +226,11 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) findManifestInDB(repo models.ReducedRepository, reference models.ManifestReference) (*models.Manifest, error) {
+func (a *API) findManifestInDB(ctx context.Context, repo models.ReducedRepository, reference models.ManifestReference) (*models.Manifest, error) {
 	// resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
-		digestStr, err := a.db.SelectStr(
+		digestStr, err := keppel.SelectOneValue[string](a.db,
 			`SELECT digest FROM tags WHERE repo_id = $1 AND name = $2`,
 			repo.ID, reference.Tag,
 		)
@@ -243,21 +246,15 @@ func (a *API) findManifestInDB(repo models.ReducedRepository, reference models.M
 		}
 	}
 
-	var dbManifest models.Manifest
-	err := a.db.SelectOne(&dbManifest,
-		`SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, refDigest.String(),
-	)
-	return &dbManifest, err
+	result, err := keppel.FindManifest(ctx, a.db, repo, refDigest)
+	return &result, err
 }
 
 func (a *API) getManifestContentFromDB(repoID int64, digestStr digest.Digest) ([]byte, error) {
-	var result []byte
-	err := a.db.SelectOne(&result,
+	return keppel.SelectOneValue[[]byte](a.db,
 		`SELECT content FROM manifest_contents WHERE repo_id = $1 AND digest = $2`,
 		repoID, digestStr,
 	)
-	return result, err
 }
 
 func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
@@ -271,6 +268,8 @@ func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Requ
 // This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
+	ctx := r.Context()
+
 	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
@@ -290,7 +289,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if ref.IsTag() {
 		err = a.processor().DeleteTag(*account, *repo, ref.Tag, tagPolicies, actx)
 	} else {
-		err = a.processor().DeleteManifest(r.Context(), *account, *repo, ref.Digest, tagPolicies, actx)
+		err = a.processor().DeleteManifest(ctx, *account, *repo, ref.Digest, tagPolicies, actx)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
@@ -306,6 +305,8 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 // This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
+	ctx := r.Context()
+
 	account, repo, authz, _ := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
 	if account == nil {
 		return
@@ -357,7 +358,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
 	}
-	manifest, err := a.processor().ValidateAndStoreManifest(r.Context(), *account, *repo, incomingManifest, tagPolicies, keppel.AuditContext{
+	manifest, err := a.processor().ValidateAndStoreManifest(ctx, *account, *repo, incomingManifest, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})

@@ -43,6 +43,7 @@ func (t *TrivyDouble) AddTo(r *mux.Router) {
 
 func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/trivy")
+	ctx := r.Context()
 
 	imageRef, _, err := models.ParseImageReference(r.URL.Query().Get("image"))
 	if err != nil {
@@ -57,7 +58,7 @@ func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 		RepoName: imageRef.RepoName,
 	}
 	c.SetToken(r.Header[http.CanonicalHeaderKey(trivy.KeppelTokenHeader)][0])
-	_, _, err = c.DownloadManifest(r.Context(), imageRef.Reference, &client.DownloadManifestOpts{})
+	_, _, err = c.DownloadManifest(ctx, imageRef.Reference, &client.DownloadManifestOpts{})
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

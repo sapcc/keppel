@@ -4,48 +4,36 @@
 package keppel
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
-	"github.com/go-gorp/gorp/v3"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// FindAccount works similar to db.SelectOne().
-func FindAccount(db gorp.SqlExecutor, name models.AccountName) (models.Account, error) {
-	var account models.Account
-	err := db.SelectOne(&account, "SELECT * FROM accounts WHERE name = $1", name)
-	return account, err
-}
+var (
+	findAccountQuery        = models.AccountStore.MustPrepareSelectQueryWhere(`name = $1`)
+	findReducedAccountQuery = models.ReducedAccountStore.MustPrepareSelectQueryWhere(`name = $1`)
+)
 
-var reducedAccountGetByNameQuery = sqlext.SimplifyWhitespace(`
-	SELECT auth_tenant_id, upstream_peer_hostname,
-	       external_peer_url, external_peer_username, external_peer_password,
-	       platform_filter, rule_for_manifest, is_deleting
-	  FROM accounts
-	 WHERE name = $1
-`)
+// FindAccount is a convenience wrapper around Store.SelectOne().
+// If the blob in question does not exist, sql.ErrNoRows is returned.
+func FindAccount(ctx context.Context, db DBInterface, name models.AccountName) (models.Account, error) {
+	return findAccountQuery.SelectOne(ctx, db, name)
+}
 
 // FindReducedAccount is like FindAccount, but it returns a ReducedAccount instead.
 // This can be significantly faster than FindAccount if only the most common stuff is needed.
-func FindReducedAccount(db gorp.SqlExecutor, name models.AccountName) (models.ReducedAccount, error) {
-	a := models.ReducedAccount{Name: name}
-	err := db.QueryRow(reducedAccountGetByNameQuery, name).Scan(
-		&a.AuthTenantID, &a.UpstreamPeerHostName,
-		&a.ExternalPeerURL, &a.ExternalPeerUserName, &a.ExternalPeerPassword,
-		&a.PlatformFilter, &a.RuleForManifest, &a.IsDeleting,
-	)
-	return a, err
+func FindReducedAccount(ctx context.Context, db DBInterface, name models.AccountName) (models.ReducedAccount, error) {
+	return findReducedAccountQuery.SelectOne(ctx, db, name)
 }
 
 // DoesAccountExist checks if an account with the given name exists in the DB.
-func DoesAccountExist(db gorp.SqlExecutor, name models.AccountName) (bool, error) {
-	var count uint64
-	err := db.QueryRow(`SELECT COUNT(*) FROM accounts WHERE name = $1`, name).Scan(&count)
-	return count > 0, err
+func DoesAccountExist(db DBInterface, name models.AccountName) (bool, error) {
+	return SelectOneValue[bool](db, `SELECT COUNT(*) > 0 FROM accounts WHERE name = $1`, name)
 }
 
 var blobGetQueryByRepoName = sqlext.SimplifyWhitespace(`
@@ -64,36 +52,28 @@ var blobGetQueryByRepoID = sqlext.SimplifyWhitespace(`
 	 WHERE b.account_name = $1 AND b.digest = $2 AND bm.repo_id = $3
 `)
 
-var blobGetQueryByAccountName = sqlext.SimplifyWhitespace(`
-	SELECT * FROM blobs WHERE account_name = $1 AND digest = $2
-`)
+var blobGetQueryByAccountName = models.BlobStore.MustPrepareSelectQueryWhere(`account_name = $1 AND digest = $2`)
 
-// FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
-// the blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, repoName string, accountName models.AccountName) (models.Blob, error) {
-	var blob models.Blob
-	err := db.SelectOne(&blob, blobGetQueryByRepoName, accountName, blobDigest.String(), repoName)
-	return blob, err
+// FindBlobByRepositoryName is a convenience wrapper around Store.SelectOne().
+// If the blob in question does not exist, sql.ErrNoRows is returned.
+func FindBlobByRepositoryName(ctx context.Context, db DBInterface, blobDigest digest.Digest, repoName string, accountName models.AccountName) (models.Blob, error) {
+	return models.BlobStore.SelectOne(ctx, db, blobGetQueryByRepoName, accountName, blobDigest.String(), repoName)
 }
 
-// FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
-// the blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo models.ReducedRepository) (models.Blob, error) {
-	var blob models.Blob
-	err := db.SelectOne(&blob, blobGetQueryByRepoID, repo.AccountName, blobDigest.String(), repo.ID)
-	return blob, err
+// FindBlobByRepository is a convenience wrapper around Store.SelectOne().
+// If the blob in question does not exist, sql.ErrNoRows is returned.
+func FindBlobByRepository(ctx context.Context, db DBInterface, blobDigest digest.Digest, repo models.ReducedRepository) (models.Blob, error) {
+	return models.BlobStore.SelectOne(ctx, db, blobGetQueryByRepoID, repo.AccountName, blobDigest.String(), repo.ID)
 }
 
-// FindBlobByAccountName is a convenience wrapper around db.SelectOne(). If the
-// blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByAccountName(db gorp.SqlExecutor, blobDigest digest.Digest, accountName models.AccountName) (models.Blob, error) {
-	var blob models.Blob
-	err := db.SelectOne(&blob, blobGetQueryByAccountName, accountName, blobDigest.String())
-	return blob, err
+// FindBlobByAccountName is a convenience wrapper around Store.SelectOne().
+// If the blob in question does not exist, sql.ErrNoRows is returned.
+func FindBlobByAccountName(ctx context.Context, db DBInterface, blobDigest digest.Digest, accountName models.AccountName) (models.Blob, error) {
+	return blobGetQueryByAccountName.SelectOne(ctx, db, accountName, blobDigest.String())
 }
 
 // MountBlobIntoRepo creates an entry in the blob_mounts database table.
-func MountBlobIntoRepo(db gorp.SqlExecutor, blob models.Blob, repo models.ReducedRepository) error {
+func MountBlobIntoRepo(ctx context.Context, db DBInterface, blob models.Blob, repo models.ReducedRepository) error {
 	_, err := db.Exec(
 		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		blob.ID, repo.ID,
@@ -101,48 +81,40 @@ func MountBlobIntoRepo(db gorp.SqlExecutor, blob models.Blob, repo models.Reduce
 	return err
 }
 
-var uploadGetQueryByRepoID = sqlext.SimplifyWhitespace(`
-	SELECT u.* FROM uploads u WHERE u.uuid = $1 AND repo_id = $2
-`)
+var uploadGetQueryByRepoID = models.UploadStore.MustPrepareSelectQueryWhere(`uuid = $1 AND repo_id = $2`)
 
-// FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
-// the upload in question does not exist, sql.ErrNoRows is returned.
-func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo models.ReducedRepository) (models.Upload, error) {
-	var upload models.Upload
-	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repo.ID)
-	return upload, err
+// FindUploadByRepository is a convenience wrapper around Store.SelectOne().
+// If the upload in question does not exist, sql.ErrNoRows is returned.
+func FindUploadByRepository(ctx context.Context, db DBInterface, uuid string, repo models.ReducedRepository) (models.Upload, error) {
+	return uploadGetQueryByRepoID.SelectOne(ctx, db, uuid, repo.ID)
 }
 
-// FindManifest is a convenience wrapper around db.SelectOne(). If the
-// manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifest(db gorp.SqlExecutor, repo models.ReducedRepository, manifestDigest digest.Digest) (models.Manifest, error) {
-	var manifest models.Manifest
-	err := db.SelectOne(&manifest,
-		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, manifestDigest)
-	return manifest, err
-}
+var (
+	manifestGetQueryByRepoID   = models.ManifestStore.MustPrepareSelectQueryWhere(`repo_id = $1 AND digest = $2`)
+	manifestGetQueryByRepoName = models.ManifestStore.MustPrepareSelectQueryWhere(
+		`repo_id = (SELECT id FROM repos WHERE account_name = $1 AND name = $2) AND digest = $3`)
+)
 
-var manifestGetQueryByRepoName = sqlext.SimplifyWhitespace(`
-	SELECT m.*
-	  FROM manifests m
-	  JOIN repos r ON m.repo_id = r.id
-	 WHERE r.account_name = $1 AND r.name = $2 AND m.digest = $3
-`)
-
-// FindManifestByRepositoryName is a convenience wrapper around db.SelectOne().
+// FindManifest is a convenience wrapper around Store.SelectOne().
 // If the manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, accountName models.AccountName, manifestDigest digest.Digest) (models.Manifest, error) {
-	var manifest models.Manifest
-	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, accountName, repoName, manifestDigest.String())
-	return manifest, err
+func FindManifest(ctx context.Context, db DBInterface, repo models.ReducedRepository, manifestDigest digest.Digest) (models.Manifest, error) {
+	return manifestGetQueryByRepoID.SelectOne(ctx, db, repo.ID, manifestDigest.String())
 }
 
-// FindQuotas works similar to db.SelectOne().
+// FindManifestByRepositoryName is a convenience wrapper around Store.SelectOne().
+// If the manifest in question does not exist, sql.ErrNoRows is returned.
+func FindManifestByRepositoryName(ctx context.Context, db DBInterface, repoName string, accountName models.AccountName, manifestDigest digest.Digest) (models.Manifest, error) {
+	return manifestGetQueryByRepoName.SelectOne(ctx, db, accountName, repoName, manifestDigest.String())
+}
+
+var (
+	quotasGetQueryByAuthTenantID = models.QuotasStore.MustPrepareSelectQueryWhere(`auth_tenant_id = $1`)
+)
+
+// FindQuotas works similar to Store.SelectOne().
 // If the quota does not exist, sql.ErrNoRows is returned.
-func FindQuotas(db gorp.SqlExecutor, authTenantID string) (models.Quotas, error) {
-	var quotas models.Quotas
-	err := db.SelectOne(&quotas, "SELECT * FROM quotas WHERE auth_tenant_id = $1", authTenantID)
-	return quotas, err
+func FindQuotas(ctx context.Context, db DBInterface, authTenantID string) (models.Quotas, error) {
+	return quotasGetQueryByAuthTenantID.SelectOne(ctx, db, authTenantID)
 }
 
 var manifestUsageQuery = sqlext.SimplifyWhitespace(`
@@ -155,9 +127,8 @@ var manifestUsageQuery = sqlext.SimplifyWhitespace(`
 
 // GetManifestUsage returns how many manifests currently exist in repos in
 // accounts connected to this quota set's auth tenant.
-func GetManifestUsage(db gorp.SqlExecutor, quotas models.Quotas) (uint64, error) {
-	manifestCount, err := db.SelectInt(manifestUsageQuery, quotas.AuthTenantID)
-	return AtLeastZero(manifestCount), err
+func GetManifestUsage(db DBInterface, quotas models.Quotas) (uint64, error) {
+	return SelectOneValue[uint64](db, manifestUsageQuery, quotas.AuthTenantID)
 }
 
 // AtLeastZero safely converts int or int64 values (which might come from
@@ -169,69 +140,69 @@ func AtLeastZero[I interface{ int | int64 }](x I) uint64 {
 	return uint64(x)
 }
 
-// FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
+// FindOrCreateRepository works similar to Store.SelectOne(), but autovivifies a
 // Repository record when none exists yet.
-func FindOrCreateRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.Repository, error) {
-	repo, err := FindRepository(db, name, accountName)
+func FindOrCreateRepository(ctx context.Context, db DBInterface, name string, accountName models.AccountName) (models.Repository, error) {
+	repo, err := FindRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		repo = models.Repository{
 			Name:        name,
 			AccountName: accountName,
 		}
-		err = db.Insert(&repo)
+		err = models.RepositoryStore.Insert(ctx, db, &repo)
 	}
 	return repo, err
 }
 
-// FindRepository is a convenience wrapper around db.SelectOne(). If the
-// repository in question does not exist, sql.ErrNoRows is returned.
-func FindRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.Repository, error) {
-	var repo models.Repository
-	err := db.SelectOne(&repo, "SELECT * FROM repos WHERE account_name = $1 AND name = $2", accountName, name)
-	return repo, err
+var (
+	repoGetQueryByName        = models.RepositoryStore.MustPrepareSelectQueryWhere(`account_name = $1 AND name = $2`)
+	repoGetQueryByID          = models.RepositoryStore.MustPrepareSelectQueryWhere(`id = $1`)
+	reducedRepoGetQueryByName = models.ReducedRepositoryStore.MustPrepareSelectQueryWhere(`account_name = $1 AND name = $2`)
+)
+
+// FindRepository is a convenience wrapper around Store.SelectOne().
+// If the repository in question does not exist, sql.ErrNoRows is returned.
+func FindRepository(ctx context.Context, db DBInterface, name string, accountName models.AccountName) (models.Repository, error) {
+	return repoGetQueryByName.SelectOne(ctx, db, accountName, name)
 }
 
 // FindOrCreateReducedRepository is like [FindOrCreateRepository], but is faster because it returns a ReducedRepository.
-func FindOrCreateReducedRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.ReducedRepository, error) {
-	repo, err := FindReducedRepository(db, name, accountName)
+func FindOrCreateReducedRepository(ctx context.Context, db DBInterface, name string, accountName models.AccountName) (models.ReducedRepository, error) {
+	repo, err := FindReducedRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		fullRepo := models.Repository{
 			Name:        name,
 			AccountName: accountName,
 		}
-		err = db.Insert(&fullRepo)
+		err = models.RepositoryStore.Insert(ctx, db, &fullRepo)
 		repo = fullRepo.Reduced()
 	}
 	return repo, err
 }
 
 // FindReducedRepository is like [FindRepository], but is faster because it returns a ReducedRepository.
-func FindReducedRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.ReducedRepository, error) {
-	var id int64
-	err := db.QueryRow("SELECT id FROM repos WHERE account_name = $1 AND name = $2", accountName, name).Scan(&id)
-	return models.ReducedRepository{
-		ID:          id,
-		Name:        name,
-		AccountName: accountName,
-	}, err
+func FindReducedRepository(ctx context.Context, db DBInterface, name string, accountName models.AccountName) (models.ReducedRepository, error) {
+	return reducedRepoGetQueryByName.SelectOne(ctx, db, accountName, name)
 }
 
-// FindRepositoryByID is a convenience wrapper around db.SelectOne(). If the
-// repository in question does not exist, sql.ErrNoRows is returned.
-func FindRepositoryByID(db gorp.SqlExecutor, id int64) (models.Repository, error) {
-	var repo models.Repository
-	err := db.SelectOne(&repo, "SELECT * FROM repos WHERE id = $1", id)
-	return repo, err
+// FindRepositoryByID is a convenience wrapper around Store.SelectOne().
+// If the repository in question does not exist, sql.ErrNoRows is returned.
+func FindRepositoryByID(ctx context.Context, db DBInterface, id int64) (models.Repository, error) {
+	return repoGetQueryByID.SelectOne(ctx, db, id)
 }
 
-// GetSecurityInfo is a convenience wrapper around db.SelectOne(). If the
-// securityInfo in question does not exist, sql.ErrNoRows is returned.
-func GetSecurityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (models.TrivySecurityInfo, error) {
-	var securityInfo models.TrivySecurityInfo
-	err := db.SelectOne(&securityInfo,
-		"SELECT * FROM trivy_security_info WHERE repo_id = $1 and digest = $2",
-		repoID, manifestDigest,
-	)
+var securityInfoGetQueryByRepoID = models.TrivySecurityInfoStore.MustPrepareSelectQueryWhere(`repo_id = $1 AND digest = $2`)
 
-	return securityInfo, err
+// GetSecurityInfo is a convenience wrapper around Store.SelectOne().
+// If the securityInfo in question does not exist, sql.ErrNoRows is returned.
+func GetSecurityInfo(ctx context.Context, db DBInterface, repoID int64, manifestDigest digest.Digest) (models.TrivySecurityInfo, error) {
+	return securityInfoGetQueryByRepoID.SelectOne(ctx, db, repoID, manifestDigest.String())
+}
+
+var peerGetQueryByHostname = models.PeerStore.MustPrepareSelectQueryWhere(`hostname = $1`)
+
+// FindPeer is a convenience wrapper around Store.SelectOne().
+// If the peer in question does not exist, sql.ErrNoRows is returned.
+func FindPeer(ctx context.Context, db DBInterface, hostname string) (models.Peer, error) {
+	return peerGetQueryByHostname.SelectOne(ctx, db, hostname)
 }

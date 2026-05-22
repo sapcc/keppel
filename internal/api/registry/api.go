@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -30,7 +31,7 @@ type API struct {
 	fd      keppel.FederationDriver
 	sd      keppel.StorageDriver
 	icd     keppel.InboundCacheDriver
-	db      *keppel.DB
+	db      *oblast.DB
 	auditor audittools.Auditor
 	rle     *keppel.RateLimitEngine // may be nil
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
@@ -39,7 +40,7 @@ type API struct {
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor audittools.Auditor, rle *keppel.RateLimitEngine) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *oblast.DB, auditor audittools.Auditor, rle *keppel.RateLimitEngine) *API {
 	return &API{cfg, ad, fd, sd, icd, db, auditor, rle, time.Now, keppel.GenerateStorageID}
 }
 
@@ -109,6 +110,8 @@ func (a *API) processor() *processor.Processor {
 // This implements the GET /v2/ endpoint.
 func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/")
+	ctx := r.Context()
+
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -124,7 +127,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 		// without scopes, and then expect to be able to query this endpoint with
 		// it.
 		Scopes: auth.NewScopeSet(auth.InfoAPIScope),
-	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
+	}.Authorize(ctx, a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -191,6 +194,8 @@ func (info anycastRequestInfo) asPrometheusLabels() prometheus.Labels {
 // TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
 // TODO: return non-pointer arguments to avoid useless heap allocations
 func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.ReducedRepository, *auth.Authorization, *auth.Challenge) {
+	ctx := r.Context()
+
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -219,7 +224,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		Scopes:                auth.NewScopeSet(scope),
 		AllowsAnycast:         anycastHandler != nil,
 		AllowsDomainRemapping: true,
-	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
+	}.Authorize(ctx, a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil, nil
@@ -227,11 +232,11 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	// we need to know the account to select the registry instance for this request
 	repoScope := scope.ParseRepositoryScope(authz.Audience)
-	account, err := keppel.FindReducedAccount(a.db, repoScope.AccountName)
+	account, err := keppel.FindReducedAccount(ctx, a.db, repoScope.AccountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		// if this is an anycast request, try forwarding it to the peer that has the primary account with this name
 		if anycastHandler != nil && authz.Audience.IsAnycast {
-			primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), repoScope.AccountName)
+			primaryHostName, err := a.fd.FindPrimaryAccount(ctx, repoScope.AccountName)
 			switch {
 			case err == nil:
 				// protect against infinite forwarding loops in case different Keppels have
@@ -278,9 +283,9 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	var repo models.ReducedRepository
 	if canCreateRepoIfMissing {
-		repo, err = keppel.FindOrCreateReducedRepository(a.db, repoScope.RepositoryName, account.Name)
+		repo, err = keppel.FindOrCreateReducedRepository(ctx, a.db, repoScope.RepositoryName, account.Name)
 	} else {
-		repo, err = keppel.FindReducedRepository(a.db, repoScope.RepositoryName, account.Name)
+		repo, err = keppel.FindReducedRepository(ctx, a.db, repoScope.RepositoryName, account.Name)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		if canFirstPull {
