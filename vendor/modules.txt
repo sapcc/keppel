@@ -248,7 +248,7 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
-# go.podman.io/image/v5 v5.39.2 => go.podman.io/image/v5 v5.38.1-0.20251112190108-acb3639700ff
+# go.podman.io/image/v5 v5.40.0 => go.podman.io/image/v5 v5.38.1-0.20251112190108-acb3639700ff
 ## explicit; go 1.24.0
 go.podman.io/image/v5/docker/reference
 go.podman.io/image/v5/internal/manifest
