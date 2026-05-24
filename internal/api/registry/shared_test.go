@@ -36,7 +36,7 @@ var (
 // the auth tenant ID that many test accounts use
 const authTenantID = "test1authtenant"
 
-func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(test.Setup)) {
+func testWithPrimary(t testing.TB, setupOptions []test.SetupOption, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		for _, withAnycast := range []bool{false, true} {
 			opts := append(slices.Clone(setupOptions),

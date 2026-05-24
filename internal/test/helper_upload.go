@@ -22,7 +22,7 @@ import (
 //
 // `h` must serve the Registry V2 API.
 // `token` must be a Bearer token capable of pushing into the specified repo.
-func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.Blob {
+func (b Bytes) MustUpload(t testing.TB, s Setup, repo models.Repository) models.Blob {
 	t.Helper()
 
 	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
@@ -57,7 +57,7 @@ var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 // uploads all referenced blobs that do not exist in the DB yet.
 //
 // `tagName` may be empty if the image is to be uploaded without tagging.
-func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName string) models.Manifest {
+func (i Image) MustUpload(t testing.TB, s Setup, repo models.Repository, tagName string) models.Manifest {
 	t.Helper()
 
 	// upload missing blobs
@@ -106,7 +106,7 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 // also uploads all referenced images that do not exist in the DB yet.
 //
 // `tagName` may be empty if the image is to be uploaded without tagging.
-func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName string) models.Manifest {
+func (l ImageList) MustUpload(t testing.TB, s Setup, repo models.Repository, tagName string) models.Manifest {
 	t.Helper()
 
 	// upload missing images
