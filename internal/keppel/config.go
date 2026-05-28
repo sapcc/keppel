@@ -8,6 +8,7 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/url"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"github.com/sapcc/go-bits/osext"
 	"github.com/sapcc/go-bits/pluggable"
 
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
@@ -36,6 +38,21 @@ type Configuration struct {
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
 	Trivy                    *trivy.Config
 	TrackBytesQuota          bool
+}
+
+// DefaultQuotas creates a new Quotas instance with the default quotas.
+func (cfg Configuration) DefaultQuotas(authTenantID string) models.Quotas {
+	quotas := models.Quotas{
+		AuthTenantID:  authTenantID,
+		Bytes:         0,
+		ManifestCount: 0,
+	}
+
+	if !cfg.TrackBytesQuota {
+		quotas.Bytes = math.MaxInt64
+	}
+
+	return quotas
 }
 
 var (

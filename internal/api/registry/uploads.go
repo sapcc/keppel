@@ -78,7 +78,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// backing storage.
 	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(account.AuthTenantID, a.cfg.TrackBytesQuota)
+		quotas = a.cfg.DefaultQuotas(account.AuthTenantID)
 	} else if respondWithError(w, r, err) {
 		return
 	}
