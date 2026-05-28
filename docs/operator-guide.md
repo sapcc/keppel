@@ -195,13 +195,13 @@ The components referenced in the table below are:
 | `KEPPEL_DB_PASSWORD` | *(optional)* | api, janitor | Password for the database user. |
 | `KEPPEL_DB_PORT` | `5432` | api, janitor | Port on which the PostgreSQL service is running. |
 | `KEPPEL_DB_USERNAME` | `postgres` | api, janitor | Username for the database connection. |
-| `KEPPEL_DEBUG` | *(optional)* | api, janitor | Enable debug logging. |
+| `KEPPEL_DEBUG` | *(optional)* | *all* | Enable debug logging. |
 | `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | janitor | Configuration for an account management driver. Use `{"type":"trivial"}` if you don't need managed accounts. |
-| `KEPPEL_DRIVER_AUTH` | *(required)* | api, janitor | Configuration for an auth driver. |
+| `KEPPEL_DRIVER_AUTH` | *(required)* | api, janitor, liquidapi | Configuration for an auth driver. |
 | `KEPPEL_DRIVER_FEDERATION` | *(required)* | api, janitor | Configuration for a federation driver. Use `{"type":"trivial"}` for single-region deployments. |
 | `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | api, janitor | Configuration for an inbound cache driver. Use `{"type":"trivial"}` to disable caching. |
 | `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | api | Configuration for a rate limit driver. Leave empty to disable rate limiting. |
-| `KEPPEL_DRIVER_STORAGE` | *(required)* | api, janitor | Configuration for a storage driver. |
+| `KEPPEL_DRIVER_STORAGE` | *(required)* | api, janitor, liquidapi | Configuration for a storage driver. |
 | `KEPPEL_ENABLE_HEADER_REFLECTOR` | *(optional)* | api | If `true`, enables the `/debug/reflect-headers` endpoint that echoes incoming request headers. Useful for debugging; should be disabled in production. |
 | `KEPPEL_GUI_URI` | *(optional)* | api | If set, GET requests from web browsers to repository-like URLs are redirected here. May contain `%ACCOUNT_NAME%`, `%REPO_NAME%` and `%AUTH_TENANT_ID%` placeholders. Redirect only occurs if the repository allows anonymous pulling. |
 | `KEPPEL_ISSUER_KEY` | *(required)* | api, janitor | Private key (PEM format or path to PEM file) used to sign auth tokens for Docker clients. Only ed25519 keys are supported. Generate with `openssl genpkey -algorithm ed25519 -out privkey.pem`. |
