@@ -13,10 +13,23 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 )
+
+// EndpointNamer can be set by the application to derive the endpoint ID from a
+// request after routing has occurred (e.g. via mux.CurrentRoute). Return
+// Some(name) when a name can be derived, or None[string]() otherwise. If the
+// handler calls IdentifyEndpoint() explicitly, that value takes precedence over
+// the result of EndpointNamer.
+//
+// This variable must be set once during initialization (before the server
+// starts serving requests) and must not be changed concurrently.
+var EndpointNamer func(r *http.Request) Option[string] = func(r *http.Request) Option[string] {
+	return None[string]()
+}
 
 // A http.Handler middleware that adds all the special behavior for this package.
 type middleware struct {

@@ -4,6 +4,7 @@
 package gopherpolicy
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 
 	"github.com/sapcc/go-bits/internal"
+	"github.com/sapcc/go-bits/respondwith"
 )
 
 // Enforcer contains the Enforce method that struct Token requires to check
@@ -48,26 +50,40 @@ type Token struct {
 	// a token from the result of DeserializeCompactContextFromJSON()).
 }
 
-// Require checks if the given token has the given permission according to the
-// policy.json that is in effect. If not, an error response is written and false
-// is returned.
-func (t *Token) Require(w http.ResponseWriter, rule string) bool {
+var (
+	errUnauthorized = respondwith.CustomStatus(http.StatusUnauthorized, errors.New("Unauthorized"))
+	errForbidden    = respondwith.CustomStatus(http.StatusForbidden, errors.New("Forbidden"))
+)
+
+// Enforce checks if the given token has the given permission according to the
+// policy.json that is in effect. If not, an error is returned.
+//
+// When used with respondwith.ErrorText() or respondwith.ObfuscatedErrorText(),
+// errors returned from this function will be reported with the appropriate
+// status codes 401 (Unauthorized) or 403 (Forbidden), and with no obfuscation.
+// This will not work if the returned error is wrapped before being displayed.
+func (t *Token) Enforce(rule string) error {
 	if t.Err != nil {
 		if t.Context.Logger != nil {
 			t.Context.Logger(fmt.Sprintf("returning %v because of error: %s", http.StatusUnauthorized, t.Err.Error()))
 		}
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return false
+		return errUnauthorized
 	}
 
 	if !t.Enforcer.Enforce(rule, t.Context) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return false
+		return errForbidden
 	}
-	return true
+	return nil
 }
 
-// Check is like Require, but does not write error responses.
+// Require is like Enforce, but if an error would be returned,
+// it is instead written as an error response and false is returned.
+func (t *Token) Require(w http.ResponseWriter, rule string) bool {
+	err := t.Enforce(rule)
+	return !respondwith.ErrorText(w, err)
+}
+
+// Check is like Enforce, but only returns whether there was no error.
 func (t *Token) Check(rule string) bool {
 	return t.Err == nil && t.Enforcer.Enforce(rule, t.Context)
 }
