@@ -17,7 +17,6 @@ import (
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/models"
 )
 
 // QuotaResponse is the response body payload for GET or PUT /keppel/v1/quotas/:auth_tenant_id.
@@ -58,7 +57,7 @@ func (e ImpossibleQuotaError) Error() string {
 func (p *Processor) GetQuotas(ctx context.Context, authTenantID string) (*QuotaResponse, error) {
 	quotas, err := keppel.FindQuotas(p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(authTenantID, p.cfg.TrackBytesQuota)
+		quotas = p.cfg.DefaultQuotas(authTenantID)
 	} else if err != nil {
 		return nil, err
 	}
@@ -96,7 +95,7 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 	isUpdate := true
 	quotas, err := keppel.FindQuotas(p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(authTenantID, p.cfg.TrackBytesQuota)
+		quotas = p.cfg.DefaultQuotas(authTenantID)
 		isUpdate = false
 	} else if err != nil {
 		return nil, err
