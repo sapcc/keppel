@@ -27,6 +27,7 @@ import (
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
+	"github.com/sapcc/keppel/internal/api/liquid"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/drivers/basic"
@@ -45,9 +46,11 @@ type setupParams struct {
 	IsSecondary             bool
 	WithAnycast             bool
 	WithKeppelAPI           bool
+	WithLiquidAPI           bool
 	WithPeerAPI             bool
 	WithTrivyDouble         bool
 	WithQuotas              bool
+	WithBytesQuotas         bool
 	WithPreviousIssuerKey   bool
 	WithoutCurrentIssuerKey bool
 	RateLimitEngine         *keppel.RateLimitEngine
@@ -82,6 +85,11 @@ func WithKeppelAPI(params *setupParams) {
 	params.WithKeppelAPI = true
 }
 
+// WithLiquidAPI is a SetupOption that enables the Liquid API.
+func WithLiquidAPI(params *setupParams) {
+	params.WithLiquidAPI = true
+}
+
 // WithPeerAPI is a SetupOption that enables the peer API.
 func WithPeerAPI(params *setupParams) {
 	params.WithPeerAPI = true
@@ -95,6 +103,11 @@ func WithTrivyDouble(params *setupParams) {
 // WithQuotas is a SetupOption that sets up ample quota for all configured accounts.
 func WithQuotas(params *setupParams) {
 	params.WithQuotas = true
+}
+
+// WithBytesQuotas is a SetupOption that enables bytes quota.
+func WithBytesQuotas(params *setupParams) {
+	params.WithBytesQuotas = true
 }
 
 // WithRateLimitEngine is a SetupOption to use a RateLimitEngine in enabled APIs.
@@ -208,6 +221,10 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		tokenCache: make(map[string]string),
 	}
 
+	if params.WithBytesQuotas {
+		s.Config.TrackBytesQuota = true
+	}
+
 	// select issuer keys
 	if params.WithoutCurrentIssuerKey && !params.WithPreviousIssuerKey {
 		t.Fatal("test.WithoutCurrentIssuerKey requires test.WithPreviousIssuerKey")
@@ -301,6 +318,9 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	if params.WithKeppelAPI {
 		apis = append(apis, keppelv1.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine).OverrideTimeNow(s.Clock.Now))
 	}
+	if params.WithLiquidAPI {
+		apis = append(apis, liquid.NewLiquidAPI(s.Config, ad, sd, s.DB, s.Auditor))
+	}
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
 	}
@@ -321,10 +341,14 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		must.SucceedT(t, s.DB.Insert(&params.Accounts[i]))
 		must.SucceedT(t, fd.RecordExistingAccount(s.Ctx, account.Reduced(), s.Clock.Now()))
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
-			must.SucceedT(t, s.DB.Insert(&models.Quotas{
+			quota := &models.Quotas{
 				AuthTenantID:  account.AuthTenantID,
 				ManifestCount: 100,
-			}))
+			}
+			if s.Config.TrackBytesQuota {
+				quota.Bytes = 5000000
+			}
+			must.SucceedT(t, s.DB.Insert(quota))
 			quotasSetFor[account.AuthTenantID] = true
 		}
 	}

@@ -23,7 +23,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().GetQuotas(authTenantID)
+	resp, err := a.processor().GetQuotas(r.Context(), authTenantID)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -44,7 +44,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().SetQuotas(authTenantID, req, authz.UserIdentity.UserInfo(), r)
+	resp, err := a.processor().SetQuotas(r.Context(), authTenantID, req, authz.UserIdentity.UserInfo(), r)
 	if iqerr, ok := errext.As[processor.ImpossibleQuotaError](err); ok {
 		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
 		return

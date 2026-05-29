@@ -14,6 +14,7 @@ import (
 	apicmd "github.com/sapcc/keppel/cmd/api"
 	healthmonitorcmd "github.com/sapcc/keppel/cmd/healthmonitor"
 	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
+	liquidapicmd "github.com/sapcc/keppel/cmd/liquidapi"
 	testcmd "github.com/sapcc/keppel/cmd/test"
 	trivyproxycmd "github.com/sapcc/keppel/cmd/trivyproxy"
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
@@ -58,6 +59,7 @@ func main() {
 	apicmd.AddCommandTo(serverCmd)
 	healthmonitorcmd.AddCommandTo(serverCmd)
 	janitorcmd.AddCommandTo(serverCmd)
+	liquidapicmd.AddCommandTo(serverCmd)
 	trivyproxycmd.AddCommandTo(serverCmd)
 	validateconfigcmd.AddCommandTo(serverCmd)
 	rootCmd.AddCommand(serverCmd)
