@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/klauspost/compress v1.18.6
-	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260514170709-dc18cea874b0
+	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260527210441-d40ddd746adc
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.23.2
