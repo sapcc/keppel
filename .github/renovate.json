@@ -4,7 +4,8 @@
     "config:recommended",
     "default:pinDigestsDisabled",
     "mergeConfidence:all-badges",
-    "docker:disable"
+    "docker:disable",
+    "github-actions:disable"
   ],
   "assignees": [
     "majewsky",
