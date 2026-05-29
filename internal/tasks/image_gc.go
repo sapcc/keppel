@@ -53,9 +53,8 @@ func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer)
 				Help: "Counter for image garbage collection runs in repos.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo models.Repository, err error) {
-			err = j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
-			return repo, err
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (models.Repository, error) {
+			return models.RepositoryStore.SelectOne(ctx, j.db, imageGCRepoSelectQuery, j.timeNow())
 		},
 		ProcessTask: j.garbageCollectManifestsInRepo,
 	}).Setup(registerer)
@@ -63,7 +62,7 @@ func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer)
 
 func (j *Janitor) garbageCollectManifestsInRepo(ctx context.Context, repo models.Repository, labels prometheus.Labels) (returnErr error) {
 	// load GC policies for this repository
-	account, err := keppel.FindAccount(j.db, repo.AccountName)
+	account, err := keppel.FindAccount(ctx, j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
@@ -116,8 +115,7 @@ type manifestData struct {
 
 func (j *Janitor) executeGCPolicies(ctx context.Context, account models.ReducedAccount, repo models.Repository, gcPolicies []keppel.GCPolicy, tagPolicies []keppel.TagPolicy) error {
 	// load manifests in repo
-	var dbManifests []models.Manifest
-	_, err := j.db.Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
+	dbManifests, err := models.ManifestStore.SelectWhere(ctx, j.db, `repo_id = $1`, repo.ID)
 	if err != nil {
 		return err
 	}

@@ -17,13 +17,15 @@ import (
 
 func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
+	ctx := r.Context()
+
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
 	if authz == nil {
 		return
 	}
 
-	resp, err := a.processor().GetQuotas(authTenantID)
+	resp, err := a.processor().GetQuotas(ctx, authTenantID)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -32,6 +34,8 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
+	ctx := r.Context()
+
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
 	if authz == nil {
@@ -44,7 +48,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().SetQuotas(authTenantID, req, authz.UserIdentity.UserInfo(), r)
+	resp, err := a.processor().SetQuotas(ctx, authTenantID, req, authz.UserIdentity.UserInfo(), r)
 	if iqerr, ok := errext.As[processor.ImpossibleQuotaError](err); ok {
 		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
 		return

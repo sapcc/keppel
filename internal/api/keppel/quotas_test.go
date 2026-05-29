@@ -159,13 +159,13 @@ func TestQuotasAPI(t *testing.T) {
 
 	// put some manifests in the DB, check that GET reflects higher usage
 	test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test1', 'tenant1')`)
-	must.SucceedT(t, s.DB.Insert(&models.Repository{
+	must.SucceedT(t, models.RepositoryStore.Insert(ctx, s.DB, &models.Repository{
 		Name:        "repo1",
 		AccountName: "test1",
 	}))
 	for idx := 1; idx <= 10; idx++ {
 		pushedAt := time.Unix(int64(10000+10*idx), 0)
-		must.SucceedT(t, s.DB.Insert(&models.Manifest{
+		must.SucceedT(t, models.ManifestStore.Insert(ctx, s.DB, &models.Manifest{
 			RepositoryID:     1,
 			Digest:           test.DeterministicDummyDigest(idx),
 			MediaType:        "",
@@ -173,7 +173,7 @@ func TestQuotasAPI(t *testing.T) {
 			PushedAt:         pushedAt,
 			NextValidationAt: pushedAt.Add(models.ManifestValidationInterval),
 		}))
-		must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
+		must.SucceedT(t, models.TrivySecurityInfoStore.Insert(ctx, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        1,
 			Digest:              test.DeterministicDummyDigest(idx),
 			VulnerabilityStatus: models.PendingVulnerabilityStatus,

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 )
 
 // Peer contains a record from the `peers` table.
@@ -29,3 +30,10 @@ type Peer struct {
 	// LastPeeredAt is when we last issued a new password for this peer.
 	LastPeeredAt Option[time.Time] `db:"last_peered_at"` // see tasks.IssueNewPasswordForPeer
 }
+
+// PeerStore provides loading and storing of [Peer] objects from the DB.
+var PeerStore = oblast.MustNewStore[Peer](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("peers"),
+	oblast.PrimaryKeyIs("hostname"),
+)

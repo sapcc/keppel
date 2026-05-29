@@ -28,7 +28,7 @@ func TestPeersAPI(t *testing.T) {
 		{"hostname": "keppel.example.org"},
 	}
 	for _, peer := range expectedPeers {
-		must.SucceedT(t, s.DB.Insert(&models.Peer{HostName: peer["hostname"].(string)}))
+		must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB, &models.Peer{HostName: peer["hostname"].(string)}))
 	}
 
 	// check non-empty response

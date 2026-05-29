@@ -40,6 +40,8 @@ func renderPeers(peers []models.Peer) []Peer {
 
 func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/peers")
+	ctx := r.Context()
+
 	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return
@@ -49,8 +51,7 @@ func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var peers []models.Peer
-	_, err := a.db.Select(&peers, `SELECT * FROM peers ORDER BY hostname`)
+	peers, err := models.PeerStore.Select(ctx, a.db, `SELECT * FROM peers ORDER BY hostname`)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

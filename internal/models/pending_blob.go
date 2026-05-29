@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	"go.xyrillian.de/oblast"
 )
 
 // PendingBlob contains a record from the `pending_blobs` table.
@@ -16,6 +17,13 @@ type PendingBlob struct {
 	Reason       PendingReason `db:"reason"`
 	PendingSince time.Time     `db:"since"`
 }
+
+// PendingBlobStore provides loading and storing of [PendingBlob] objects from the DB.
+var PendingBlobStore = oblast.MustNewStore[PendingBlob](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("pending_blobs"),
+	oblast.PrimaryKeyIs("account_name", "digest"),
+)
 
 // PendingReason is an enum that explains why a blob is pending.
 type PendingReason string

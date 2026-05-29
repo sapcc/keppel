@@ -20,6 +20,7 @@ import (
 
 func TestCatalogEndpoint(t *testing.T) {
 	s := test.NewSetup(t, test.WithAnycast(true))
+	ctx := t.Context()
 
 	// set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
@@ -27,7 +28,7 @@ func TestCatalogEndpoint(t *testing.T) {
 		test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ($1, $2)`, accountName, authTenantID)
 
 		for _, repoName := range []string{"foo", "bar", "qux"} {
-			must.SucceedT(t, s.DB.Insert(&models.Repository{
+			must.SucceedT(t, models.RepositoryStore.Insert(ctx, s.DB, &models.Repository{
 				Name:        repoName,
 				AccountName: accountName,
 			}))

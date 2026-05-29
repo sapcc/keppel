@@ -18,10 +18,12 @@ import (
 )
 
 // ExpectBlobsExistInStorage is a test assertion.
-func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...models.Blob) {
+func (s Setup) ExpectBlobsExistInStorage(t testing.TB, blobs ...models.Blob) {
 	t.Helper()
+	ctx := t.Context()
+
 	for _, blob := range blobs {
-		account := must.ReturnT(keppel.FindReducedAccount(s.DB, blob.AccountName))(t)
+		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, blob.AccountName))(t)
 		readCloser, sizeBytes, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
 		if err != nil {
 			t.Errorf("expected blob %s to exist in the storage, but got: %s", blob.Digest, err.Error())
@@ -58,10 +60,12 @@ func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...models.Blob) {
 }
 
 // ExpectBlobsMissingInStorage is a test assertion.
-func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...models.Blob) {
+func (s Setup) ExpectBlobsMissingInStorage(t testing.TB, blobs ...models.Blob) {
 	t.Helper()
+	ctx := t.Context()
+
 	for _, blob := range blobs {
-		account := must.ReturnT(keppel.FindReducedAccount(s.DB, blob.AccountName))(t)
+		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, blob.AccountName))(t)
 		_, _, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
 		if err == nil {
 			t.Errorf("expected blob %s to be missing in the storage, but could read it", blob.Digest)
@@ -71,11 +75,13 @@ func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...models.Blob) {
 }
 
 // ExpectManifestsExistInStorage is a test assertion.
-func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, manifests ...models.Manifest) {
+func (s Setup) ExpectManifestsExistInStorage(t testing.TB, repoName string, manifests ...models.Manifest) {
 	t.Helper()
+	ctx := t.Context()
+
 	for _, manifest := range manifests {
-		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
-		account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+		repo := must.ReturnT(keppel.FindRepositoryByID(ctx, s.DB, manifest.RepositoryID))(t)
+		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t)
 		manifestBytes, err := s.SD.ReadManifest(s.Ctx, account, repoName, manifest.Digest)
 		if err != nil {
 			t.Errorf("expected manifest %s to exist in the storage, but got: %s", manifest.Digest, err.Error())
@@ -95,11 +101,13 @@ func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, mani
 }
 
 // ExpectManifestsMissingInStorage is a test assertion.
-func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models.Manifest) {
+func (s Setup) ExpectManifestsMissingInStorage(t testing.TB, manifests ...models.Manifest) {
 	t.Helper()
+	ctx := t.Context()
+
 	for _, manifest := range manifests {
-		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
-		account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+		repo := must.ReturnT(keppel.FindRepositoryByID(ctx, s.DB, manifest.RepositoryID))(t)
+		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t)
 		_, err := s.SD.ReadManifest(s.Ctx, account, "foo", manifest.Digest)
 		if err == nil {
 			t.Errorf("expected manifest %s to be missing in the storage, but could read it", manifest.Digest)
@@ -109,10 +117,12 @@ func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models
 }
 
 // ExpectTrivyReportExistsInStorage is a test assertion.
-func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Manifest, format string, expectedContents []byte) {
+func (s Setup) ExpectTrivyReportExistsInStorage(t testing.TB, manifest models.Manifest, format string, expectedContents []byte) {
 	t.Helper()
-	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
-	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+	ctx := t.Context()
+
+	repo := must.ReturnT(keppel.FindRepositoryByID(ctx, s.DB, manifest.RepositoryID))(t)
+	account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t)
 	reader, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
 	if err != nil {
 		t.Errorf("expected Trivy report %s/%s to exist in the storage, but got: %s", manifest.Digest, format, err.Error())
@@ -136,10 +146,12 @@ func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Ma
 }
 
 // ExpectTrivyReportMissingInStorage is a test assertion.
-func (s Setup) ExpectTrivyReportMissingInStorage(t *testing.T, manifest models.Manifest, format string) {
+func (s Setup) ExpectTrivyReportMissingInStorage(t testing.TB, manifest models.Manifest, format string) {
 	t.Helper()
-	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
-	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+	ctx := t.Context()
+
+	repo := must.ReturnT(keppel.FindRepositoryByID(ctx, s.DB, manifest.RepositoryID))(t)
+	account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t)
 	reader, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
 	if err == nil {
 		_ = reader.Close()

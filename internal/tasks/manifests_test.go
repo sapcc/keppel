@@ -20,6 +20,7 @@ import (
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -31,7 +32,7 @@ import (
 
 // Base behavior for various unit tests that start with the same image list, destroy
 // it in various ways, and check that ManifestValidationJob correctly fixes it.
-func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
+func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*oblast.DB, []int64, []string)) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 	validateManifestJob := j.ManifestValidationJob(s.Registry)
@@ -75,7 +76,7 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), sql.ErrNoRows)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/manifest-validate-001-before-disturbance.sql")
 
 	// disturb the DB state, then rerun ManifestValidationJob to fix it
 	s.Clock.StepBy(36 * time.Hour)
@@ -84,32 +85,32 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), sql.ErrNoRows)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-002-after-fix.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/manifest-validate-002-after-fix.sql")
 }
 
 func TestManifestValidationJobFixesWrongSize(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *oblast.DB, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestBlobRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *oblast.DB, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestManifestRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *oblast.DB, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `DELETE FROM manifest_manifest_refs`)
 	})
 }
 
 func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *oblast.DB, allBlobIDs []int64, allManifestDigests []string) {
 		for _, id := range allBlobIDs {
 			for _, d := range allManifestDigests {
 				test.MustExec(t, db, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d, id)
@@ -119,7 +120,7 @@ func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
 }
 
 func TestManifestValidationJobFixesSuperfluousManifestManifestRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *oblast.DB, allBlobIDs []int64, allManifestDigests []string) {
 		_ = allBlobIDs
 		for _, d1 := range allManifestDigests {
 			for _, d2 := range allManifestDigests {
@@ -131,13 +132,15 @@ func TestManifestValidationJobFixesSuperfluousManifestManifestRefs(t *testing.T)
 
 func TestManifestValidationJobError(t *testing.T) {
 	j, s := setup(t)
+	ctx := t.Context()
+
 	validateManifestJob := j.ManifestValidationJob(s.Registry)
 
 	// setup a manifest that is missing a referenced blob (we need to do this
 	// manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	must.SucceedT(t, s.DB.Insert(&models.Manifest{
+	must.SucceedT(t, models.ManifestStore.Insert(ctx, s.DB, &models.Manifest{
 		RepositoryID:     1,
 		Digest:           image.Manifest.Digest,
 		MediaType:        image.Manifest.MediaType,
@@ -145,12 +148,12 @@ func TestManifestValidationJobError(t *testing.T) {
 		PushedAt:         s.Clock.Now(),
 		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
 	}))
-	must.SucceedT(t, s.DB.Insert(&models.ManifestContent{
+	must.SucceedT(t, models.ManifestContentStore.Insert(ctx, s.DB, &models.ManifestContent{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
 	}))
-	must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
+	must.SucceedT(t, models.TrivySecurityInfoStore.Insert(ctx, s.DB, &models.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         Some(time.Unix(0, 0)),
@@ -167,7 +170,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), expectedError)
 
 	// check that validation error to be recorded in the DB
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-error-001.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/manifest-validate-error-001.sql")
 
 	// expect next ManifestValidationJob run to skip over this manifest since it
 	// was recently validated
@@ -179,7 +182,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	// next validation should be happy (and also create the missing refs)
 	s.Clock.StepBy(36 * time.Hour)
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-error-002.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/manifest-validate-error-002.sql")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -218,7 +221,7 @@ func TestManifestSyncJob(t *testing.T) {
 			}
 
 			// some of the replicated images are also tagged
-			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
+			for _, db := range []*oblast.DB{s1.DB, s2.DB} {
 				for _, tagName := range []string{"latest", "other"} {
 					test.MustExec(t, db,
 						`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
@@ -260,9 +263,9 @@ func TestManifestSyncJob(t *testing.T) {
 			test.MustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
 			test.MustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
 
-			tr, tr0 := easypg.NewTracker(t, s2.DB.Db)
+			tr, tr0 := easypg.NewTracker(t, s2.DB.DB)
 			tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
-			trForPrimary, _ := easypg.NewTracker(t, s1.DB.Db)
+			trForPrimary, _ := easypg.NewTracker(t, s1.DB.DB)
 
 			// ManifestSyncJob on the primary registry should have nothing to do
 			// since there are no replica accounts
@@ -494,7 +497,7 @@ func TestManifestSyncJob(t *testing.T) {
 			// in the primary DB (even though there were GET requests for the manifests
 			// there)
 			var lastPulledAt time.Time
-			must.SucceedT(t, s1.DB.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
+			must.SucceedT(t, s1.DB.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
 			if !lastPulledAt.Equal(initialLastPulledAt) {
 				t.Error("last_pulled_at timestamps on the primary side were touched")
 				t.Logf("  expected = %#v", initialLastPulledAt)
@@ -580,7 +583,7 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		// adjust too big values down to make testing easier
 		blobUncompressedSizeTooBigGiB = 0.001
 
-		tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+		tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 		tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
 
 		// before the security check, there are no reports stored in storage
@@ -660,7 +663,7 @@ func TestCheckTrivySecurityStatusWithError(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
-		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
@@ -698,7 +701,7 @@ func TestCheckTrivySecurityStatusWithError(t *testing.T) {
 func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
-		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		// upload an example image
@@ -829,7 +832,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
-		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		// upload an example image
@@ -854,7 +857,7 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 
 func TestManifestValidationJobWithoutPlatform(t *testing.T) {
 	j, s := setup(t)
-	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.DB)
 	validateManifestJob := j.ManifestValidationJob(s.Registry)
 
 	image := test.GenerateImage(test.GenerateExampleLayer(1))
@@ -917,7 +920,7 @@ func TestVulnerabilityStatusChanged(t *testing.T) {
 		imageList := test.GenerateImageList(images[0], images[1])
 		imageListManifest := imageList.MustUpload(t, s, fooRepoRef, "")
 
-		tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+		tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 		tr0.AssertEqualToFile("fixtures/vulnerability-changed-at-setup.sql")
 
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
@@ -961,7 +964,7 @@ func TestVulnerabilityStatusChanged(t *testing.T) {
 func TestCheckTrivySecurityStatusWithAccountBeingDeleted(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
-		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		// upload an example image and change account to being deleted
@@ -988,7 +991,7 @@ func TestCheckTrivySecurityStatusWithAccountBeingDeleted(t *testing.T) {
 func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
-		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 		sweepStorageJob := j.StorageSweepJob(s.Registry)
 
@@ -1036,7 +1039,7 @@ func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 func TestCheckTrivySecurityStatusWithUnsupportedMediaTypes(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
-		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		trivyMediaType := "application/vnd.aquasec.trivy.config.v1+json"

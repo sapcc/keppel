@@ -13,11 +13,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-gorp/gorp/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"go.podman.io/image/v5/manifest"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -83,9 +83,9 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 // blob shall be replicated when it is first pulled.
 func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, layerInfo manifest.LayerInfo, accountName models.AccountName) (models.Blob, error) {
 	var blob models.Blob
-	err := p.insideTransaction(ctx, func(ctx context.Context, tx *gorp.Transaction) error {
+	err := p.insideTransaction(ctx, func(ctx context.Context, tx *oblast.Tx) error {
 		var err error
-		blob, err = keppel.FindBlobByAccountName(tx, layerInfo.Digest, accountName)
+		blob, err = keppel.FindBlobByAccountName(ctx, tx, layerInfo.Digest, accountName)
 		if !errors.Is(err, sql.ErrNoRows) { // either success or unexpected error
 			return err
 		}
@@ -99,7 +99,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, layerInfo 
 			PushedAt:         time.Unix(0, 0),
 			NextValidationAt: time.Unix(0, 0),
 		}
-		return tx.Insert(&blob)
+		return models.BlobStore.Insert(ctx, tx, &blob)
 	})
 	return blob, err
 }
@@ -125,10 +125,10 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 		Reason:       models.PendingBecauseOfReplication,
 		PendingSince: p.timeNow(),
 	}
-	err := p.db.Insert(&pendingBlob)
+	err := models.PendingBlobStore.Insert(ctx, p.db, &pendingBlob)
 	if err != nil {
 		// did we get a duplicate-key error because this blob is already being replicated?
-		count, err := p.db.SelectInt(
+		count, err := keppel.SelectOneValue[int](p.db,
 			`SELECT COUNT(*) FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
 			account.Name, blob.Digest,
 		)
@@ -152,7 +152,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 	}()
 
 	// query upstream for the blob
-	client, err := p.getRepoClientForUpstream(account, repo)
+	client, err := p.getRepoClientForUpstream(ctx, account, repo)
 	if err != nil {
 		return false, err
 	}
@@ -232,8 +232,7 @@ func (p *Processor) uploadBlobToLocal(ctx context.Context, blob models.Blob, acc
 	blob.StorageID = upload.StorageID
 	blob.PushedAt = p.timeNow()
 	blob.NextValidationAt = blob.PushedAt.Add(models.BlobValidationInterval)
-	_, err = p.db.Update(&blob)
-	return err
+	return models.BlobStore.Update(ctx, p.db, blob)
 }
 
 // AppendToBlob appends bytes to a blob upload, and updates the upload's

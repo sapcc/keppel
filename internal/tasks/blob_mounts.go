@@ -70,9 +70,8 @@ func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Jo
 				Help: "Counter for garbage collections on blob mounts in a repo.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo models.Repository, err error) {
-			err = j.db.SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
-			return repo, err
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (models.Repository, error) {
+			return models.RepositoryStore.SelectOne(ctx, j.db, blobMountSweepSearchQuery, j.timeNow())
 		},
 		ProcessTask: j.sweepBlobMountsInRepo,
 	}).Setup(registerer)

@@ -56,6 +56,8 @@ func (a *API) handleLiquidReportCapacity(w http.ResponseWriter, r *http.Request)
 
 func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/projects/:auth_tenant_id/report-usage")
+	ctx := r.Context()
+
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
 	if authz == nil {
@@ -69,7 +71,7 @@ func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().GetQuotas(authTenantID)
+	resp, err := a.processor().GetQuotas(ctx, authTenantID)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -78,6 +80,8 @@ func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/projects/:auth_tenant_id/quota")
+	ctx := r.Context()
+
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
 	if authz == nil {
@@ -90,7 +94,7 @@ func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.processor().SetQuotas(authTenantID, liquidConvertQuotaRequest(req), authz.UserIdentity.UserInfo(), r)
+	_, err = a.processor().SetQuotas(ctx, authTenantID, liquidConvertQuotaRequest(req), authz.UserIdentity.UserInfo(), r)
 	if iqerr, ok := errext.As[processor.ImpossibleQuotaError](err); ok {
 		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
 		return
