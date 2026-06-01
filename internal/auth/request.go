@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"cmp"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -152,6 +154,9 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 	default:
 		return nil, nil, errMalformedAuthHeader
 	}
+
+	// report authenticated user in logs (but using "<anonymous user>" instead of AnonUserIdentity.UserName() == "")
+	httpapi.IdentifyUser(r, cmp.Or(authz.UserIdentity.UserName(), "<anonymous user>"))
 
 	// check if requested scope is covered by Authorization
 	if !ir.PartialAccessAllowed {

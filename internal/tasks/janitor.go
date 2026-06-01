@@ -112,7 +112,7 @@ func (uid janitorUserIdentity) UserType() keppel.UserType {
 
 // UserName implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) UserName() string {
-	return ""
+	return "janitor:" + uid.TaskName
 }
 
 // UserInfo implements the keppel.UserIdentity interface.
