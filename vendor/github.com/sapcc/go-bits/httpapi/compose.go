@@ -53,6 +53,7 @@ const oobFunctionKey oobKey = "gobits-httpapi-oob"
 type oobMessage struct {
 	SkipLog    bool
 	EndpointID string
+	UserID     string
 }
 
 // SkipRequestLog indicates that this request shall not have a
@@ -67,9 +68,8 @@ func SkipRequestLog(r *http.Request) {
 	})
 }
 
-// IdentifyEndpoint must be called by each endpoint handler in an API that is
-// provided to Compose(). It identifies the endpoint for the purpose of HTTP
-// request/response metrics.
+// IdentifyEndpoint must be called by each endpoint handler in an API that is provided to [Compose].
+// It identifies the endpoint for the purpose of HTTP request/response metrics.
 func IdentifyEndpoint(r *http.Request, endpoint string) {
 	fn, ok := r.Context().Value(oobFunctionKey).(func(oobMessage))
 	if !ok {
@@ -77,5 +77,18 @@ func IdentifyEndpoint(r *http.Request, endpoint string) {
 	}
 	fn(oobMessage{
 		EndpointID: endpoint,
+	})
+}
+
+// IdentifyUser may be called inside an endpoint handler in an API that is provided by [Compose].
+// It identifies the requesting user within the "REQUEST" log line; the value is considered opaque and logged verbatim.
+// If this is never called for a certain request, then "-" will be printed in the log line at the respective location.
+func IdentifyUser(r *http.Request, user string) {
+	fn, ok := r.Context().Value(oobFunctionKey).(func(oobMessage))
+	if !ok {
+		panic("httpapi.IdentifyUser called from request handler outside of httpapi.Compose()!")
+	}
+	fn(oobMessage{
+		UserID: user,
 	})
 }

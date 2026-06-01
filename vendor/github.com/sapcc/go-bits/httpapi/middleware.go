@@ -41,6 +41,7 @@ type middleware struct {
 func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	skipLog := false
 	endpointID := "unknown"
+	userID := "-"
 
 	// provide a back-channel for our custom out-of-band messages to the request handler
 	// (this is used by SkipRequestLog etc.)
@@ -50,6 +51,9 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if msg.EndpointID != "" {
 			endpointID = msg.EndpointID
+		}
+		if msg.UserID != "" {
+			userID = msg.UserID
 		}
 	})
 	r = r.WithContext(ctx)
@@ -79,8 +83,8 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !m.skipAllLogs {
 		if !skipLog || writer.statusCode >= 500 {
 			logg.Other(
-				"REQUEST", `%s - - "%s %s %s" %03d %d "%s" "%s" %.3fs`,
-				httpext.GetRequesterIPFor(r),
+				"REQUEST", `%s - %s "%s %s %s" %03d %d "%s" "%s" %.3fs`,
+				httpext.GetRequesterIPFor(r), userID,
 				r.Method, r.URL.String(), r.Proto,
 				writer.statusCode, writer.bytesWritten,
 				stringOrDefault("-", r.Header.Get("Referer")),
