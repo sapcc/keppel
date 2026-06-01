@@ -5,6 +5,7 @@ package registryv2_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/respondwith"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -476,5 +478,44 @@ func TestReplicationFailingFromGHCRio(t *testing.T) {
 			// even though we return 401, no Www-Authenticate header shall be rendered because would be futile for the user performing this request to authenticate
 			ExpectHeader(t, "Www-Authenticate", "").
 			ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
+	})
+}
+
+func TestReplicationSuccessfulFromNVCRio(t *testing.T) {
+	testWithPrimary(t, []test.SetupOption{test.WithPeerAPI}, func(s1 test.Setup) {
+		ctx := t.Context()
+
+		// setup a mock responder that acts like nvcr.io in the relevant ways
+		http.DefaultTransport.(*test.RoundTripper).Handlers["nvcr.io"] = http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/v2/foo/manifests/latest":
+					if r.Header.Get("Authorization") == "Bearer foobar" {
+						// for this test, we only care that the authentication workflow succeeds;
+						// after that, we will still report a 404 because that is the easiest to do
+						keppel.ErrManifestUnknown.WithError(errors.New("manifest unknown")).WriteAsRegistryV2ResponseTo(w, r)
+					} else {
+						// nvcr.io's Www-Authenticate does not include a service parameter
+						// (this is the important part of this test, because Keppel used to choke on that)
+						w.Header().Add("Www-Authenticate", `Bearer realm="http://nvcr.io/proxy_auth",scope="repository:foo:pull"`)
+						// also its 401 responses do not contain RegistryV2Error payloads
+						w.Header().Set("Content-Type", "text/html")
+						w.WriteHeader(http.StatusUnauthorized)
+						fmt.Fprint(w, `<html><head><title>401 Authorization Required</title></head><body><center><h1>401 Authorization Required</h1></center><hr><center>nginx/1.22.1</center></body></html>`)
+					}
+				case "/proxy_auth":
+					respondwith.JSON(w, http.StatusOK, map[string]any{"token": "foobar", "expires_in": 500})
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		)
+
+		test.MustExec(t, s1.DB, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
+			"test1", "nvcr.io")
+
+		s1.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(s1.GetTokenHeaders(t, "repository:test1/foo:pull")),
+		).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
 	})
 }
