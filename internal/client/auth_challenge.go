@@ -68,9 +68,6 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 	if c.Realm == "" {
 		return AuthChallenge{}, fmt.Errorf("missing realm in Www-Authenticate: Bearer %s", input)
 	}
-	if c.Service == "" {
-		return AuthChallenge{}, fmt.Errorf("missing service in Www-Authenticate: Bearer %s", input)
-	}
 	if c.Scope == "" {
 		return AuthChallenge{}, fmt.Errorf("missing scope in Www-Authenticate: Bearer %s", input)
 	}
@@ -87,7 +84,9 @@ func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) 
 		req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(userName, password))
 	}
 	q := make(url.Values)
-	q.Set("service", c.Service)
+	if c.Service != "" {
+		q.Set("service", c.Service)
+	}
 	q.Set("scope", c.Scope)
 	req.URL.RawQuery = q.Encode()
 
