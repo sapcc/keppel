@@ -120,6 +120,11 @@ func keyIntoPointerFragment(key string) string {
 	return s
 }
 
+const (
+	kindValueMismatch = "value mismatch"
+	kindTypeMismatch  = "type mismatch"
+)
+
 // NOTE: getDiffsForValue is the main part of the recursion to generate the diff.
 func getDiffsForValue(path []pathElement, expected, actual any) []Diff {
 	// specialized handling for relevant recursible or capturable types
@@ -155,7 +160,7 @@ func getDiffsForValue(path []pathElement, expected, actual any) []Diff {
 			return nil
 		} else {
 			return []Diff{{
-				Kind:         "type mismatch",
+				Kind:         kindTypeMismatch,
 				Pointer:      pathIntoPointer(path),
 				ExpectedJSON: "null",
 				ActualJSON:   marshalActualForDiff(actual),
@@ -205,7 +210,7 @@ func getDiffsForObject(path []pathElement, expected map[string]any, actual any) 
 		return getDiffsForConfirmedObject(path, expected, actual)
 	}
 	return []Diff{{
-		Kind:         "type mismatch",
+		Kind:         kindTypeMismatch,
 		Pointer:      pathIntoPointer(path),
 		ExpectedJSON: marshalExpectedForDiff(expected),
 		ActualJSON:   marshalActualForDiff(actual),
@@ -221,7 +226,7 @@ func getDiffsForConfirmedObject(path []pathElement, expected, actual map[string]
 			diffs = append(diffs, getDiffsForValue(subpath, expectedValue, actual[key])...)
 		} else {
 			diffs = append(diffs, Diff{
-				Kind:         "value mismatch",
+				Kind:         kindValueMismatch,
 				Pointer:      pathIntoPointer(subpath),
 				ExpectedJSON: "<missing>",
 				ActualJSON:   marshalActualForDiff(actual[key]),
@@ -233,7 +238,7 @@ func getDiffsForConfirmedObject(path []pathElement, expected, actual map[string]
 		if !exists {
 			subpath := append(path, keyElement(key))
 			diffs = append(diffs, Diff{
-				Kind:         "value mismatch",
+				Kind:         kindValueMismatch,
 				Pointer:      pathIntoPointer(subpath),
 				ExpectedJSON: marshalExpectedForDiff(expected[key]),
 				ActualJSON:   "<missing>",
@@ -249,7 +254,7 @@ func getDiffsForArray(path []pathElement, expected []any, actual any) []Diff {
 		return getDiffsForConfirmedArray(path, expected, actual)
 	}
 	return []Diff{{
-		Kind:         "type mismatch",
+		Kind:         kindTypeMismatch,
 		Pointer:      pathIntoPointer(path),
 		ExpectedJSON: marshalExpectedForDiff(expected),
 		ActualJSON:   marshalActualForDiff(actual),
@@ -263,14 +268,14 @@ func getDiffsForConfirmedArray(path []pathElement, expected, actual []any) (diff
 		switch {
 		case idx >= len(actual):
 			diffs = append(diffs, Diff{
-				Kind:         "value mismatch",
+				Kind:         kindValueMismatch,
 				Pointer:      pathIntoPointer(subpath),
 				ActualJSON:   "<missing>",
 				ExpectedJSON: marshalExpectedForDiff(expected[idx]),
 			})
 		case idx >= len(expected):
 			diffs = append(diffs, Diff{
-				Kind:         "value mismatch",
+				Kind:         kindValueMismatch,
 				Pointer:      pathIntoPointer(subpath),
 				ActualJSON:   marshalActualForDiff(actual[idx]),
 				ExpectedJSON: "<missing>",

@@ -161,7 +161,7 @@ github.com/prometheus/client_golang/prometheus/promhttp/internal
 # github.com/prometheus/client_model v0.6.2
 ## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.68.0
+# github.com/prometheus/common v0.68.1
 ## explicit; go 1.25.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -202,7 +202,7 @@ github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20260601123916-73f1197496ff
+# github.com/sapcc/go-bits v0.0.0-20260604095421-6bd206943957
 ## explicit; go 1.26
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -264,7 +264,7 @@ go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
-# go.xyrillian.de/gg v1.7.0
+# go.xyrillian.de/gg v1.8.1
 ## explicit; go 1.24
 go.xyrillian.de/gg/jsonmatch
 go.xyrillian.de/gg/option
