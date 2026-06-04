@@ -341,14 +341,12 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		must.SucceedT(t, s.DB.Insert(&params.Accounts[i]))
 		must.SucceedT(t, fd.RecordExistingAccount(s.Ctx, account.Reduced(), s.Clock.Now()))
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
-			quota := &models.Quotas{
-				AuthTenantID:  account.AuthTenantID,
-				ManifestCount: 100,
-			}
+			quota := s.Config.DefaultQuotas(account.AuthTenantID)
 			if s.Config.TrackBytesQuota {
 				quota.Bytes = 5000000
 			}
-			must.SucceedT(t, s.DB.Insert(quota))
+			quota.ManifestCount = 100
+			must.SucceedT(t, s.DB.Insert(&quota))
 			quotasSetFor[account.AuthTenantID] = true
 		}
 	}
