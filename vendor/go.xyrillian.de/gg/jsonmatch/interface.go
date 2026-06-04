@@ -128,6 +128,13 @@
 //		},
 //	}.DiffAgainst(resp2.Body.Bytes())
 //	// ...
+//
+// # TODO
+//
+// As a special case, [json.RawMessage] may appear on the "expected" side to match string values that contain JSON themselves.
+// For example:
+//
+//	actual := `{"name":"data.json","type":"application/json","content":"{\"foo\":2"}`
 package jsonmatch // import "go.xyrillian.de/gg/jsonmatch"
 
 import (
@@ -160,6 +167,10 @@ import (
 // However, the implementation will only recurse into substructures of the following well-known types: jsonmatch.Object, map[string]any, jsonmatch.Array, []any, []jsonmatch.Object, []map[string]any.
 // Any other map, array, slice, struct or pointer type will be treated as a black box:
 // If its JSON serialization differs from that of the respective section of the actual payload, a diff will be generated for its entirety only, not for any specific subfields.
+//
+// As an exception, if a substructure is of a foreign type that implements the Diffable interface, its DiffAgainst() method will be called by reserializing the actual payload.
+// This is usually not what you want: Most of the time, it is much easier to have helper functions generate instances of the standard Diffable types.
+// This extension interface is intended only for bizarre encodings (e.g. JSON payloads within JSON strings that jsonmatch itself would not be able to inspect).
 type Diffable interface {
 	DiffAgainst([]byte) []Diff
 }

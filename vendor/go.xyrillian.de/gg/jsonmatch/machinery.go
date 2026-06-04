@@ -26,7 +26,7 @@ func marshalExpectedForDiff(value any) string {
 
 func marshalActualForDiff(value any) string {
 	// `actual` values are always safe to marshal because they were
-	// unmarshaled from JSON into any and thus can only contain safe
+	// unmarshaled from JSON into any and thus can only contain safe types
 	buf, err := json.Marshal(value)
 	if err != nil {
 		// this line is therefore unreachable in tests and only exists as defense in depth
@@ -121,8 +121,9 @@ func keyIntoPointerFragment(key string) string {
 }
 
 const (
-	kindValueMismatch = "value mismatch"
-	kindTypeMismatch  = "type mismatch"
+	kindValueMismatch  = "value mismatch"
+	kindTypeMismatch   = "type mismatch"
+	kindDispatchFailed = "dispatch failed"
 )
 
 // NOTE: getDiffsForValue is the main part of the recursion to generate the diff.
@@ -166,6 +167,29 @@ func getDiffsForValue(path []pathElement, expected, actual any) []Diff {
 				ActualJSON:   marshalActualForDiff(actual),
 			}}
 		}
+	}
+
+	// generic handling for custom Diffables
+	// (if any unexpected error occurs here, we fall back to the default handling)
+	if diffable, ok := expected.(Diffable); ok {
+		// `actual` values are always safe to marshal because they were
+		// unmarshaled from JSON into any and thus can only contain safe types
+		buf, err := json.Marshal(actual)
+		if err != nil {
+			// this branch is therefore unreachable in tests and only exists as defense in depth
+			return []Diff{{
+				Kind:         kindDispatchFailed,
+				Pointer:      pathIntoPointer(path),
+				ExpectedJSON: fmt.Sprintf("<custom diffable: %#v>", diffable),
+				ActualJSON:   fmt.Sprintf("<marshal error: %s>", err.Error()),
+			}}
+		}
+		diffs := diffable.DiffAgainst(buf)
+		for idx, diff := range diffs {
+			diff.Pointer = pathIntoPointer(path) + diff.Pointer
+			diffs[idx] = diff
+		}
+		return diffs
 	}
 
 	// generic handling for values or structures that we do not recurse into further:
