@@ -186,14 +186,14 @@ func liquidConvertQuotaRequest(req liquid.ServiceQuotaRequest) processor.QuotaRe
 	qr := processor.QuotaRequest{}
 
 	if res, ok := req.Resources["images"]; ok {
-		qr.Manifests = Some(processor.SingleQuotaRequest{
+		qr.Manifests = Some(processor.SingleQuotaRequestUInt{
 			Quota: res.Quota,
 		})
 	}
 
 	if res, ok := req.Resources["capacity"]; ok {
-		qr.Bytes = Some(processor.SingleQuotaRequest{
-			Quota: res.Quota,
+		qr.Bytes = Some(processor.SingleQuotaRequestInt{
+			Quota: int64(res.Quota), //nolint:gosec // quota is admin controlled
 		})
 	}
 
@@ -216,7 +216,7 @@ func liquidConvertQuotaResponse(resp processor.QuotaResponse) liquid.ServiceUsag
 
 	if res, ok := resp.Bytes.Unpack(); ok {
 		su.Resources["capacity"] = &liquid.ResourceUsageReport{
-			Quota: Some(int64(res.Quota)), //nolint:gosec // quota is admin controlled
+			Quota: Some(res.Quota),
 			PerAZ: liquid.InAnyAZ(liquid.AZResourceUsageReport{
 				Usage: res.Usage,
 			}),

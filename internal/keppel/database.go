@@ -429,7 +429,7 @@ var sqlMigrations = map[string]string{
 	`,
 	"054_add_quotas_bytes.up.sql": `
 		ALTER TABLE quotas
-			ADD COLUMN bytes BIGINT NOT NULL DEFAULT 0;
+			ADD COLUMN bytes BIGINT NOT NULL DEFAULT -1;
 	`,
 	"054_add_quotas_bytes.down.sql": `
 		ALTER TABLE quotas

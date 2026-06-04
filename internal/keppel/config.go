@@ -8,7 +8,6 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net"
 	"net/url"
 	"os"
@@ -49,7 +48,7 @@ func (cfg Configuration) DefaultQuotas(authTenantID string) models.Quotas {
 	}
 
 	if !cfg.TrackBytesQuota {
-		quotas.Bytes = math.MaxInt64
+		quotas.Bytes = -1
 	}
 
 	return quotas

@@ -97,7 +97,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		if respondWithError(w, r, err) {
 			return
 		}
-		if bytesUsage >= quotas.Bytes {
+		if quotas.Bytes >= 0 && bytesUsage >= uint64(quotas.Bytes) {
 			msg := fmt.Sprintf("bytes quota exceeded (quota = %d, usage = %d)", quotas.Bytes, bytesUsage)
 			keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w, r)
 			return

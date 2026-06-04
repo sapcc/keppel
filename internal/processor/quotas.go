@@ -21,25 +21,36 @@ import (
 
 // QuotaResponse is the response body payload for GET or PUT /keppel/v1/quotas/:auth_tenant_id.
 type QuotaResponse struct {
-	Bytes     Option[SingleQuotaResponse] `json:"bytes,omitzero"`
-	Manifests SingleQuotaResponse         `json:"manifests"`
+	Bytes     Option[SingleQuotaResponseInt] `json:"bytes,omitzero"`
+	Manifests SingleQuotaResponseUInt        `json:"manifests"`
 }
 
-// SingleQuotaResponse appears in type QuotaRequest.
-type SingleQuotaResponse struct {
+// SingleQuotaResponseInt appears in type QuotaRequest.
+type SingleQuotaResponseInt struct {
+	Quota int64  `json:"quota"`
+	Usage uint64 `json:"usage"`
+}
+
+// SingleQuotaResponseUInt appears in type QuotaRequest.
+type SingleQuotaResponseUInt struct {
 	Quota uint64 `json:"quota"`
 	Usage uint64 `json:"usage"`
 }
 
 // QuotaRequest is the request body payload for PUT /keppel/v1/quotas/:auth_tenant_id.
 type QuotaRequest struct {
-	Bytes Option[SingleQuotaRequest] `json:"bytes,omitzero"`
+	Bytes Option[SingleQuotaRequestInt] `json:"bytes,omitzero"`
 	// This field is always required. Option[] is only used to distinguish a quota set to 0 from a missing quota.
-	Manifests Option[SingleQuotaRequest] `json:"manifests,omitzero"`
+	Manifests Option[SingleQuotaRequestUInt] `json:"manifests,omitzero"`
 }
 
-// SingleQuotaRequest appears in type QuotaRequest.
-type SingleQuotaRequest struct {
+// SingleQuotaRequestInt appears in type QuotaRequest.
+type SingleQuotaRequestInt struct {
+	Quota int64 `json:"quota"`
+}
+
+// SingleQuotaRequestUInt appears in type QuotaRequest.
+type SingleQuotaRequestUInt struct {
 	Quota uint64 `json:"quota"`
 }
 
@@ -68,7 +79,7 @@ func (p *Processor) GetQuotas(ctx context.Context, authTenantID string) (*QuotaR
 	}
 
 	qr := &QuotaResponse{
-		Manifests: SingleQuotaResponse{
+		Manifests: SingleQuotaResponseUInt{
 			Quota: quotas.ManifestCount,
 			Usage: manifestCount,
 		},
@@ -80,7 +91,7 @@ func (p *Processor) GetQuotas(ctx context.Context, authTenantID string) (*QuotaR
 			return nil, err
 		}
 
-		qr.Bytes = Some(SingleQuotaResponse{
+		qr.Bytes = Some(SingleQuotaResponseInt{
 			Quota: quotas.Bytes,
 			Usage: bytesCount,
 		})
@@ -140,7 +151,7 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 		if err != nil {
 			return nil, err
 		}
-		if reqBytes.Quota < bytesCount {
+		if reqBytes.Quota != -1 && reqBytes.Quota < int64(bytesCount) { //nolint:gosec // quota is admin controlled
 			msg := fmt.Sprintf("requested bytes quota (%d) is below usage (%d)", reqBytes.Quota, bytesCount)
 			return nil, ImpossibleQuotaError{Message: msg}
 		}
@@ -179,14 +190,14 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 	}
 
 	qr := &QuotaResponse{
-		Manifests: SingleQuotaResponse{
+		Manifests: SingleQuotaResponseUInt{
 			Quota: reqManifests.Quota,
 			Usage: manifestCount,
 		},
 	}
 
 	if p.cfg.TrackBytesQuota {
-		qr.Bytes = Some(SingleQuotaResponse{
+		qr.Bytes = Some(SingleQuotaResponseInt{
 			Quota: reqBytes.Quota,
 			Usage: bytesCount,
 		})

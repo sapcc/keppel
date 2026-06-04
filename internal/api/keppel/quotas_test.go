@@ -89,7 +89,7 @@ func TestQuotasAPI(t *testing.T) {
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectStatus(t, http.StatusForbidden)
 
-	// basic error cases: trying to set bytes quota but it is not enabled
+	// basic error cases: trying to set quota without the required manifests quota
 	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 		withPerms("changequota:tenant1"),
 		httptest.WithJSONBody(map[string]any{
@@ -142,12 +142,12 @@ func TestQuotasAPI(t *testing.T) {
 						{
 							Name:    "payload-before",
 							TypeURI: "mime:application/json",
-							Content: `{"bytes":9223372036854775807,"manifests":0}`,
+							Content: `{"bytes":-1,"manifests":0}`,
 						},
 						{
 							Name:    "payload",
 							TypeURI: "mime:application/json",
-							Content: `{"bytes":9223372036854775807,"manifests":50}`,
+							Content: `{"bytes":-1,"manifests":50}`,
 						},
 					},
 				},
@@ -183,12 +183,12 @@ func TestQuotasAPI(t *testing.T) {
 						{
 							Name:    "payload-before",
 							TypeURI: "mime:application/json",
-							Content: `{"bytes":9223372036854775807,"manifests":50}`,
+							Content: `{"bytes":-1,"manifests":50}`,
 						},
 						{
 							Name:    "payload",
 							TypeURI: "mime:application/json",
-							Content: `{"bytes":9223372036854775807,"manifests":100}`,
+							Content: `{"bytes":-1,"manifests":100}`,
 						},
 					},
 				},

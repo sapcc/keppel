@@ -8,6 +8,6 @@ package models
 // The JSON serialization is used in audit events for quota changes.
 type Quotas struct {
 	AuthTenantID  string `db:"auth_tenant_id" json:"-"`
-	Bytes         uint64 `db:"bytes" json:"bytes,omitempty"`
+	Bytes         int64  `db:"bytes" json:"bytes,omitempty"`
 	ManifestCount uint64 `db:"manifests" json:"manifests"`
 }
