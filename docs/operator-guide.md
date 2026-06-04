@@ -183,18 +183,18 @@ The components referenced in the table below are:
 | `KEPPEL_ANYCAST_PREVIOUS_ISSUER_KEY` | *(optional)* | api | The previous `KEPPEL_ANYCAST_ISSUER_KEY`. If given, anycast tokens signed with this key will still be accepted, enabling key rotation without disrupting pre-existing tokens. |
 | `KEPPEL_API_ANYCAST_FQDN` | *(optional)* | api | Full domain name where users reach any keppel-api in this peer group, usually via anycast. Requests for accounts not held locally are reverse-proxied to the correct peer. Limited to anonymous authorization; cannot be used for pushing. |
 | `KEPPEL_API_LISTEN_ADDRESS` | `:8080` | api | Listen address for the HTTP server. |
-| `KEPPEL_API_PUBLIC_FQDN` | *(required)* | api, janitor | Full domain name where users reach keppel-api. |
-| `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | api, janitor | Hostname of the RabbitMQ server. |
-| `KEPPEL_AUDIT_RABBITMQ_PASSWORD` | `guest` | api, janitor | Password for the RabbitMQ user. |
-| `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` | api, janitor | Port number for the RabbitMQ connection. |
-| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required to enable audit trail)* | api, janitor | Name of the queue that will hold audit events, published to the default exchange. If not set, audit events are only written to the debug log. |
-| `KEPPEL_AUDIT_RABBITMQ_USERNAME` | `guest` | api, janitor | RabbitMQ username. |
-| `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | api, janitor | Additional database connection options. |
-| `KEPPEL_DB_HOSTNAME` | `localhost` | api, janitor | Hostname of the PostgreSQL server. |
-| `KEPPEL_DB_NAME` | `keppel` | api, janitor | Name of the database. |
-| `KEPPEL_DB_PASSWORD` | *(optional)* | api, janitor | Password for the database user. |
-| `KEPPEL_DB_PORT` | `5432` | api, janitor | Port on which the PostgreSQL service is running. |
-| `KEPPEL_DB_USERNAME` | `postgres` | api, janitor | Username for the database connection. |
+| `KEPPEL_API_PUBLIC_FQDN` | *(required)* | api, janitor, liquidapi | Full domain name where users reach keppel-api. |
+| `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | api, janitor, liquidapi | Hostname of the RabbitMQ server. |
+| `KEPPEL_AUDIT_RABBITMQ_PASSWORD` | `guest` | api, janitor, liquidapi | Password for the RabbitMQ user. |
+| `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` | api, janitor, liquidapi | Port number for the RabbitMQ connection. |
+| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required to enable audit trail)* | api, janitor, liquidapi | Name of the queue that will hold audit events, published to the default exchange. If not set, audit events are only written to the debug log. |
+| `KEPPEL_AUDIT_RABBITMQ_USERNAME` | `guest` | api, janitor, liquidapi | RabbitMQ username. |
+| `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | api, janitor, liquidapi | Additional database connection options. |
+| `KEPPEL_DB_HOSTNAME` | `localhost` | api, janitor, liquidapi | Hostname of the PostgreSQL server. |
+| `KEPPEL_DB_NAME` | `keppel` | api, janitor, liquidapi | Name of the database. |
+| `KEPPEL_DB_PASSWORD` | *(optional)* | api, janitor, liquidapi | Password for the database user. |
+| `KEPPEL_DB_PORT` | `5432` | api, janitor, liquidapi | Port on which the PostgreSQL service is running. |
+| `KEPPEL_DB_USERNAME` | `postgres` | api, janitor, liquidapi | Username for the database connection. |
 | `KEPPEL_DEBUG` | *(optional)* | *all* | Enable debug logging. |
 | `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | janitor | Configuration for an account management driver. Use `{"type":"trivial"}` if you don't need managed accounts. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | api, janitor, liquidapi | Configuration for an auth driver. |
@@ -204,11 +204,11 @@ The components referenced in the table below are:
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | api, janitor, liquidapi | Configuration for a storage driver. |
 | `KEPPEL_ENABLE_HEADER_REFLECTOR` | *(optional)* | api | If `true`, enables the `/debug/reflect-headers` endpoint that echoes incoming request headers. Useful for debugging; should be disabled in production. |
 | `KEPPEL_GUI_URI` | *(optional)* | api | If set, GET requests from web browsers to repository-like URLs are redirected here. May contain `%ACCOUNT_NAME%`, `%REPO_NAME%` and `%AUTH_TENANT_ID%` placeholders. Redirect only occurs if the repository allows anonymous pulling. |
-| `KEPPEL_ISSUER_KEY` | *(required)* | api, janitor | Private key (PEM format or path to PEM file) used to sign auth tokens for Docker clients. Only ed25519 keys are supported. Generate with `openssl genpkey -algorithm ed25519 -out privkey.pem`. |
+| `KEPPEL_ISSUER_KEY` | *(required)* | api, janitor, liquidapi | Private key (PEM format or path to PEM file) used to sign auth tokens for Docker clients. Only ed25519 keys are supported. Generate with `openssl genpkey -algorithm ed25519 -out privkey.pem`. |
 | `KEPPEL_JANITOR_LISTEN_ADDRESS` | `:8080` | janitor | Listen address for the HTTP server (exposes Prometheus metrics only). |
 | `KEPPEL_LIQUIDAPI_LISTEN_ADDRESS` | `:8080` | liquidapi | Listen address for the HTTP server. |
 | `KEPPEL_PEERS` | *(optional)* | api | JSON array describing peer keppel-api instances available for replication and pull delegation. See format below. |
-| `KEPPEL_PREVIOUS_ISSUER_KEY` | *(optional)* | api, janitor | The previous `KEPPEL_ISSUER_KEY`. If given, tokens signed with this key are still accepted, enabling key rotation without disrupting pre-existing tokens. |
+| `KEPPEL_PREVIOUS_ISSUER_KEY` | *(optional)* | api, janitor, liquidapi | The previous `KEPPEL_ISSUER_KEY`. If given, tokens signed with this key are still accepted, enabling key rotation without disrupting pre-existing tokens. |
 | `KEPPEL_REDIS_DB_NUM` | `0` | api | Redis database number. |
 | `KEPPEL_REDIS_ENABLE` | *(required if `KEPPEL_DRIVER_RATELIMIT` is set)* | api | Enable Redis as ephemeral storage for compatible auth and rate limit drivers. |
 | `KEPPEL_REDIS_HOSTNAME` | `localhost` | api | Hostname of the Redis server. |
