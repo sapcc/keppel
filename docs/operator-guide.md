@@ -175,7 +175,7 @@ The components referenced in the table below are:
 - **janitor** = `keppel server janitor`
 - **liquidapi** = `keppel server liquidapi`
 - **healthmonitor** = `keppel server healthmonitor`
-- **trivy** = `keppel server trivy` (also influences api and janitor)
+- **trivy** = `keppel server trivy-proxy` (also influences api and janitor)
 
 | Name | Default | Relevant for components | Description |
 | ---- | ------- | ----------------------- | ----------- |
