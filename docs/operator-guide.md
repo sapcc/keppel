@@ -12,10 +12,8 @@ In this document:
   - [Validation and garbage collection](#validation-and-garbage-collection)
 - [Building and running Keppel](#building-and-running-keppel)
   - [Drivers](#drivers)
-  - [Common configuration options](#common-configuration-options)
-  - [API server configuration options](#api-server-configuration-options)
+  - [Configuration options](#configuration-options)
   - [API server: Domain remapping support](#api-server-domain-remapping-support)
-  - [Janitor configuration options](#janitor-configuration-options)
 - [Prometheus metrics](#prometheus-metrics)
 
 In other documents:
@@ -133,10 +131,11 @@ to run:
 
 - as many instances of `keppel server api` as you want,
 - exactly one instance of `keppel server janitor`,
+- optionally, one instance of `keppel server liquidapi` to enable integration with [Limes](https://github.com/sapcc/limes) if desired,
 - optionally, one instance of `keppel server healthmonitor`,
 - optionally, one instance of `keppel server anycastmonitor`.
 
-All commands take configuration from environment variables, as listed below.
+All commands take configuration from environment variables, as listed in the [Configuration options](#configuration-options) section below.
 
 ### Drivers
 
@@ -166,54 +165,61 @@ your environment:
 - The **account management driver** provides an interface for receiving account configuration from an external source,
   like a configuration file or an external auth service or customer database.
 
-### Common configuration options
+### Configuration options
 
-The following configuration options are understood by both the API server and the janitor:
+All commands take configuration from environment variables. To choose drivers, refer to the [documentation for drivers](./drivers/) and fill the respective `KEPPEL_DRIVER_` environment variable as described in the driver's documentation.
 
-| Variable | Default | Explanation |
-| -------- | ------- | ----------- |
-| `KEPPEL_API_PUBLIC_FQDN` | *(required)* | Full domain name where users reach keppel-api. |
-| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required for enabling audit trail)* | Name for the queue that will hold the audit events. The events are published to the default exchange. If not given, audit events will only be written to the debug log. |
-| `KEPPEL_AUDIT_RABBITMQ_USERNAME` | `guest` | RabbitMQ Username. |
-| `KEPPEL_AUDIT_RABBITMQ_PASSWORD` | `guest` | Password for the specified user. |
-| `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | Hostname of the RabbitMQ server. |
-| `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` |  Port number to which the underlying connection is made. |
-| `KEPPEL_DB_NAME` | `keppel` | The name of the database. |
-| `KEPPEL_DB_USERNAME` | `postgres` | Username of the user that Keppel should use to connect to the database. |
-| `KEPPEL_DB_PASSWORD` | *(optional)* | Password for the specified user. |
-| `KEPPEL_DB_HOSTNAME` | `localhost` | Hostname of the database server. |
-| `KEPPEL_DB_PORT` | `5432` | Port on which the PostgreSQL service is running on. |
-| `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | Database connection options. |
-| `KEPPEL_DEBUG` | *(optional)* | Enable debug logging. |
-| `KEPPEL_DRIVER_AUTH` | *(required)* | Configuration for an auth driver. |
-| `KEPPEL_DRIVER_FEDERATION` | *(required)* | Configuration for a federation driver. For single-region deployments, the correct choice is probably `{"type":"trivial"}`. |
-| `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | Configuration for an inbound cache driver. Giving `{"type":"trivial"}` chooses a zero-sized cache that effectively disables caching entirely. |
-| `KEPPEL_DRIVER_STORAGE` | *(required)* | Configuration for a storage driver. |
-| `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. Only ed25519 keys are supported. Can be generated with `openssl genpkey -algorithm ed25519 -out privkey.pem`. |
-| `KEPPEL_PREVIOUS_ISSUER_KEY` | *(optional)* | The previous `KEPPEL_ISSUER_KEY`. If given, tokens signed with this key will still be accepted. This can be used to rotate issuer keys without disrupting the validity of pre-existing tokens. |
+The components referenced in the table below are:
 
-To choose drivers, refer to the [documentation for drivers](./drivers/).
-Fill the respective `KEPPEL_DRIVER_` environment variable as described in the driver's documentation.
+- **api** = `keppel server api`
+- **janitor** = `keppel server janitor`
+- **liquidapi** = `keppel server liquidapi`
+- **healthmonitor** = `keppel server healthmonitor`
+- **trivy** = `keppel server trivy-proxy` (also influences api and janitor)
 
-### API server configuration options
-
-These options are only understood by the API server.
-
-| Variable | Default | Explanation |
-| -------- | ------- | ----------- |
-| `KEPPEL_ANYCAST_ISSUER_KEY` | *(required if `KEPPEL_API_ANYCAST_FQDN` is configured)* | Like `KEPPEL_ISSUER_KEY`, but this key is used to sign tokens for access to the anycast-style endpoints. (See below for details.) This key must be the same for all keppel-api instances with the same anycast domain name. |
-| `KEPPEL_ANYCAST_PREVIOUS_ISSUER_KEY` | *(optional)* | The previous `KEPPEL_ANYCAST_ISSUER_KEY`. If given, anycast tokens signed with this key will still be accepted. This can be used to rotate issuer keys without disrupting the validity of pre-existing tokens. |
-| `KEPPEL_API_ANYCAST_FQDN` | *(optional)* | Full domain name where users reach any keppel-api from this Keppel's group of peers, usually through some sort of anycast mechanism (hence the name). When this keppel-api receives an API request directed to this URL or a path below, and the respective Keppel account does not exist locally, the request is reverse-proxied to the peer that holds the primary account. The anycast endpoints are limited to anonymous authorization and therefore cannot be used for pushing. |
-| `KEPPEL_API_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server. |
-| `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | Configuration for a rate limit driver. Leave empty to disable rate limiting. |
-| `KEPPEL_ENABLE_HEADER_REFLECTOR` | *(optional)* | If set to `true`, the `/debug/reflect-headers` endpoint will be enabled which returns the headers from an incoming request. This is useful for debugging purposes, but should be disabled in production. |
-| `KEPPEL_GUI_URI` | *(optional)* | If true, GET requests coming from a web browser for URLs that look like repositories (e.g. <https://registry.example.org/someaccount/somerepo>) will be redirected to this URL. The value must be a URL string, which may contain the placeholders `%ACCOUNT_NAME%`, `%REPO_NAME%` and `%AUTH_TENANT_ID%`. These placeholders will be replaced with their respective values if present. To avoid leaking account existence to unauthorized users, the redirect will only be done if the repository in question allowed anonymous pulling. |
-| `KEPPEL_PEERS` | *(optional)* | A json structure (see below for format) describing where our peer keppel-api instances are running. This is the set of instances that this keppel-api can replicate from and use for pull delegation. |
-| `KEPPEL_REDIS_ENABLE` | *(required if `KEPPEL_DRIVER_RATELIMIT` is configured)* | Whether to use Redis as an ephemeral storage by compatible auth drivers and rate limit drivers. |
-| `KEPPEL_REDIS_HOSTNAME` | `localhost` | Hostname of the Redis server. |
-| `KEPPEL_REDIS_PORT` | `6379` | Port on which the Redis server is running on. |
-| `KEPPEL_REDIS_DB_NUM` | `0` | Database number. |
-| `KEPPEL_REDIS_PASSWORD` | *(optional)* | Password for the authentication. |
+| Name | Default | Relevant for components | Description |
+| ---- | ------- | ----------------------- | ----------- |
+| `KEPPEL_ANYCAST_ISSUER_KEY` | *(required if `KEPPEL_API_ANYCAST_FQDN` is set)* | api | Like `KEPPEL_ISSUER_KEY`, but used to sign tokens for anycast-style endpoints. Must be the same for all keppel-api instances sharing the same anycast domain name. |
+| `KEPPEL_ANYCAST_PREVIOUS_ISSUER_KEY` | *(optional)* | api | The previous `KEPPEL_ANYCAST_ISSUER_KEY`. If given, anycast tokens signed with this key will still be accepted, enabling key rotation without disrupting pre-existing tokens. |
+| `KEPPEL_API_ANYCAST_FQDN` | *(optional)* | api | Full domain name where users reach any keppel-api in this peer group, usually via anycast. Requests for accounts not held locally are reverse-proxied to the correct peer. Limited to anonymous authorization; cannot be used for pushing. |
+| `KEPPEL_API_LISTEN_ADDRESS` | `:8080` | api | Listen address for the HTTP server. |
+| `KEPPEL_API_PUBLIC_FQDN` | *(required)* | api, janitor, liquidapi | Full domain name where users reach keppel-api. |
+| `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | api, janitor, liquidapi | Hostname of the RabbitMQ server. |
+| `KEPPEL_AUDIT_RABBITMQ_PASSWORD` | `guest` | api, janitor, liquidapi | Password for the RabbitMQ user. |
+| `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` | api, janitor, liquidapi | Port number for the RabbitMQ connection. |
+| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required to enable audit trail)* | api, janitor, liquidapi | Name of the queue that will hold audit events, published to the default exchange. If not set, audit events are only written to the debug log. |
+| `KEPPEL_AUDIT_RABBITMQ_USERNAME` | `guest` | api, janitor, liquidapi | RabbitMQ username. |
+| `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | api, janitor, liquidapi | Additional database connection options. |
+| `KEPPEL_DB_HOSTNAME` | `localhost` | api, janitor, liquidapi | Hostname of the PostgreSQL server. |
+| `KEPPEL_DB_NAME` | `keppel` | api, janitor, liquidapi | Name of the database. |
+| `KEPPEL_DB_PASSWORD` | *(optional)* | api, janitor, liquidapi | Password for the database user. |
+| `KEPPEL_DB_PORT` | `5432` | api, janitor, liquidapi | Port on which the PostgreSQL service is running. |
+| `KEPPEL_DB_USERNAME` | `postgres` | api, janitor, liquidapi | Username for the database connection. |
+| `KEPPEL_DEBUG` | *(optional)* | *all* | Enable debug logging. |
+| `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | janitor | Configuration for an account management driver. Use `{"type":"trivial"}` if you don't need managed accounts. |
+| `KEPPEL_DRIVER_AUTH` | *(required)* | api, janitor, liquidapi | Configuration for an auth driver. |
+| `KEPPEL_DRIVER_FEDERATION` | *(required)* | api, janitor | Configuration for a federation driver. Use `{"type":"trivial"}` for single-region deployments. |
+| `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | api, janitor | Configuration for an inbound cache driver. Use `{"type":"trivial"}` to disable caching. |
+| `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | api | Configuration for a rate limit driver. Leave empty to disable rate limiting. |
+| `KEPPEL_DRIVER_STORAGE` | *(required)* | api, janitor, liquidapi | Configuration for a storage driver. |
+| `KEPPEL_ENABLE_HEADER_REFLECTOR` | *(optional)* | api | If `true`, enables the `/debug/reflect-headers` endpoint that echoes incoming request headers. Useful for debugging; should be disabled in production. |
+| `KEPPEL_GUI_URI` | *(optional)* | api | If set, GET requests from web browsers to repository-like URLs are redirected here. May contain `%ACCOUNT_NAME%`, `%REPO_NAME%` and `%AUTH_TENANT_ID%` placeholders. Redirect only occurs if the repository allows anonymous pulling. |
+| `KEPPEL_ISSUER_KEY` | *(required)* | api, janitor, liquidapi | Private key (PEM format or path to PEM file) used to sign auth tokens for Docker clients. Only ed25519 keys are supported. Generate with `openssl genpkey -algorithm ed25519 -out privkey.pem`. |
+| `KEPPEL_JANITOR_LISTEN_ADDRESS` | `:8080` | janitor | Listen address for the HTTP server (exposes Prometheus metrics only). |
+| `KEPPEL_LIQUIDAPI_LISTEN_ADDRESS` | `:8080` | liquidapi | Listen address for the HTTP server. |
+| `KEPPEL_PEERS` | *(optional)* | api | JSON array describing peer keppel-api instances available for replication and pull delegation. See format below. |
+| `KEPPEL_PREVIOUS_ISSUER_KEY` | *(optional)* | api, janitor, liquidapi | The previous `KEPPEL_ISSUER_KEY`. If given, tokens signed with this key are still accepted, enabling key rotation without disrupting pre-existing tokens. |
+| `KEPPEL_REDIS_DB_NUM` | `0` | api | Redis database number. |
+| `KEPPEL_REDIS_ENABLE` | *(required if `KEPPEL_DRIVER_RATELIMIT` is set)* | api | Enable Redis as ephemeral storage for compatible auth and rate limit drivers. |
+| `KEPPEL_REDIS_HOSTNAME` | `localhost` | api | Hostname of the Redis server. |
+| `KEPPEL_REDIS_PASSWORD` | *(optional)* | api | Password for Redis authentication. |
+| `KEPPEL_REDIS_PORT` | `6379` | api | Port on which the Redis server is running. |
+| `KEPPEL_TRACK_BYTES_QUOTA` | `false` | api, liquidapi | Whether bytes quota (capacity) should be tracked. |
+| `KEPPEL_TRIVY_ADDITIONAL_PULLABLE_REPOS` | *(optional)* | api, janitor, trivy | Additional repository scopes added to tokens issued by the API and janitor, allowing Trivy components to pull their DB OCI images. |
+| `KEPPEL_TRIVY_DB_MIRROR_PREFIX` | *(required)* | trivy | Prefix under which Trivy can find its database (may be a mirror or `ghcr.io`). |
+| `KEPPEL_TRIVY_LISTEN_ADDRESS` | `:8080` | trivy | Listen address for the HTTP server. |
+| `KEPPEL_TRIVY_TOKEN` | *(required)* | api, janitor, trivy | Static secret used by the Keppel API and janitor to authenticate against the Trivy server. |
+| `KEPPEL_TRIVY_URL` | *(required)* | api, janitor | URL under which the Trivy proxy can be reached. |
 
 #### `KEPPEL_PEERS` JSON format
 
@@ -233,20 +239,7 @@ Below you can see an example for the JSON format which `KEPPEL_PEERS` accepts.
 ]
 ```
 
-### API server: Domain remapping support
-
-Usually, Keppel exposes its APIs under the hostnames specified in `$KEPPEL_API_PUBLIC_FQDN` and `$KEPPEL_API_ANYCAST_FQDN`. However, if you wish, you can also configure your HTTPS reverse-proxy to serve the Keppel API on direct subdomains of these hostnames. In this case, the name of the subdomain will be interpreted as a Keppel account name, and the Registry API will be exposed on these subdomains without requiring the account name in the URL path. This is explained in more detail [in the API spec](./api-spec.md#domain-remapping).
-
-### Janitor configuration options
-
-These options are only understood by the janitor.
-
-| Variable | Default | Explanation |
-| -------- | ------- | ----------- |
-| `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | Configuration for an account management driver. If you don't need managed accounts, the correct choice is `{"type":"trivial"}`. |
-| `KEPPEL_JANITOR_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server (only provides Prometheus metrics). |
-
-### Health monitor configuration options
+### Health monitor configuration
 
 The health monitor takes some configuration options on the commandline:
 
@@ -268,16 +261,9 @@ downloaded and validated every 30 seconds. The result of the test is published a
 the test fails, a detailed error message is logged in stderr. If the setup phase fails, an error message is logged as
 well and the program immediately exits with non-zero status.
 
-### Trivy Proxy configuration options
+### API server: Domain remapping support
 
-These options are only useful when the Trivy proxy is deployed but the Keppel API and janitor are also influenced by them.
-
-| Variable | Default | Explanation |
-| -------- | ------- | ----------- |
-| `KEPPEL_TRIVY_ADDITIONAL_PULLABLE_REPOS` | *(optional)* | It adds additional scopes to the token issued by the API and the janitor which is meant to allow the trivy components to pull their DB OCI images from the respective repos. |
-| `KEPPEL_TRIVY_DB_MIRROR_PREFIX` | *(required)* | Prefix under which trivy can find its database. This might be a mirror or ghcr.io. |
-| `KEPPEL_TRIVY_TOKEN` | *(required)* | Static secret given out by the Keppel API and janitor to the trivy client to authenticate against the trivy server. |
-| `KEPPEL_TRIVY_URL` | *(required)* | The URL under which the trivy proxy can be reached. |
+Usually, Keppel exposes its APIs under the hostnames specified in `$KEPPEL_API_PUBLIC_FQDN` and `$KEPPEL_API_ANYCAST_FQDN`. However, if you wish, you can also configure your HTTPS reverse-proxy to serve the Keppel API on direct subdomains of these hostnames. In this case, the name of the subdomain will be interpreted as a Keppel account name, and the Registry API will be exposed on these subdomains without requiring the account name in the URL path. This is explained in more detail [in the API spec](./api-spec.md#domain-remapping).
 
 ## Prometheus metrics
 

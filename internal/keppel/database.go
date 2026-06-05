@@ -427,6 +427,14 @@ var sqlMigrations = map[string]string{
 			ALTER COLUMN next_check_at SET NOT NULL,
 			DROP CONSTRAINT next_check_at_only_null_when_rotten;
 	`,
+	"054_add_quotas_bytes.up.sql": `
+		ALTER TABLE quotas
+			ADD COLUMN bytes BIGINT NOT NULL DEFAULT -1;
+	`,
+	"054_add_quotas_bytes.down.sql": `
+		ALTER TABLE quotas
+			DROP COLUMN bytes;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

@@ -4,6 +4,7 @@
 package processor
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -13,29 +14,43 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/sqlext"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/models"
 )
 
 // QuotaResponse is the response body payload for GET or PUT /keppel/v1/quotas/:auth_tenant_id.
 type QuotaResponse struct {
-	Manifests SingleQuotaResponse `json:"manifests"`
+	Bytes     Option[SingleQuotaResponseInt] `json:"bytes,omitzero"`
+	Manifests SingleQuotaResponseUInt        `json:"manifests"`
 }
 
-// SingleQuotaResponse appears in type QuotaRequest.
-type SingleQuotaResponse struct {
+// SingleQuotaResponseInt appears in type QuotaRequest.
+type SingleQuotaResponseInt struct {
+	Quota int64  `json:"quota"`
+	Usage uint64 `json:"usage"`
+}
+
+// SingleQuotaResponseUInt appears in type QuotaRequest.
+type SingleQuotaResponseUInt struct {
 	Quota uint64 `json:"quota"`
 	Usage uint64 `json:"usage"`
 }
 
 // QuotaRequest is the request body payload for PUT /keppel/v1/quotas/:auth_tenant_id.
 type QuotaRequest struct {
-	Manifests SingleQuotaRequest `json:"manifests"`
+	Bytes Option[SingleQuotaRequestInt] `json:"bytes,omitzero"`
+	// This field is always required. Option[] is only used to distinguish a quota set to 0 from a missing quota.
+	Manifests Option[SingleQuotaRequestUInt] `json:"manifests,omitzero"`
 }
 
-// SingleQuotaRequest appears in type QuotaRequest.
-type SingleQuotaRequest struct {
+// SingleQuotaRequestInt appears in type QuotaRequest.
+type SingleQuotaRequestInt struct {
+	Quota int64 `json:"quota"`
+}
+
+// SingleQuotaRequestUInt appears in type QuotaRequest.
+type SingleQuotaRequestUInt struct {
 	Quota uint64 `json:"quota"`
 }
 
@@ -50,10 +65,10 @@ func (e ImpossibleQuotaError) Error() string {
 }
 
 // GetQuotas builds a response for GET /keppel/v1/quotas/:auth_tenant_id.
-func (p *Processor) GetQuotas(authTenantID string) (*QuotaResponse, error) {
+func (p *Processor) GetQuotas(ctx context.Context, authTenantID string) (*QuotaResponse, error) {
 	quotas, err := keppel.FindQuotas(p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(authTenantID)
+		quotas = p.cfg.DefaultQuotas(authTenantID)
 	} else if err != nil {
 		return nil, err
 	}
@@ -63,26 +78,46 @@ func (p *Processor) GetQuotas(authTenantID string) (*QuotaResponse, error) {
 		return nil, err
 	}
 
-	return &QuotaResponse{
-		Manifests: SingleQuotaResponse{
+	qr := &QuotaResponse{
+		Manifests: SingleQuotaResponseUInt{
 			Quota: quotas.ManifestCount,
 			Usage: manifestCount,
 		},
-	}, nil
+	}
+
+	if p.cfg.TrackBytesQuota {
+		bytesCount, err := p.sd.UsedBytes(ctx, authTenantID)
+		if err != nil {
+			return nil, err
+		}
+
+		qr.Bytes = Some(SingleQuotaResponseInt{
+			Quota: quotas.Bytes,
+			Usage: bytesCount,
+		})
+	}
+
+	return qr, nil
 }
 
 // SetQuotas changes quotas for an auth tenant and then renders a response
 // for PUT /keppel/v1/quotas/:auth_tenant_id.
-func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo audittools.UserInfo, r *http.Request) (*QuotaResponse, error) {
+func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req QuotaRequest, userInfo audittools.UserInfo, r *http.Request) (*QuotaResponse, error) {
 	isUpdate := true
 	quotas, err := keppel.FindQuotas(p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(authTenantID)
+		quotas = p.cfg.DefaultQuotas(authTenantID)
 		isUpdate = false
 	} else if err != nil {
 		return nil, err
 	}
 	quotasBefore := quotas
+
+	reqManifests, ok := req.Manifests.Unpack()
+	if !ok {
+		msg := "request does not contain manifest quota"
+		return nil, ImpossibleQuotaError{Message: msg}
+	}
 
 	// check usage
 	tx, err := p.db.Begin()
@@ -95,15 +130,39 @@ func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo au
 	if err != nil {
 		return nil, err
 	}
-	if req.Manifests.Quota < manifestCount {
-		msg := fmt.Sprintf("requested manifest quota (%d) is below usage (%d)",
-			req.Manifests.Quota, manifestCount)
+	if reqManifests.Quota < manifestCount {
+		msg := fmt.Sprintf("requested manifest quota (%d) is below usage (%d)", reqManifests.Quota, manifestCount)
 		return nil, ImpossibleQuotaError{Message: msg}
 	}
 
-	if quotas.ManifestCount != req.Manifests.Quota {
+	var bytesCount uint64
+	reqBytes, ok := req.Bytes.Unpack()
+	if p.cfg.TrackBytesQuota && !ok {
+		msg := "bytes quota is enabled, but request does not contain bytes quota"
+		return nil, ImpossibleQuotaError{Message: msg}
+	}
+	if !p.cfg.TrackBytesQuota && ok {
+		msg := "bytes quota is not enabled, but request contains bytes quota"
+		return nil, ImpossibleQuotaError{Message: msg}
+	}
+
+	if p.cfg.TrackBytesQuota {
+		bytesCount, err = p.sd.UsedBytes(ctx, authTenantID)
+		if err != nil {
+			return nil, err
+		}
+		if reqBytes.Quota != -1 && reqBytes.Quota < int64(bytesCount) { //nolint:gosec // quota is admin controlled
+			msg := fmt.Sprintf("requested bytes quota (%d) is below usage (%d)", reqBytes.Quota, bytesCount)
+			return nil, ImpossibleQuotaError{Message: msg}
+		}
+	}
+
+	if quotas.ManifestCount != reqManifests.Quota || (p.cfg.TrackBytesQuota && quotas.Bytes != reqBytes.Quota) {
 		// apply quotas if necessary
-		quotas.ManifestCount = req.Manifests.Quota
+		quotas.ManifestCount = reqManifests.Quota
+		if p.cfg.TrackBytesQuota {
+			quotas.Bytes = reqBytes.Quota
+		}
 		if isUpdate {
 			_, err = tx.Update(&quotas)
 		} else {
@@ -130,10 +189,19 @@ func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo au
 		}
 	}
 
-	return &QuotaResponse{
-		Manifests: SingleQuotaResponse{
-			Quota: req.Manifests.Quota,
+	qr := &QuotaResponse{
+		Manifests: SingleQuotaResponseUInt{
+			Quota: reqManifests.Quota,
 			Usage: manifestCount,
 		},
-	}, nil
+	}
+
+	if p.cfg.TrackBytesQuota {
+		qr.Bytes = Some(SingleQuotaResponseInt{
+			Quota: reqBytes.Quota,
+			Usage: bytesCount,
+		})
+	}
+
+	return qr, nil
 }

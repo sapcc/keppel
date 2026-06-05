@@ -78,7 +78,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// backing storage.
 	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(account.AuthTenantID)
+		quotas = a.cfg.DefaultQuotas(account.AuthTenantID)
 	} else if respondWithError(w, r, err) {
 		return
 	}
@@ -87,11 +87,21 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if manifestUsage >= quotas.ManifestCount {
-		msg := fmt.Sprintf("manifest quota exceeded (quota = %d, usage = %d)",
-			quotas.ManifestCount, manifestUsage,
-		)
+		msg := fmt.Sprintf("manifest quota exceeded (quota = %d, usage = %d)", quotas.ManifestCount, manifestUsage)
 		keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w, r)
 		return
+	}
+
+	if a.cfg.TrackBytesQuota {
+		bytesUsage, err := a.sd.UsedBytes(r.Context(), account.AuthTenantID)
+		if respondWithError(w, r, err) {
+			return
+		}
+		if quotas.Bytes >= 0 && bytesUsage >= uint64(quotas.Bytes) {
+			msg := fmt.Sprintf("bytes quota exceeded (quota = %d, usage = %d)", quotas.Bytes, bytesUsage)
+			keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w, r)
+			return
+		}
 	}
 
 	// special case: request for cross-repo blob mount

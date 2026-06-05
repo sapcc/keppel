@@ -24,6 +24,7 @@ import (
 	"github.com/sapcc/go-bits/osext"
 	"github.com/sapcc/go-bits/pluggable"
 
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
@@ -35,6 +36,22 @@ type Configuration struct {
 	JWTIssuerKeys            []crypto.PrivateKey
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
 	Trivy                    *trivy.Config
+	TrackBytesQuota          bool
+}
+
+// DefaultQuotas creates a new Quotas instance with the default quotas.
+func (cfg Configuration) DefaultQuotas(authTenantID string) models.Quotas {
+	quotas := models.Quotas{
+		AuthTenantID:  authTenantID,
+		Bytes:         0,
+		ManifestCount: 0,
+	}
+
+	if !cfg.TrackBytesQuota {
+		quotas.Bytes = -1
+	}
+
+	return quotas
 }
 
 var (
@@ -81,6 +98,7 @@ func ParseConfiguration() Configuration {
 	cfg := Configuration{
 		APIPublicHostname:        osext.MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
 		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),
+		TrackBytesQuota:          osext.GetenvBool("KEPPEL_TRACK_BYTES_QUOTA"),
 	}
 
 	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
