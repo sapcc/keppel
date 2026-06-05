@@ -7,12 +7,12 @@ import (
 	"net/http"
 )
 
-func analyzeError(err error) (message string, status int) {
+func analyzeError(err error) (message string, status int, hdr http.Header) {
 	switch err := err.(type) { //nolint:errorlint // wrapped errors are intentionally ignored, see doc on func CustomStatus()
 	case errorWithCustomStatus:
-		return err.Inner.Error(), err.Status
+		return err.Inner.Error(), err.Status, err.Header
 	default:
-		return err.Error(), http.StatusInternalServerError
+		return err.Error(), http.StatusInternalServerError, nil
 	}
 }
 
@@ -56,18 +56,23 @@ func analyzeError(err error) (message string, status int) {
 // This rule prevents sensitive data in the outermost error's message from accidentally leaking through respondwith.ObfuscatedErrorText().
 //
 // CustomStatus panics when called with a nil error or a non-error status (only 400..599 status codes are allowed).
-func CustomStatus(status int, inner error) error {
+func CustomStatus(status int, inner error, opts ...CustomOption) error {
 	if inner == nil {
 		panic("CustomStatus called with inner == nil")
 	}
 	if status < 400 || status >= 600 {
 		panic("CustomStatus called with a non-error status (only 400..599 are allowed)")
 	}
-	return errorWithCustomStatus{status, inner}
+	result := errorWithCustomStatus{status, make(http.Header), inner}
+	for _, opt := range opts {
+		opt(&result)
+	}
+	return result
 }
 
 type errorWithCustomStatus struct { //nolint:errname // I won't put "error" at the end because "customStatusHavingError" sounds stupid
 	Status int
+	Header http.Header
 	Inner  error
 }
 
@@ -79,4 +84,23 @@ func (e errorWithCustomStatus) Error() string {
 // Unwrap implements the unnamed interface implied by package errors.
 func (e errorWithCustomStatus) Unwrap() error {
 	return e.Inner
+}
+
+// CustomOption provides additional behavior to func [CustomStatus].
+type CustomOption func(*errorWithCustomStatus)
+
+// CustomHeader adds an HTTP header to an error response built by func [CustomStatus].
+// For example:
+//
+//	return respondwith.CustomStatus(
+//		http.StatusTooManyRequests,
+//		fmt.Errorf("ratelimit exceeded (limit = %d, used = %d, resetAt = %s)",
+//			result.Limit, result.Used, result.ResetAt.Format(time.RFC3339)),
+//		respondwith.CustomHeader("Retry-After",
+//			strconv.Itoa(time.Until(result.ResetAt).Seconds())),
+//	)
+func CustomHeader(key, value string) CustomOption {
+	return func(e *errorWithCustomStatus) {
+		e.Header.Add(key, value)
+	}
 }

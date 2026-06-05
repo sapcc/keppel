@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended",
     "default:pinDigestsDisabled",
+    "docker:pinDigests",
     "mergeConfidence:all-badges",
     "docker:disable"
   ],

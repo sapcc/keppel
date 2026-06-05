@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-api-declarations/cadf"
@@ -248,9 +249,90 @@ func (a *MockAuditor) ExpectEvents(t assert.TestingT, expectedEvents ...cadf.Eve
 		return
 	}
 
+	// attach a custom Diffable to `events[_].target.attachments[_].content` to allow jsonmatch
+	// to recurse into JSON payloads within JSON strings and generate better output
+	if events, ok := expected["events"].([]any); ok {
+		for _, e := range events {
+			if event, ok := e.(map[string]any); ok {
+				if target, ok := event["target"].(map[string]any); ok {
+					if attachments, ok := target["attachments"].([]any); ok {
+						for _, a := range attachments {
+							if attachment, ok := a.(map[string]any); ok {
+								if typeURI, ok := attachment["typeURI"].(string); ok && typeURI == "mime:application/json" {
+									if content, ok := attachment["content"].(string); ok {
+										attachment["content"] = tryNewJSONWithinJSONString(content)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	for _, d := range expected.DiffAgainst(actualBuf) {
 		t.Errorf("%s", d.String())
 	}
+}
+
+// jsonWithinJSONString is a custom [jsonmatch.Diffable] that expects a JSON string whose contents match the provided Diffable.
+type jsonWithinJSONString struct {
+	inner jsonmatch.Diffable
+}
+
+// tryNewJSONWithinJSONString takes a value from `events[_].target.attachments[_].content`
+// and tries to cast it into a structured jsonmatch.Diffable.
+//
+// This is only done for content payloads that look like they benefit from being structured, not for scalar values
+// (e.g. there is not much advantage in converting `"true"` into `jsonWithinJSONString{jsonmatch.Scalar(true)}`).
+func tryNewJSONWithinJSONString(content string) any {
+	trimmed := strings.TrimSpace(content)
+	switch {
+	case strings.HasPrefix(trimmed, "{"):
+		var object jsonmatch.Object
+		err := json.Unmarshal([]byte(content), &object)
+		if err != nil {
+			return content
+		}
+		return jsonWithinJSONString{object}
+	case strings.HasPrefix(trimmed, "["):
+		var array jsonmatch.Array
+		err := json.Unmarshal([]byte(content), &array)
+		if err != nil {
+			return content
+		}
+		return jsonWithinJSONString{array}
+	default:
+		return content
+	}
+}
+
+// DiffAgainst implements the [jsonmatch.Diffable] interface.
+func (j jsonWithinJSONString) DiffAgainst(buf []byte) []jsonmatch.Diff {
+	var payload string
+	err := json.Unmarshal(buf, &payload)
+	if err != nil {
+		d := jsonmatch.Diff{
+			Kind:       fmt.Sprintf("unmarshal error (%s)", err.Error()),
+			Pointer:    "",
+			ActualJSON: strings.ToValidUTF8(string(buf), "\uFFFD"),
+		}
+		buf, err := json.Marshal(j.inner)
+		if err == nil {
+			d.ExpectedJSON = string(buf)
+		} else {
+			d.ExpectedJSON = fmt.Sprintf("<not marshalable to JSON, %%#v is %#v>", j.inner)
+		}
+		return []jsonmatch.Diff{d}
+	}
+	return j.inner.DiffAgainst([]byte(payload))
+}
+
+// MarshalJSON implements the [json.Marshaler] interface.
+// This implementation is meant to allow package jsonmatch to render better diffs.
+func (j jsonWithinJSONString) MarshalJSON() ([]byte, error) {
+	return json.Marshal(j.inner)
 }
 
 // RecordedEvents returns the list of recorded events.

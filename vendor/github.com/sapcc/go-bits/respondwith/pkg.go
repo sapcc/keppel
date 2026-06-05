@@ -9,6 +9,7 @@ package respondwith
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 
 	"github.com/gofrs/uuid/v5"
@@ -54,7 +55,8 @@ func ErrorText(w http.ResponseWriter, err error) bool {
 		return false
 	}
 
-	message, status := analyzeError(err)
+	message, status, hdr := analyzeError(err)
+	maps.Copy(w.Header(), hdr)
 	http.Error(w, message, status)
 	return true
 }
@@ -80,13 +82,14 @@ func ObfuscatedErrorText(w http.ResponseWriter, err error) bool {
 		return false
 	}
 
-	message, status := analyzeError(err)
+	message, status, hdr := analyzeError(err)
 	if status >= 500 {
 		logUUID := must.Return(uuid.NewV4()).String()
 		logg.Error("%s is: %s", logUUID, message)
 		message = fmt.Sprintf("Internal Server Error (ID = %s)", logUUID)
 	}
 
+	maps.Copy(w.Header(), hdr)
 	http.Error(w, message, status)
 	return true
 }
