@@ -250,11 +250,6 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 				return
 			}
 
-			// make sure that the "test1/foo" repo exists on secondary (otherwise we
-			// will get useless NAME_UNKNOWN errors later, not the errors we're interested in)
-			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
-			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "second")
-
 			// enable anonymous pull on the account
 			test.MustExec(t, s2.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
@@ -263,9 +258,22 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 				}}),
 			)
 
+			// replicating pull is forbidden with an anonymous token
+			// (error message option 1 for the "repo does not exist" case)
 			anonTokenHeaders := s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull"})
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/first", httptest.WithHeaders(anonTokenHeaders)).
+				ExpectHeader(t, "Www-Authenticate", `Bearer realm="https://registry-secondary.example.org/keppel/v1/auth",service="registry-secondary.example.org",scope="repository:test1/foo:pull"`).
+				ExpectJSON(t, http.StatusUnauthorized, test.ErrorCodeWithMessage{
+					Code:    keppel.ErrDenied,
+					Message: "repository does not exist here, and anonymous users may not create new repositories",
+				})
+
+			// create the "test1/foo" repo on secondary to show the other error option
+			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
+			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "second")
 
 			// replicating pull is forbidden with an anonymous token...
+			// (error message option 2 for the "repo does exist, but image does not" case)
 			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/first", httptest.WithHeaders(anonTokenHeaders)).
 				ExpectHeader(t, "Www-Authenticate", `Bearer realm="https://registry-secondary.example.org/keppel/v1/auth",service="registry-secondary.example.org",scope="repository:test1/foo:pull"`).
 				ExpectJSON(t, http.StatusUnauthorized, test.ErrorCodeWithMessage{

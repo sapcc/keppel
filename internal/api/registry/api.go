@@ -263,17 +263,11 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 
 	canCreateRepoIfMissing := false
-	canFirstPull := false
 	switch strategy {
 	case createRepoIfMissing:
 		canCreateRepoIfMissing = true
 	case createRepoIfMissingAndReplica:
-		canFirstPull = authz.ScopeSet.Contains(auth.Scope{
-			ResourceType: "repository",
-			ResourceName: scope.ResourceName,
-			Actions:      []string{"anonymous_first_pull"},
-		})
-		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && (authz.UserIdentity.UserType() == keppel.RegularUser || canFirstPull))
+		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && (authz.UserIdentity.UserType() == keppel.RegularUser || authz.ScopeSet.AllowsAnonymousFirstPullOn(scope.ResourceName)))
 	}
 
 	var repo models.ReducedRepository
@@ -283,8 +277,11 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		repo, err = keppel.FindReducedRepository(a.db, repoScope.RepositoryName, account.Name)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		if canFirstPull {
-			keppel.ErrNameUnknown.With("repository does not exist here, and anonymous users may not create new repositories").WriteAsRegistryV2ResponseTo(w, r)
+		if strategy == createRepoIfMissingAndReplica && account.ExternalPeerURL != "" && authz.UserIdentity.UserType() == keppel.AnonymousUser {
+			rerr := keppel.ErrDenied.With("repository does not exist here, and anonymous users may not create new repositories")
+			// this must be a 401 and include a challenge; clients should be able to understand that
+			// they can retry this after authenticating and expect a different result
+			challenge.AddTo(rerr).WithStatus(http.StatusUnauthorized).WriteAsRegistryV2ResponseTo(w, r)
 		} else {
 			keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w, r)
 		}
