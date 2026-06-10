@@ -90,3 +90,12 @@ func isKeppelAccountViewScope(s Scope) (models.AccountName, bool) {
 	}
 	return "", false
 }
+
+// AllowsAnonymousFirstPullOn is a shorthand for a specific [ScopeSet.Contains] call.
+func (ss ScopeSet) AllowsAnonymousFirstPullOn(repoScopeName string) bool {
+	return ss.Contains(Scope{
+		ResourceType: "repository",
+		ResourceName: repoScopeName,
+		Actions:      []string{"anonymous_first_pull"},
+	})
+}

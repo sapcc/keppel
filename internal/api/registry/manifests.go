@@ -21,7 +21,6 @@ import (
 	accept "github.com/timewasted/go-accept-headers"
 
 	"github.com/sapcc/keppel/internal/api"
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
@@ -59,11 +58,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.IsDeleting && (userType != keppel.PeerUser && userType != keppel.TrivyUser) {
 			// when replicating from external, only authenticated users can trigger the replication
 			if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
-				if !authz.ScopeSet.Contains(auth.Scope{
-					ResourceType: "repository",
-					ResourceName: repo.FullName(),
-					Actions:      []string{"anonymous_first_pull"},
-				}) {
+				if !authz.ScopeSet.AllowsAnonymousFirstPullOn(mux.Vars(r)["repository"]) {
 					rerr := keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images")
 					// this must be a 401 and include a challenge; clients should be able to understand that
 					// they can retry this after authenticating and expect a different result
