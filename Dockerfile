@@ -26,7 +26,8 @@ COPY Makefile /src/Makefile
 RUN addgroup -g 4200 appgroup \
   && adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
 
-RUN apk add --no-cache --no-progress git make typos py3-pip postgresql \
+RUN apk add --no-cache --no-progress git make typos libmagic py3-pip postgresql \
+  # libmagic is required for encoding detection in reuse
   && pip3 install --break-system-packages reuse \
   && make -C /src prepare-static-check
 
