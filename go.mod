@@ -1,12 +1,11 @@
 module github.com/sapcc/keppel
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/go-gorp/gorp/v3 v3.1.0
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -27,6 +26,7 @@ require (
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.40.0
 	go.xyrillian.de/gg v1.9.0
+	go.xyrillian.de/oblast v0.10.0
 	go.xyrillian.de/schwift/v2 v2.1.0
 )
 
@@ -63,5 +63,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/go-gorp/gorp/v3 v3.1.0 => github.com/majewsky/gorp/v3 v3.1.1-0.20260409143009-8eddaa758ac1

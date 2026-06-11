@@ -7,10 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dlmiddlecote/sqlstats"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpapi/pprofapi"
 	"github.com/sapcc/go-bits/httpext"
@@ -41,10 +38,7 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
 	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
-	dbURL, dbName := keppel.GetDatabaseURLFromEnvironment()
-	dbConn := must.Return(easypg.Connect(dbURL, keppel.DBConfiguration()))
-	prometheus.MustRegister(sqlstats.NewStatsCollector(dbName, dbConn))
-	db := keppel.InitORM(dbConn)
+	db := keppel.InitDB()
 
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
 	amd := must.Return(keppel.NewAccountManagementDriver(osext.MustGetenv("KEPPEL_DRIVER_ACCOUNT_MANAGEMENT")))
@@ -74,7 +68,7 @@ func run(cmd *cobra.Command, args []string) {
 		httpapi.HealthCheckAPI{
 			SkipRequestLog: true,
 			Check: func() error {
-				return db.Db.PingContext(ctx)
+				return db.PingContext(ctx)
 			},
 		},
 		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},

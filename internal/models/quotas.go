@@ -3,6 +3,8 @@
 
 package models
 
+import "go.xyrillian.de/oblast"
+
 // Quotas contains a record from the `quotas` table.
 //
 // The JSON serialization is used in audit events for quota changes.
@@ -11,3 +13,10 @@ type Quotas struct {
 	Bytes         int64  `db:"bytes" json:"bytes,omitempty"`
 	ManifestCount uint64 `db:"manifests" json:"manifests"`
 }
+
+// QuotasStore provides loading and storing of [Quotas] objects from the DB.
+var QuotasStore = oblast.MustNewStore[Quotas](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("quotas"),
+	oblast.PrimaryKeyIs("auth_tenant_id"),
+)

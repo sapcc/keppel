@@ -17,6 +17,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -30,14 +31,14 @@ type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
 	sd         keppel.StorageDriver
-	db         *keppel.DB
+	db         *oblast.DB
 	auditor    audittools.Auditor
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow func() time.Time
 }
 
 // NewLiquidAPI constructs a new LiquidAPI instance.
-func NewLiquidAPI(cfg keppel.Configuration, ad keppel.AuthDriver, sd keppel.StorageDriver, db *keppel.DB, auditor audittools.Auditor) *API {
+func NewLiquidAPI(cfg keppel.Configuration, ad keppel.AuthDriver, sd keppel.StorageDriver, db *oblast.DB, auditor audittools.Auditor) *API {
 	return &API{cfg, ad, sd, db, auditor, time.Now}
 }
 

@@ -24,7 +24,7 @@ func TestPeeringAPI(t *testing.T) {
 
 		// set up peer.example.org as a peer of us, otherwise we will reject peering
 		// attempts from that source
-		must.SucceedT(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org"}))
+		must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB, &models.Peer{HostName: "peer.example.org"}))
 
 		// upon receiving a peering request, the implementation will attempt to
 		// validate the supplied credentials by calling the peer's auth API - this is
@@ -74,7 +74,7 @@ func TestPeeringAPI(t *testing.T) {
 		).ExpectText(t, http.StatusUnauthorized, "could not validate credentials: expected 200 OK, but got 401 Unauthorized\n")
 
 		// error cases should not touch the DB
-		easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-peering.sql")
+		easypg.AssertDBContent(t, s.DB.DB, "fixtures/before-peering.sql")
 
 		// success case
 		s.RespondTo(ctx, "POST /keppel/v1/auth/peering",
@@ -86,6 +86,6 @@ func TestPeeringAPI(t *testing.T) {
 		).ExpectText(t, http.StatusNoContent, "")
 
 		// success case should have touched the DB
-		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-peering.sql")
+		easypg.AssertDBContent(t, s.DB.DB, "fixtures/after-peering.sql")
 	})
 }

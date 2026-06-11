@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpext"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -18,7 +19,7 @@ import (
 
 // guiRedirecter is an api.API that implements the GUI redirect.
 type guiRedirecter struct {
-	db     *keppel.DB
+	db     *oblast.DB
 	urlStr string
 }
 
@@ -33,6 +34,8 @@ func (g *guiRedirecter) AddTo(r *mux.Router) {
 }
 
 func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	// only attempt to redirect if it's a web browser doing the request
 	if !strings.Contains(r.Header.Get("Accept"), "text/html") {
 		respondNotFound(w, r)
@@ -43,13 +46,13 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 
 	// do we have this account/repo?
 	accountName := models.AccountName(vars["account"])
-	account, err := keppel.FindAccount(g.db, accountName)
+	account, err := keppel.FindAccount(ctx, g.db, accountName)
 	if err != nil {
 		respondNotFound(w, r)
 		return
 	}
 	repoName := stripTagAndDigest(vars["repository"])
-	repo, err := keppel.FindRepository(g.db, repoName, accountName)
+	repo, err := keppel.FindRepository(ctx, g.db, repoName, accountName)
 	if err != nil {
 		respondNotFound(w, r)
 		return

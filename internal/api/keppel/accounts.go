@@ -25,8 +25,9 @@ const SubleaseHeader = "X-Keppel-Sublease-Token"
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
-	var accounts []models.Account
-	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	ctx := r.Context()
+
+	accounts, err := models.AccountStore.Select(ctx, a.db, `SELECT * FROM accounts ORDER BY name`)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -84,6 +85,8 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
+	ctx := r.Context()
+
 	// decode request body
 	var req struct {
 		Account keppel.Account `json:"account"`
@@ -129,7 +132,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	}
-	account, rerr := a.processor().CreateOrUpdateAccount(r.Context(), req.Account, authz.UserIdentity.UserInfo(), r, getSubleaseTokenCallback, finalizeAccountCallback)
+	account, rerr := a.processor().CreateOrUpdateAccount(ctx, req.Account, authz.UserIdentity.UserInfo(), r, getSubleaseTokenCallback, finalizeAccountCallback)
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return
@@ -171,6 +174,8 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/sublease")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
@@ -190,7 +195,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		PrimaryHostname: a.cfg.APIPublicHostname,
 	}
 
-	st.Secret, err = a.fd.IssueSubleaseTokenSecret(r.Context(), account)
+	st.Secret, err = a.fd.IssueSubleaseTokenSecret(ctx, account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

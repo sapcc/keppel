@@ -44,8 +44,7 @@ var (
 )
 
 func (j *Janitor) discoverAccountForDeletion(_ context.Context, _ prometheus.Labels) (accountName models.AccountName, err error) {
-	err = j.db.SelectOne(&accountName, accountDeletionSelectQuery, j.timeNow())
-	return accountName, err
+	return keppel.SelectOneValue[models.AccountName](j.db, accountDeletionSelectQuery, j.timeNow())
 }
 
 var (
@@ -71,7 +70,7 @@ var (
 )
 
 func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) (returnErr error) {
-	account, err := keppel.FindAccount(j.db, accountName)
+	account, err := keppel.FindAccount(ctx, j.db, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		// assume the account got already deleted
 		return nil
@@ -114,7 +113,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
 					digestStr, repoName, err)
 			}
-			repo, err := keppel.FindRepository(j.db, repoName, account.Name)
+			repo, err := keppel.FindRepository(ctx, j.db, repoName, account.Name)
 			if err != nil {
 				return fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
 					digestStr, repoName, err)
@@ -138,7 +137,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 
 	// the section above could only delete manifests that are not referenced by others;
 	// if there is stuff left over, restart the loop
-	manifestCount, err := j.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
+	manifestCount, err := keppel.SelectOneValue[uint64](j.db, deleteAccountCountManifestsQuery, account.Name)
 	if err != nil {
 		return err
 	}
@@ -158,7 +157,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	}
 
 	// can only delete account when all blobs have been deleted
-	blobCount, err := j.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
+	blobCount, err := keppel.SelectOneValue[uint64](j.db, deleteAccountCountBlobsQuery, account.Name)
 	if err != nil {
 		return err
 	}
@@ -260,7 +259,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		return err
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
-	_, err = tx.Delete(&account)
+	err = models.AccountStore.Delete(ctx, tx, account)
 	if err != nil {
 		return err
 	}

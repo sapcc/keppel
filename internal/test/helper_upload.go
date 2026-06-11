@@ -24,6 +24,7 @@ import (
 // `token` must be a Bearer token capable of pushing into the specified repo.
 func (b Bytes) MustUpload(t testing.TB, s Setup, repo models.Repository) models.Blob {
 	t.Helper()
+	ctx := t.Context()
 
 	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 
@@ -41,7 +42,7 @@ func (b Bytes) MustUpload(t testing.TB, s Setup, repo models.Repository) models.
 	// validate uploaded blob (FindBlobByRepository does not work here because we
 	// are usually given a Repository instance that does not have the ID field
 	// filled)
-	blob := must.ReturnT(keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, repo.AccountName))(t)
+	blob := must.ReturnT(keppel.FindBlobByRepositoryName(ctx, s.DB, b.Digest, repo.Name, repo.AccountName))(t)
 	s.ExpectBlobsExistInStorage(t, blob)
 	if t.Failed() {
 		t.FailNow()
@@ -59,10 +60,11 @@ var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 // `tagName` may be empty if the image is to be uploaded without tagging.
 func (i Image) MustUpload(t testing.TB, s Setup, repo models.Repository, tagName string) models.Manifest {
 	t.Helper()
+	ctx := t.Context()
 
 	// upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
-		count := must.ReturnT(s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String()))(t)
+		count := must.ReturnT(keppel.SelectOneValue[uint64](s.DB, checkBlobExistsQuery, repo.AccountName, blob.Digest.String()))(t)
 		if count == 0 {
 			blob.MustUpload(t, s, repo)
 		}
@@ -88,7 +90,7 @@ func (i Image) MustUpload(t testing.TB, s Setup, repo models.Repository, tagName
 	}
 
 	// validate uploaded manifest
-	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, i.Manifest.Digest))(t)
+	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(ctx, s.DB, repo.Name, repo.AccountName, i.Manifest.Digest))(t)
 	s.ExpectManifestsExistInStorage(t, repo.Name, manifest)
 	if t.Failed() {
 		t.FailNow()
@@ -108,10 +110,11 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 // `tagName` may be empty if the image is to be uploaded without tagging.
 func (l ImageList) MustUpload(t testing.TB, s Setup, repo models.Repository, tagName string) models.Manifest {
 	t.Helper()
+	ctx := t.Context()
 
 	// upload missing images
 	for _, image := range l.Images {
-		count := must.ReturnT(s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest))(t)
+		count := must.ReturnT(keppel.SelectOneValue[uint64](s.DB, checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest))(t)
 		if count == 0 {
 			image.MustUpload(t, s, repo, "")
 		}
@@ -137,7 +140,7 @@ func (l ImageList) MustUpload(t testing.TB, s Setup, repo models.Repository, tag
 	}
 
 	// validate uploaded manifest
-	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, l.Manifest.Digest))(t)
+	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(ctx, s.DB, repo.Name, repo.AccountName, l.Manifest.Digest))(t)
 	s.ExpectManifestsExistInStorage(t, repo.Name, manifest)
 	if t.Failed() {
 		t.FailNow()

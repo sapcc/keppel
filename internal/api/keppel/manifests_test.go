@@ -58,7 +58,7 @@ func TestManifestsAPI(t *testing.T) {
 			{Name: "repo2-1", AccountName: "test2"},
 		}
 		for i := range repos {
-			must.SucceedT(t, s.DB.Insert(&repos[i]))
+			must.SucceedT(t, models.RepositoryStore.Insert(ctx, s.DB, &repos[i]))
 		}
 
 		// test empty GET
@@ -100,14 +100,14 @@ func TestManifestsAPI(t *testing.T) {
 				if idx == 1 {
 					dbManifest.LastPulledAt = Some(pushedAt.Add(100 * time.Second))
 				}
-				must.SucceedT(t, s.DB.Insert(&dbManifest))
+				must.SucceedT(t, models.ManifestStore.Insert(ctx, s.DB, &dbManifest))
 
 				must.SucceedT(t, s.SD.WriteManifest(
 					s.Ctx,
-					must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t),
+					must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t),
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
 				))
-				must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
+				must.SucceedT(t, models.TrivySecurityInfoStore.Insert(ctx, s.DB, &models.TrivySecurityInfo{
 					RepositoryID:        int64(repoID),
 					Digest:              dummyDigest,
 					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
@@ -115,21 +115,21 @@ func TestManifestsAPI(t *testing.T) {
 				}))
 			}
 			// one manifest is referenced by two tags, one is referenced by one tag
-			must.SucceedT(t, s.DB.Insert(&models.Tag{
+			must.SucceedT(t, models.TagStore.Insert(ctx, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "first",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20001, 0),
 				LastPulledAt: Some(time.Unix(20101, 0)),
 			}))
-			must.SucceedT(t, s.DB.Insert(&models.Tag{
+			must.SucceedT(t, models.TagStore.Insert(ctx, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "stillfirst",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20002, 0),
 				LastPulledAt: None[time.Time](),
 			}))
-			must.SucceedT(t, s.DB.Insert(&models.Tag{
+			must.SucceedT(t, models.TagStore.Insert(ctx, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "second",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 2),
@@ -210,11 +210,11 @@ func TestManifestsAPI(t *testing.T) {
 		).ExpectText(t, http.StatusBadRequest, "strconv.ParseUint: parsing \"foo\": invalid syntax\n")
 
 		// test DELETE manifest happy case
-		easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.DB, "fixtures/before-delete-manifest.sql")
 		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/"+test.DeterministicDummyDigest(11).String(),
 			withPerms("view:tenant1,delete:tenant1"),
 		).ExpectStatus(t, http.StatusNoContent)
-		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.DB, "fixtures/after-delete-manifest.sql")
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String(),
@@ -238,7 +238,7 @@ func TestManifestsAPI(t *testing.T) {
 		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
 			withPerms("view:tenant1,delete:tenant1"),
 		).ExpectStatus(t, http.StatusNoContent)
-		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-tag.sql")
+		easypg.AssertDBContent(t, s.DB.DB, "fixtures/after-delete-tag.sql")
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
@@ -332,8 +332,8 @@ func TestGetTrivyReport(t *testing.T) {
 			Format:   "json",
 			Contents: io.NopCloser(bytes.NewReader(buf)),
 		}
-		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID))(t)
-		account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+		repo := must.ReturnT(keppel.FindRepositoryByID(ctx, s.DB, imageManifest.RepositoryID))(t)
+		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t)
 		must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, repo.Name, imageManifest.Digest, report))
 		test.MustExec(t, s.DB,
 			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
@@ -379,7 +379,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 		)
 		ctx := t.Context()
 
-		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s.DB, "foo", models.AccountName("test1")))(t)
 
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 

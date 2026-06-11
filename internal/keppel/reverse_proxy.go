@@ -26,6 +26,8 @@ var reverseProxyHeaders = []string{
 // If an error is returned, no response has been written and the caller is
 // responsible for producing the error response.
 func (cfg Configuration) ReverseProxyAnycastRequestToPeer(w http.ResponseWriter, r *http.Request, peerHostName string) error {
+	ctx := r.Context()
+
 	// build request URL
 	reqURL := url.URL{
 		Scheme: "https",
@@ -46,7 +48,7 @@ func (cfg Configuration) ReverseProxyAnycastRequestToPeer(w http.ResponseWriter,
 	}
 
 	// send proxy request
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, reqURL.String(), http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, r.Method, reqURL.String(), http.NoBody)
 	if err != nil {
 		return err
 	}
