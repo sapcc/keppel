@@ -24,8 +24,8 @@ github.com/cespare/xxhash/v2
 # github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01
 ## explicit
 github.com/containers/libtrust
-# github.com/containers/ocicrypt v1.2.1
-## explicit; go 1.22
+# github.com/containers/ocicrypt v1.3.0
+## explicit; go 1.24.0
 github.com/containers/ocicrypt/spec
 # github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 ## explicit; go 1.16
@@ -134,8 +134,8 @@ github.com/lib/pq/internal/proto
 github.com/lib/pq/oid
 github.com/lib/pq/pqerror
 github.com/lib/pq/scram
-# github.com/moby/moby/client v0.1.0
-## explicit; go 1.24.0
+# github.com/moby/moby/client v0.4.1
+## explicit; go 1.24
 github.com/moby/moby/client/pkg/versions
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
@@ -229,8 +229,8 @@ github.com/sapcc/go-bits/syncext
 # github.com/sergi/go-diff v1.4.0
 ## explicit; go 1.13
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/sirupsen/logrus v1.9.3
-## explicit; go 1.13
+# github.com/sirupsen/logrus v1.9.4
+## explicit; go 1.17
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.10.2
 ## explicit; go 1.15
@@ -247,8 +247,8 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
-# go.podman.io/image/v5 v5.40.0 => go.podman.io/image/v5 v5.38.1-0.20251112190108-acb3639700ff
-## explicit; go 1.24.0
+# go.podman.io/image/v5 v5.40.0
+## explicit; go 1.25.6
 go.podman.io/image/v5/docker/reference
 go.podman.io/image/v5/internal/manifest
 go.podman.io/image/v5/internal/pkg/platform
@@ -258,8 +258,8 @@ go.podman.io/image/v5/pkg/compression/internal
 go.podman.io/image/v5/pkg/compression/types
 go.podman.io/image/v5/pkg/strslice
 go.podman.io/image/v5/types
-# go.podman.io/storage v1.62.0
-## explicit; go 1.24.0
+# go.podman.io/storage v1.63.0
+## explicit; go 1.25.0
 go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
@@ -285,11 +285,11 @@ golang.org/x/exp/slices
 ## explicit; go 1.25.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5
-## explicit; go 1.23.0
+# google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9
+## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5
-## explicit; go 1.23.0
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9
+## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/protobuf v1.36.11
 ## explicit; go 1.23
@@ -334,4 +334,3 @@ google.golang.org/protobuf/types/known/emptypb
 google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-# go.podman.io/image/v5 => go.podman.io/image/v5 v5.38.1-0.20251112190108-acb3639700ff
