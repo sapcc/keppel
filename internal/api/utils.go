@@ -11,6 +11,7 @@ import (
 
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -32,7 +33,8 @@ func CheckRateLimit(r *http.Request, w http.ResponseWriter, rle *keppel.RateLimi
 		return nil
 	}
 
-	result, err := rle.RateLimitAllows(r.Context(), httpext.GetRequesterIPFor(r), account, action, amount)
+	ctx := r.Context()
+	result, err := rle.RateLimitAllows(ctx, httpext.GetRequesterIPFor(r), account, action, amount)
 	if err != nil {
 		return err
 	}
@@ -58,8 +60,8 @@ var getTagPolicyByAccountNameQuery = sqlext.SimplifyWhitespace(`
 
 // GetTagPolicies is used to read tag policies of an account.
 // It is used when the initial AuthN/AuthZ check of an API call only loaded a ReducedAccount for performance reasons.
-func GetTagPolicies(db *keppel.DB, account models.ReducedAccount) ([]keppel.TagPolicy, error) {
-	tagPoliciesStr, err := db.SelectStr(getTagPolicyByAccountNameQuery, account.Name)
+func GetTagPolicies(db *oblast.DB, account models.ReducedAccount) ([]keppel.TagPolicy, error) {
+	tagPoliciesStr, err := keppel.SelectOneValue[string](db, getTagPolicyByAccountNameQuery, account.Name)
 	if err != nil {
 		return nil, err
 	}

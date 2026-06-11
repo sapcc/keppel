@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/oblast"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -28,8 +29,8 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		s := test.NewSetup(t)
 
 		// setup a peer
-		must.SucceedT(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org", UseForPullDelegation: true}))
-		must.SucceedT(t, s.DB.Insert(&models.Peer{HostName: "peer.invalid.", UseForPullDelegation: false}))
+		must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB, &models.Peer{HostName: "peer.example.org", UseForPullDelegation: true}))
+		must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB, &models.Peer{HostName: "peer.invalid.", UseForPullDelegation: false}))
 
 		// setup a mock for the peer that just swallows any password that we give to it
 		mockPeer := mockPeerReceivingPassword{}
@@ -43,7 +44,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 			if err != nil {
 				t.Error(err.Error())
 			}
-			err = IssueNewPasswordForPeer(s.Ctx, s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
+			err = IssueNewPasswordForPeer(ctx, s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
 			if err != nil {
 				t.Error(err.Error())
 			}
@@ -95,11 +96,10 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	})
 }
 
-func getPeerFromDB(t *testing.T, db *keppel.DB) models.Peer {
+func getPeerFromDB(t *testing.T, db *oblast.DB) models.Peer {
 	t.Helper()
-	var peer models.Peer
-	must.SucceedT(t, db.SelectOne(&peer, `SELECT * FROM peers WHERE use_for_pull_delegation`))
-	return peer
+	ctx := t.Context()
+	return must.ReturnT(models.PeerStore.SelectOneWhere(ctx, db, `use_for_pull_delegation`))(t)
 }
 
 type mockPeerReceivingPassword struct {

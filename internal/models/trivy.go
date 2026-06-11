@@ -8,6 +8,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 )
 
 // TrivySecurityInfo contains a record from the `trivy_security_info` table.
@@ -24,3 +25,10 @@ type TrivySecurityInfo struct {
 	// Whether a report with `--format json` is stored for this manifest.
 	HasEnrichedReport bool `db:"has_enriched_report"`
 }
+
+// TrivySecurityInfoStore provides loading and storing of [TrivySecurityInfo] objects from the DB.
+var TrivySecurityInfoStore = oblast.MustNewStore[TrivySecurityInfo](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("trivy_security_info"),
+	oblast.PrimaryKeyIs("repo_id", "digest"),
+)

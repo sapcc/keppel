@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -32,7 +33,7 @@ type API struct {
 	fd         keppel.FederationDriver
 	sd         keppel.StorageDriver
 	icd        keppel.InboundCacheDriver
-	db         *keppel.DB
+	db         *oblast.DB
 	auditor    audittools.Auditor
 	rle        *keppel.RateLimitEngine // may be nil
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
@@ -40,7 +41,7 @@ type API struct {
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor audittools.Auditor, rle *keppel.RateLimitEngine) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *oblast.DB, auditor audittools.Auditor, rle *keppel.RateLimitEngine) *API {
 	return &API{cfg, ad, fd, sd, icd, db, auditor, rle, time.Now}
 }
 
@@ -138,12 +139,13 @@ func repoScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet
 
 // TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss auth.ScopeSet) *auth.Authorization {
+	ctx := r.Context()
 	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest:          r,
 		Scopes:               ss,
 		CorrectlyReturn403:   true,
 		PartialAccessAllowed: r.URL.Path == "/keppel/v1/accounts",
-	}.Authorize(r.Context(), a.cfg, a.authDriver, a.db)
+	}.Authorize(ctx, a.cfg, a.authDriver, a.db)
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return nil
@@ -162,8 +164,9 @@ var (
 // first. This is important because this function may otherwise leak information about whether
 // accounts exist or not to unauthorized users.
 func (a *API) findAccountFromRequest(r *http.Request, _ *auth.Authorization) (models.Account, error) {
+	ctx := r.Context()
 	accountName := models.AccountName(mux.Vars(r)["account"])
-	account, err := keppel.FindAccount(a.db, accountName)
+	account, err := keppel.FindAccount(ctx, a.db, accountName)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return models.Account{}, respondwith.CustomStatus(http.StatusNotFound, errAccountNotFound)
@@ -177,8 +180,9 @@ func (a *API) findAccountFromRequest(r *http.Request, _ *auth.Authorization) (mo
 }
 
 func (a *API) findReducedAccountFromRequest(r *http.Request, _ *auth.Authorization) (models.ReducedAccount, error) {
+	ctx := r.Context()
 	accountName := models.AccountName(mux.Vars(r)["account"])
-	account, err := keppel.FindReducedAccount(a.db, accountName)
+	account, err := keppel.FindReducedAccount(ctx, a.db, accountName)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return models.ReducedAccount{}, respondwith.CustomStatus(http.StatusNotFound, errAccountNotFound)
@@ -192,12 +196,13 @@ func (a *API) findReducedAccountFromRequest(r *http.Request, _ *auth.Authorizati
 }
 
 func (a *API) findRepositoryFromRequest(r *http.Request, accountName models.AccountName) (models.Repository, error) {
+	ctx := r.Context()
 	repoName := mux.Vars(r)["repo_name"]
 	if !isValidRepoName(repoName) {
 		return models.Repository{}, respondwith.CustomStatus(http.StatusUnprocessableEntity, errRepoNameInvalid)
 	}
 
-	repo, err := keppel.FindRepository(a.db, repoName, accountName)
+	repo, err := keppel.FindRepository(ctx, a.db, repoName, accountName)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return models.Repository{}, respondwith.CustomStatus(http.StatusNotFound, errRepoNotFound)

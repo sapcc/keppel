@@ -174,5 +174,5 @@ func (s Setup) findAuthTenantIDForAccountName(accountName models.AccountName) (s
 	}
 
 	// base case: look up in the DB
-	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
+	return keppel.SelectOneValue[string](s.DB, `SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }

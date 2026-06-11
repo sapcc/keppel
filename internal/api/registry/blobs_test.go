@@ -162,7 +162,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 
 			// create the "test1/foo" repository to ensure that we don't just always hit
 			// NAME_UNKNOWN errors
-			_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+			_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s.DB, "foo", models.AccountName("test1")))(t)
 
 			// test failure cases during POST: anonymous is not allowed, should yield an auth challenge
 			s.RespondTo(ctx, "POST /v2/test1/foo/blobs/uploads/", uploadingBlobMonolithically(blob)).
@@ -382,7 +382,7 @@ func TestGetBlobUpload(t *testing.T) {
 
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s.DB, "foo", models.AccountName("test1")))(t)
 
 		// test failure cases: no such upload
 		s.RespondTo(ctx, "GET /v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", // bogus session ID
@@ -466,7 +466,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s.DB, "foo", models.AccountName("test1")))(t)
 
 		// test failure cases: no such upload
 		s.RespondTo(ctx, "DELETE /v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", // bogus session ID
@@ -659,13 +659,13 @@ func TestBlobUploadContinuesAfterFinalizing(t *testing.T) {
 
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s.DB, "foo", models.AccountName("test1")))(t)
 
 		chunk1, chunk2 := blob.Contents[0:10], blob.Contents[10:]
 
 		uploadURL, uploadUUID := getBlobUpload(t, s, tokenHeaders, "test1/foo")
-		repo := must.ReturnT(keppel.FindReducedRepository(s.DB, "foo", "test1"))(t)
-		upload := must.ReturnT(keppel.FindUploadByRepository(s.DB, uploadUUID, repo))(t)
+		repo := must.ReturnT(keppel.FindReducedRepository(ctx, s.DB, "foo", "test1"))(t)
+		upload := must.ReturnT(keppel.FindUploadByRepository(ctx, s.DB, uploadUUID, repo))(t)
 
 		// upload first chunk successfully
 		s.RespondTo(ctx, "PATCH "+uploadURL,
@@ -725,7 +725,7 @@ func TestBlobUploadContinuesAfterFinalizing(t *testing.T) {
 		expectBlobExists(t, s, tokenHeaders, "test1/foo", blob)
 
 		// and there must be no upload object left behind
-		_, err := keppel.FindUploadByRepository(s.DB, uploadUUID, repo)
+		_, err := keppel.FindUploadByRepository(ctx, s.DB, uploadUUID, repo)
 		assert.ErrEqual(t, err, sql.ErrNoRows)
 	})
 }

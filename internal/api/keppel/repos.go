@@ -163,6 +163,8 @@ var (
 )
 
 func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Authorization, repo models.Repository, account models.ReducedAccount, tagPolicies []keppel.TagPolicy) error {
+	ctx := r.Context()
+
 	// can only delete repository when first deleting all manifests which reference others
 	deletedManifestCount := 0
 	err := sqlext.ForeachRow(a.db, deleteRepositoryFindManifestsQuery, []any{repo.ID},
@@ -178,7 +180,7 @@ func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Author
 				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w", digestStr, repo.Name, err)
 			}
 
-			err = a.processor().DeleteManifest(r.Context(), account, repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
+			err = a.processor().DeleteManifest(ctx, account, repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})
@@ -196,7 +198,7 @@ func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Author
 
 	// the section above could only delete manifests that are not referenced by others;
 	// if there is stuff left over, restart the loop
-	manifestCount, err := a.db.SelectInt(deleteRepositoryCountManifestsQuery, repo.ID)
+	manifestCount, err := keppel.SelectOneValue[uint64](a.db, deleteRepositoryCountManifestsQuery, repo.ID)
 	if err != nil {
 		return err
 	}
@@ -213,6 +215,8 @@ func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Author
 
 func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
@@ -238,26 +242,28 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		tagResults []models.Tag
-		tags       []string
-	)
-	_, err = a.db.Select(&tagResults, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
+	tags, err := models.TagStore.SelectWhere(ctx, a.db, `repo_id = $1`, repo.ID)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	for _, tagResult := range tagResults {
-		tags = append(tags, tagResult.Name)
+	tagsByManifestDigest := make(map[digest.Digest][]string)
+	for _, tag := range tags {
+		tagsByManifestDigest[tag.Digest] = append(tagsByManifestDigest[tag.Digest], tag.Name)
 	}
 
 	for _, tagPolicy := range tagPolicies {
-		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags(tags) {
-			http.Error(w, processor.DeleteManifestBlockedByTagPolicyError{Policy: tagPolicy}.Error(), http.StatusConflict)
-			return
+		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) {
+			for manifestDigest, manifestTags := range tagsByManifestDigest {
+				if tagPolicy.MatchesTags(manifestTags) {
+					err := processor.DeleteManifestBlockedByTagPolicyError{Digest: manifestDigest, Policy: tagPolicy}
+					http.Error(w, err.Error(), http.StatusConflict)
+					return
+				}
+			}
 		}
 	}
 
-	uploadCount, err := tx.SelectInt(`SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
+	uploadCount, err := keppel.SelectOneValue[uint64](tx, `SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -275,7 +281,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = tx.Delete(&repo)
+	err = models.RepositoryStore.Delete(ctx, tx, repo)
 	if err == nil {
 		err = tx.Commit()
 	}

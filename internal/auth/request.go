@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/sapcc/go-bits/httpapi"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -50,7 +51,7 @@ type IncomingRequest struct {
 //
 // In addition to the accepted Authorization, we also return a Challenge,
 // for when API implementations need to return custom 401 errors.
-func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *Challenge, *keppel.RegistryV2Error) {
+func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuration, ad keppel.AuthDriver, db *oblast.DB) (*Authorization, *Challenge, *keppel.RegistryV2Error) {
 	r := ir.HTTPRequest
 
 	// find audience
@@ -111,7 +112,7 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		if err != nil {
 			return nil, nil, keppel.AsRegistryV2Error(err)
 		}
-		authz, err = ir.authorizeViaUserIdentity(uid, audience, db)
+		authz, err = ir.authorizeViaUserIdentity(ctx, uid, audience, db)
 		if err != nil {
 			return nil, nil, keppel.AsRegistryV2Error(err)
 		}
@@ -147,7 +148,7 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		}
 
 		var err error
-		authz, err = ir.authorizeViaUserIdentity(uid, audience, db)
+		authz, err = ir.authorizeViaUserIdentity(ctx, uid, audience, db)
 		if err != nil {
 			return nil, nil, keppel.AsRegistryV2Error(err)
 		}
@@ -220,7 +221,7 @@ func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience 
 
 var errMalformedAuthHeader = keppel.ErrUnauthorized.With("malformed Authorization header")
 
-func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver, db *keppel.DB) (keppel.UserIdentity, error) {
+func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver, db *oblast.DB) (keppel.UserIdentity, error) {
 	// decode auth header into username/password pair
 	usernamePassword, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(authHeader, "Basic "))
 	if err != nil {
@@ -233,7 +234,7 @@ func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver
 
 	// recognize peer credentials
 	if peerHostName, ok := strings.CutPrefix(userName, "replication@"); ok {
-		peer, err := checkPeerCredentials(db, peerHostName, password)
+		peer, err := checkPeerCredentials(ctx, db, peerHostName, password)
 		if err != nil {
 			return nil, err
 		}
@@ -259,8 +260,8 @@ func safelyReturnRegistryError(rerr *keppel.RegistryV2Error) error {
 	return rerr
 }
 
-func (ir IncomingRequest) authorizeViaUserIdentity(uid keppel.UserIdentity, audience Audience, db *keppel.DB) (*Authorization, error) {
-	ss, err := filterAuthorized(ir, uid, audience, db)
+func (ir IncomingRequest) authorizeViaUserIdentity(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *oblast.DB) (*Authorization, error) {
+	ss, err := filterAuthorized(ctx, ir, uid, audience, db)
 	if err != nil {
 		return nil, err
 	}

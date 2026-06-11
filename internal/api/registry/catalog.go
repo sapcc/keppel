@@ -26,6 +26,8 @@ const maxLimit = 100
 // This implements the GET /v2/_catalog endpoint.
 func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/_catalog")
+	ctx := r.Context()
+
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -34,7 +36,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		Scopes:                auth.NewScopeSet(auth.CatalogEndpointScope),
 		AllowsAnycast:         false,
 		AllowsDomainRemapping: true,
-	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
+	}.Authorize(ctx, a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return

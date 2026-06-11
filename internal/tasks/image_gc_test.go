@@ -49,7 +49,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	// protected (to avoid deleting images that a client is about to tag)
 	assert.ErrEqual(t, garbageJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, garbageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
-	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.DB)
 
 	// setup GC policy that does not match
 	s.Clock.StepBy(2 * time.Hour)
@@ -192,7 +192,7 @@ func TestGCMatchOnTag(t *testing.T) {
 			deletingGCPolicyJSON,
 		),
 	)
-	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.DB)
 
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
@@ -285,7 +285,7 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 				deletingGCPolicyJSON,
 			),
 		)
-		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
 
 		garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
@@ -348,7 +348,7 @@ func TestGCProtectComesTooLate(t *testing.T) {
 			protectingGCPolicyJSON2,
 		),
 	)
-	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.DB)
 
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
@@ -389,7 +389,7 @@ func TestGCProtectSubject(t *testing.T) {
 	deletingGCPolicyJSON := `[{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":2,"unit":"h"}},"action":"delete"}]`
 	test.MustExec(t, s.DB, `UPDATE accounts SET gc_policies_json = $1`, deletingGCPolicyJSON)
 
-	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.DB)
 	garbageCollectionJob := j.ManifestGarbageCollectionJob(s.Registry)
 
 	// skip an hour to avoid protected_by_recent_upload
@@ -419,7 +419,7 @@ func TestTagPolicyProtectsFromGCManifest(t *testing.T) {
 	deletingGCPolicyJSON := `[{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}]`
 	test.MustExec(t, s.DB, `UPDATE accounts SET gc_policies_json = $1`, deletingGCPolicyJSON)
 
-	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.DB)
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
 	// skip an hour to avoid protected_by_recent_upload
