@@ -194,15 +194,15 @@ github.com/redis/go-redis/v9/push
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/sapcc/go-api-declarations v1.22.0
-## explicit; go 1.24
+# github.com/sapcc/go-api-declarations v1.23.0
+## explicit; go 1.26
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20260609114743-3bf4546d2a8d
+# github.com/sapcc/go-bits v0.0.0-20260611141223-328f49772fed
 ## explicit; go 1.26
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
