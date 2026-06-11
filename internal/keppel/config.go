@@ -77,8 +77,8 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 	return jwt.ParseEdPrivateKeyFromPEM(buf)
 }
 
-// GetDatabaseURLFromEnvironment reads the KEPPEL_DB_* environment variables.
-func GetDatabaseURLFromEnvironment() (dbURL url.URL, dbName string) {
+// getDatabaseURLFromEnvironment reads the KEPPEL_DB_* environment variables.
+func getDatabaseURLFromEnvironment() (dbURL url.URL, dbName string) {
 	dbName = osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel")
 	return must.Return(easypg.URLFrom(easypg.URLParts{
 		HostName:          osext.GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost"),

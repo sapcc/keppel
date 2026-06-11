@@ -26,7 +26,7 @@ import (
 // embedded in the token.
 //
 // The return value contains the `Authorization` header for this token.
-func (s Setup) GetTokenHeaders(t *testing.T, scopes ...string) http.Header {
+func (s Setup) GetTokenHeaders(t testing.TB, scopes ...string) http.Header {
 	t.Helper()
 	token := s.getToken(t, auth.Audience{IsAnycast: false}, scopes...)
 	return http.Header{
@@ -38,7 +38,7 @@ func (s Setup) GetTokenHeaders(t *testing.T, scopes ...string) http.Header {
 //
 // The return value contains the `Authorization` header for this token,
 // as well as `X-Forwarded-*` headers that select the anycast API.
-func (s Setup) GetAnycastTokenHeaders(t *testing.T, scopes ...string) http.Header {
+func (s Setup) GetAnycastTokenHeaders(t testing.TB, scopes ...string) http.Header {
 	t.Helper()
 	token := s.getToken(t, auth.Audience{IsAnycast: true}, scopes...)
 	return http.Header{
@@ -52,7 +52,7 @@ func (s Setup) GetAnycastTokenHeaders(t *testing.T, scopes ...string) http.Heade
 //
 // The return value contains the `Authorization` header for this token,
 // as well as `X-Forwarded-*` headers that select the domain-remapped API.
-func (s Setup) GetDomainRemappedTokenHeaders(t *testing.T, accountName models.AccountName, scopes ...string) http.Header {
+func (s Setup) GetDomainRemappedTokenHeaders(t testing.TB, accountName models.AccountName, scopes ...string) http.Header {
 	t.Helper()
 	token := s.getToken(t, auth.Audience{IsAnycast: false, AccountName: accountName}, scopes...)
 	return http.Header{
@@ -62,7 +62,7 @@ func (s Setup) GetDomainRemappedTokenHeaders(t *testing.T, accountName models.Ac
 	}
 }
 
-func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) string {
+func (s Setup) getToken(t testing.TB, audience auth.Audience, scopes ...string) string {
 	t.Helper()
 
 	//optimization: don't issue the same token twice in a single test run
@@ -144,7 +144,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 // The necessary permissions will be inferred from the given scopes.
 //
 // The return value contains the `Authorization` header for this token.
-func (s Setup) GetAnonTokenHeaders(t *testing.T, repo string, scopes []string) http.Header {
+func (s Setup) GetAnonTokenHeaders(t testing.TB, repo string, scopes []string) http.Header {
 	t.Helper()
 
 	path := fmt.Sprintf("/keppel/v1/auth?service=%s&scope=%s:%s", s.Config.APIPublicHostname, repo, strings.Join(scopes, ","))
@@ -174,5 +174,5 @@ func (s Setup) findAuthTenantIDForAccountName(accountName models.AccountName) (s
 	}
 
 	// base case: look up in the DB
-	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
+	return keppel.SelectOneValue[string](s.DB, `SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }

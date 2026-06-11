@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -52,7 +53,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 
 			if firstPass && strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
+				easypg.AssertDBContent(t, s2.DB.DB, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
 			}
 
 			s1.Clock.StepBy(time.Second)
@@ -60,7 +61,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 			expectBlobExists(t, s2, tokenHeaders, "test1/foo", image.Layers[0])
 
 			if firstPass && strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
+				easypg.AssertDBContent(t, s2.DB.DB, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
 			}
 		})
 
@@ -97,7 +98,7 @@ func TestReplicationImageList(t *testing.T) {
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", list.Manifest, "list")
 
 			if strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
+				easypg.AssertDBContent(t, s2.DB.DB, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
 			}
 
 			if !firstPass {
@@ -114,7 +115,7 @@ func TestReplicationMissingEntities(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		ctx := t.Context()
 		// ensure that the `test1/foo` repo exists upstream; otherwise we'll just get NAME_UNKNOWN
-		_ = must.ReturnT(keppel.FindOrCreateRepository(s1.DB, "foo", models.AccountName("test1")))(t)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s1.DB, "foo", models.AccountName("test1")))(t)
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			var (
@@ -347,7 +348,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", list.Manifest, "list")
 
 			if strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
+				easypg.AssertDBContent(t, s2.DB.DB, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
 			}
 
 			if !firstPass {
@@ -418,7 +419,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
 			// reconfigure "test1" into an external replica of tertiary
-			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
+			for _, db := range []*oblast.DB{s1.DB, s2.DB} {
 				test.MustExec(t, db, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
 			}

@@ -9,12 +9,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/dlmiddlecote/sqlstats"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/cors"
-	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpapi/pprofapi"
 	"github.com/sapcc/go-bits/httpext"
@@ -22,6 +19,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
+	"go.xyrillian.de/oblast"
 
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -51,10 +49,7 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
 	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
-	dbURL, dbName := keppel.GetDatabaseURLFromEnvironment()
-	dbConn := must.Return(easypg.Connect(dbURL, keppel.DBConfiguration()))
-	prometheus.MustRegister(sqlstats.NewStatsCollector(dbName, dbConn))
-	db := keppel.InitORM(dbConn)
+	db := keppel.InitDB()
 	must.Succeed(setupDBIfRequested(db))
 
 	rc := must.Return(initRedis())
@@ -88,7 +83,7 @@ func run(cmd *cobra.Command, args []string) {
 		httpapi.HealthCheckAPI{
 			SkipRequestLog: true,
 			Check: func() error {
-				return db.Db.PingContext(ctx)
+				return db.PingContext(ctx)
 			},
 		},
 		httpapi.WithGlobalMiddleware(reportClientIP),
@@ -121,7 +116,7 @@ func initRedis() (*redis.Client, error) {
 	return redis.NewClient(opts), nil
 }
 
-func setupDBIfRequested(db *keppel.DB) error {
+func setupDBIfRequested(db *oblast.DB) error {
 	// This method performs specialized first-time setup for conformance test
 	// scenarios where we always start with a fresh empty database.
 	//

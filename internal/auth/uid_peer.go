@@ -4,10 +4,12 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/audittools"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -66,15 +68,14 @@ func (uid *PeerUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver)
 // Returns whether the given peer credentials are valid. On success, the Peer
 // instance is returned. If the credentials do not match, (nil, nil) is
 // returned. Error values are only returned for unexpected failures.
-func checkPeerCredentials(db *keppel.DB, peerHostName, password string) (*models.Peer, error) {
+func checkPeerCredentials(ctx context.Context, db *oblast.DB, peerHostName, password string) (*models.Peer, error) {
 	//NOTE: This function is technically vulnerable to a timing side-channel attack.
 	// It returns much faster if `peerHostName` refers to a peer that does not exist,
 	// so an attacker could use it to infer which peers exist. I don't consider
 	// this an actual vulnerability since the set of peers is common knowledge:
 	// In fact, it's literally exposed in an API call in the Keppel API.
 
-	var peer models.Peer
-	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, peerHostName)
+	peer, err := keppel.FindPeer(ctx, db, peerHostName)
 	if err != nil {
 		return nil, err
 	}

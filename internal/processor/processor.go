@@ -12,21 +12,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// Processor is a higher-level interface wrapping keppel.DB and keppel.StorageDriver.
+// Processor is a higher-level interface wrapping oblast.DB and keppel.StorageDriver.
 // It abstracts DB accesses into high-level interactions and keeps DB updates in
 // lockstep with StorageDriver accesses.
 type Processor struct {
 	cfg         keppel.Configuration
-	db          *keppel.DB
+	db          *oblast.DB
 	fd          keppel.FederationDriver
 	sd          keppel.StorageDriver
 	icd         keppel.InboundCacheDriver
@@ -39,7 +39,7 @@ type Processor struct {
 }
 
 // New creates a new Processor.
-func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
+func New(cfg keppel.Configuration, db *oblast.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
 	return &Processor{cfg, db, fd, sd, icd, auditor, make(map[string]*client.RepoClient), timenow, keppel.GenerateStorageID}
 }
 
@@ -63,7 +63,7 @@ func (p *Processor) OverrideGenerateStorageID(generateStorageID func() string) *
 // NOTE: This method is not used widely at the moment because callers usually
 // have direct access to `db` and `sd`, but my plan is to convert most or all DB
 // accesses into methods on type Processor eventually.
-func (p *Processor) WithLowlevelAccess(action func(*keppel.DB, keppel.StorageDriver) error) error {
+func (p *Processor) WithLowlevelAccess(action func(*oblast.DB, keppel.StorageDriver) error) error {
 	return action(p.db, p.sd)
 }
 
@@ -71,41 +71,27 @@ func (p *Processor) WithLowlevelAccess(action func(*keppel.DB, keppel.StorageDri
 // callback returns success (i.e. a nil error), the transaction will be
 // committed.  If it returns an error or panics, the transaction will be rolled
 // back.
-func (p *Processor) insideTransaction(ctx context.Context, action func(context.Context, *gorp.Transaction) error) error {
+func (p *Processor) insideTransaction(ctx context.Context, action func(context.Context, *oblast.Tx) error) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err
 	}
-	isCommitted := false
-
-	defer func() {
-		if !isCommitted {
-			err := tx.Rollback()
-			if err != nil {
-				logg.Error("implicit rollback failed: " + err.Error())
-			}
-		}
-	}()
+	defer sqlext.RollbackUnlessCommitted(tx)
 
 	err = action(ctx, tx)
 	if err != nil {
 		return err
 	}
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-	isCommitted = true
-	return nil
+	return tx.Commit()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // helper functions used by multiple Processor methods
 
 // Returns nil if and only if the user can push another manifest.
-func (p *Processor) checkQuotaForManifestPush(account models.ReducedAccount) error {
+func (p *Processor) checkQuotaForManifestPush(ctx context.Context, account models.ReducedAccount) error {
 	// check if user has enough quota to push a manifest
-	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
+	quotas, err := keppel.FindQuotas(ctx, p.db, account.AuthTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
 		quotas = p.cfg.DefaultQuotas(account.AuthTenantID)
 	} else if err != nil {
@@ -126,7 +112,7 @@ func (p *Processor) checkQuotaForManifestPush(account models.ReducedAccount) err
 
 // Takes a repo in a replica account and returns a RepoClient for accessing its
 // the upstream repo in the corresponding primary account.
-func (p *Processor) getRepoClientForUpstream(account models.ReducedAccount, repo models.ReducedRepository) (*client.RepoClient, error) {
+func (p *Processor) getRepoClientForUpstream(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository) (*client.RepoClient, error) {
 	// use cached client if possible (this one probably already contains a valid
 	// pull token)
 	if c, ok := p.repoClients[repo.FullName()]; ok {
@@ -134,8 +120,7 @@ func (p *Processor) getRepoClientForUpstream(account models.ReducedAccount, repo
 	}
 
 	if account.UpstreamPeerHostName != "" {
-		var peer models.Peer
-		err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
+		peer, err := keppel.FindPeer(ctx, p.db, account.UpstreamPeerHostName)
 		if err != nil {
 			return nil, err
 		}

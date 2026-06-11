@@ -20,7 +20,8 @@ import (
 // Implementation for the GET /peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference endpoint.
 func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference")
-	peer := a.authenticateRequest(w, r)
+	ctx := r.Context()
+	peer := a.authenticateRequest(ctx, w, r)
 	if peer == nil {
 		return
 	}
@@ -41,7 +42,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), // may be empty
 	}
 	ref := models.ParseManifestReference(vars["reference"])
-	manifestBytes, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)
+	manifestBytes, manifestMediaType, err := rc.DownloadManifest(ctx, ref, &opts)
 
 	if err != nil {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {

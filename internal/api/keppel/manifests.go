@@ -75,6 +75,8 @@ var tagGetQuery = sqlext.SimplifyWhitespace(`
 
 func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
 	if authz == nil {
 		return
@@ -99,8 +101,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dbManifests []models.Manifest
-	_, err = a.db.Select(&dbManifests, manifestQuery, vulnBindValues...)
+	dbManifests, err := models.ManifestStore.Select(ctx, a.db, manifestQuery, vulnBindValues...)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -116,8 +117,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dbSecurityInfos []models.TrivySecurityInfo
-	_, err = a.db.Select(&dbSecurityInfos, securityInfoQuery, securityBindValues...)
+	dbSecurityInfos, err := models.TrivySecurityInfoStore.Select(ctx, a.db, securityInfoQuery, securityBindValues...)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -170,8 +170,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		// last digest
 		firstDigest := result.Manifests[0].Digest
 		lastDigest := result.Manifests[len(result.Manifests)-1].Digest
-		var dbTags []models.Tag
-		_, err = a.db.Select(&dbTags, tagGetQuery, repo.ID, firstDigest, lastDigest)
+		dbTags, err := models.TagStore.Select(ctx, a.db, tagGetQuery, repo.ID, firstDigest, lastDigest)
 		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
@@ -198,6 +197,8 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
@@ -221,7 +222,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(r.Context(), account, repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
+	err = a.processor().DeleteManifest(ctx, account, repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -274,6 +275,8 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/trivy_report")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
 	if authz == nil {
 		return
@@ -303,7 +306,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	manifest, err := keppel.FindManifest(a.db, repo.Reduced(), parsedDigest)
+	manifest, err := keppel.FindManifest(ctx, a.db, repo.Reduced(), parsedDigest)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -312,7 +315,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	securityInfo, err := keppel.GetSecurityInfo(a.db, repo.ID, parsedDigest)
+	securityInfo, err := keppel.GetSecurityInfo(ctx, a.db, repo.ID, parsedDigest)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -330,7 +333,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	//- we don't have vulnerability scanning enabled at all
 	//- vulnerability scanning is not done yet
 	//- the image does not have any blobs that could be scanned for vulnerabilities
-	blobCount, err := a.db.SelectInt(
+	blobCount, err := keppel.SelectOneValue[uint64](a.db,
 		`SELECT COUNT(*) FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifest.Digest,
 	)
@@ -353,7 +356,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
-		buf, err := a.sd.ReadTrivyReport(r.Context(), account, repo.Name, manifest.Digest, format)
+		buf, err := a.sd.ReadTrivyReport(ctx, account, repo.Name, manifest.Digest, format)
 		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
@@ -377,7 +380,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
-		report, err := a.cfg.Trivy.ScanManifest(r.Context(), tokenResp.Token, imageRef, format)
+		report, err := a.cfg.Trivy.ScanManifest(ctx, tokenResp.Token, imageRef, format)
 		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}

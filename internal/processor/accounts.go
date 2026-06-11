@@ -67,7 +67,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	}
 
 	// check if account already exists
-	originalAccount, err := keppel.FindAccount(p.db, account.Name)
+	originalAccount, err := keppel.FindAccount(ctx, p.db, account.Name)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 	}
@@ -184,7 +184,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	var peer models.Peer
 	if targetAccount.UpstreamPeerHostName != "" {
 		// NOTE: This validates UpstreamPeerHostName as a side effect.
-		peer, err = keppel.GetPeerFromAccount(p.db, targetAccount)
+		peer, err = keppel.FindPeer(ctx, p.db, targetAccount.UpstreamPeerHostName)
 		if errors.Is(err, sql.ErrNoRows) {
 			msg := fmt.Errorf(`unknown peer registry: %q`, targetAccount.UpstreamPeerHostName)
 			return models.Account{}, keppel.AsRegistryV2Error(msg).WithStatus(http.StatusUnprocessableEntity)
@@ -266,7 +266,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		}
 		defer sqlext.RollbackUnlessCommitted(tx)
 
-		err = tx.Insert(&targetAccount)
+		err = models.AccountStore.Insert(ctx, tx, &targetAccount)
 		if err != nil {
 			return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 		}
@@ -290,7 +290,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	} else {
 		// originalAccount != nil: update if necessary
 		if !reflect.DeepEqual(originalAccount, targetAccount) {
-			_, err := p.db.Update(&targetAccount)
+			err := models.AccountStore.Update(ctx, p.db, targetAccount)
 			if err != nil {
 				return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 			}

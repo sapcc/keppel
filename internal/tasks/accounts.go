@@ -41,9 +41,8 @@ func (j *Janitor) AccountFederationAnnouncementJob(registerer prometheus.Registe
 				Help: "Counter for announcements of existing accounts to the federation driver.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account models.Account, err error) {
-			err = j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
-			return account, err
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (models.Account, error) {
+			return models.AccountStore.SelectOne(ctx, j.db, accountAnnouncementSearchQuery, j.timeNow())
 		},
 		ProcessTask: j.announceAccountToFederation,
 	}).Setup(registerer)

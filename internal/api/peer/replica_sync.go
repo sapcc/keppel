@@ -23,7 +23,8 @@ import (
 // Implementation for the POST /peer/v1/sync-replica/:account/:repo endpoint.
 func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/peer/v1/sync-replica/:account/:repo")
-	peer := a.authenticateRequest(w, r)
+	ctx := r.Context()
+	peer := a.authenticateRequest(ctx, w, r)
 	if peer == nil {
 		return
 	}
@@ -50,7 +51,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find repository
-	repo, err := keppel.FindReducedRepository(a.db, mux.Vars(r)["repo"], accountName)
+	repo, err := keppel.FindReducedRepository(ctx, a.db, mux.Vars(r)["repo"], accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repository not found", http.StatusNotFound)
 		return

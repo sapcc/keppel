@@ -21,6 +21,7 @@ import (
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -93,7 +94,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			// and even if it does...
-			_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+			_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s.DB, "foo", models.AccountName("test1")))(t)
 			// ...the manifest does not exist before it is pushed
 			for _, method := range []string{"GET", "HEAD"} {
 				resp := s.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
@@ -193,21 +194,21 @@ func TestImageManifestLifecycle(t *testing.T) {
 			// PUT success case: upload manifest (and also the blob referenced by it);
 			// each PUT is executed twice to test idempotency
 			s.Clock.StepBy(time.Second)
-			easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-001-before-upload-blob.sql")
+			easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagemanifest-001-before-upload-blob.sql")
 
 			image.Config.MustUpload(t, s, fooRepoRef)
 			image.Config.MustUpload(t, s, fooRepoRef)
 			s.Clock.StepBy(time.Second)
-			easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
+			easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
 			// block_overwrite should not trigger when pushing the same manifest twice
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			s.Clock.StepBy(time.Second)
 			if ref == "latest" {
-				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
+				easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
 			} else {
-				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
+				easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
 			}
 
 			if ref == "latest" {
@@ -363,9 +364,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 			).ExpectStatus(t, http.StatusAccepted)
 			s.Clock.StepBy(time.Second)
 			if ref == "latest" {
-				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-004-after-delete-tag.sql")
+				easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagemanifest-004-after-delete-tag.sql")
 			} else {
-				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
+				easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagemanifest-004-after-delete-manifest.sql")
 			}
 
 			// the DELETE will have logged an audit event
@@ -422,7 +423,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		list2.MustUpload(t, s, fooRepoRef, "list")
 
 		s.Clock.StepBy(time.Second)
-		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
 		// check GET for manifest list
 		expectManifestExists(t, s, tokenHeaders, "test1/foo", list2.Manifest, "list")
@@ -455,7 +456,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			httptest.WithHeaders(deleteTokenHeaders),
 		).ExpectStatus(t, http.StatusAccepted)
 		s.Clock.StepBy(time.Second)
-		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.DB, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
 	})
 }
 
@@ -618,9 +619,9 @@ func TestRuleForManifest(t *testing.T) {
 	})
 }
 
-func expectLabelsJSONOnManifest(t *testing.T, db *keppel.DB, manifestDigest digest.Digest, expected map[string]string) {
+func expectLabelsJSONOnManifest(t *testing.T, db *oblast.DB, manifestDigest digest.Digest, expected map[string]string) {
 	t.Helper()
-	labelsJSONStr := must.ReturnT(db.SelectStr(`SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String()))(t)
+	labelsJSONStr := must.ReturnT(keppel.SelectOneValue[string](db, `SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String()))(t)
 
 	var actual map[string]string
 	must.SucceedT(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
@@ -676,7 +677,7 @@ func TestManifestAnnotations(t *testing.T) {
 		image.MustUpload(t, s, fooRepoRef, "latest")
 
 		// check that the annotations_json field is populated correctly in the DB
-		labelsJSONStr := must.ReturnT(s.DB.SelectStr(`SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
+		labelsJSONStr := must.ReturnT(keppel.SelectOneValue[string](s.DB, `SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 
 		var actual map[string]string
 		must.Succeed(json.Unmarshal([]byte(labelsJSONStr), &actual))
@@ -693,7 +694,7 @@ func TestManifestArtifactType(t *testing.T) {
 		image.MustUpload(t, s, fooRepoRef, "latest")
 
 		// check that the artifact_type field is populated correctly in the DB
-		actualArtifactType := must.ReturnT(s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
+		actualArtifactType := must.ReturnT(keppel.SelectOneValue[string](s.DB, `SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 		assert.Equal(t, actualArtifactType, artifactType)
 	})
 }

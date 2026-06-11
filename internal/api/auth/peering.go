@@ -14,7 +14,6 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/models"
 )
 
 // PeeringRequest is the structure of the JSON request body sent to the POST
@@ -27,6 +26,8 @@ type PeeringRequest struct {
 
 func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/auth/peering")
+	ctx := r.Context()
+
 	// decode request body
 	var req PeeringRequest
 	decoder := json.NewDecoder(r.Body)
@@ -44,8 +45,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// do we even know that guy? :)
-	var peer models.Peer
-	err = a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
+	_, err = keppel.FindPeer(ctx, a.db, req.PeerHostName)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "unknown issuer", http.StatusBadRequest)
 		return
@@ -56,7 +56,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 
 	// check that these credentials work
 	authURL := fmt.Sprintf("https://%s/keppel/v1/auth?service=%[1]s", req.PeerHostName)
-	authReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, authURL, http.NoBody)
+	authReq, err := http.NewRequestWithContext(ctx, http.MethodGet, authURL, http.NoBody)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

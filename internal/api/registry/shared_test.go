@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -36,7 +37,7 @@ var (
 // the auth tenant ID that many test accounts use
 const authTenantID = "test1authtenant"
 
-func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(test.Setup)) {
+func testWithPrimary(t testing.TB, setupOptions []test.SetupOption, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		for _, withAnycast := range []bool{false, true} {
 			opts := append(slices.Clone(setupOptions),
@@ -52,7 +53,7 @@ func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(
 
 			// shutdown DB to free up connections (otherwise the test eventually fails
 			// with Postgres saying "too many clients already")
-			must.SucceedT(t, s.DB.Db.Close())
+			must.SucceedT(t, s.DB.Close())
 		}
 	})
 }
@@ -111,7 +112,7 @@ func testWithAllReplicaTypes(t *testing.T, s1 test.Setup, action func(strategy s
 
 // To be called inside testWithReplica() if the test is specifically about
 // testing how anycast requests are redirected between peers.
-func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
+func testAnycast(t *testing.T, firstPass bool, db2 *oblast.DB, action func()) {
 	t.Helper()
 
 	// the second pass of testWithReplica() has a severed network connection, so anycast is not possible
@@ -205,10 +206,10 @@ func expectManifestExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoN
 	}
 }
 
-func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) {
+func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *oblast.DB) {
 	t.Helper()
 	// test that no blobs were yet committed to the DB...
-	count := must.ReturnT(db.SelectInt(`SELECT COUNT(*) FROM blobs`))(t)
+	count := must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM blobs`))(t)
 	if count > 0 {
 		t.Errorf("expected 0 blobs in the DB, but found %d blobs", count)
 	}
@@ -219,14 +220,14 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 	}
 
 	// also there should be no unfinished uploads
-	count = must.ReturnT(db.SelectInt(`SELECT COUNT(*) FROM uploads`))(t)
+	count = must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM uploads`))(t)
 	if count > 0 {
 		t.Errorf("expected 0 uploads in the DB, but found %d uploads", count)
 	}
 }
 
 //nolint:unparam
-func testWithAccountIsDeleting(t *testing.T, db *keppel.DB, accountName models.AccountName, action func()) {
+func testWithAccountIsDeleting(t *testing.T, db *oblast.DB, accountName models.AccountName, action func()) {
 	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName))(t)
 	action()
 	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName))(t)

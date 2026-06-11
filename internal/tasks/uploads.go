@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-gorp/gorp/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -25,16 +25,12 @@ var abandonedUploadSearchQuery = sqlext.SimplifyWhitespace(`
 `)
 
 // query that finds the account belonging to an repo object
-var findAccountForRepoQuery = sqlext.SimplifyWhitespace(`
-	SELECT a.* FROM accounts a
-	JOIN repos r ON r.account_name = a.name
-	WHERE r.id = $1
-`)
+var findAccountForRepoIDQuery = models.AccountStore.MustPrepareSelectQueryWhere(`name = (SELECT account_name FROM repos WHERE id = $1)`)
 
 // AbandonedUploadCleanupJob is a jobloop.Job. Each task finds an upload that has not
 // been updated for more than a day, and cleans it up.
 func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.TxGuardedJob[*gorp.Transaction, models.Upload]{
+	return (&jobloop.TxGuardedJob[*oblast.Tx, models.Upload]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "cleanup of abandoned uploads",
 			CounterOpts: prometheus.CounterOpts{
@@ -43,25 +39,23 @@ func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jo
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (upload models.Upload, err error) {
+		DiscoverRow: func(ctx context.Context, tx *oblast.Tx, _ prometheus.Labels) (models.Upload, error) {
 			maxUpdatedAt := j.timeNow().Add(-24 * time.Hour)
-			err = tx.SelectOne(&upload, abandonedUploadSearchQuery, maxUpdatedAt)
-			return upload, err
+			return models.UploadStore.SelectOne(ctx, tx, abandonedUploadSearchQuery, maxUpdatedAt)
 		},
 		ProcessRow: j.deleteAbandonedUpload,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) deleteAbandonedUpload(ctx context.Context, tx *gorp.Transaction, upload models.Upload, labels prometheus.Labels) error {
+func (j *Janitor) deleteAbandonedUpload(ctx context.Context, tx *oblast.Tx, upload models.Upload, labels prometheus.Labels) error {
 	// find corresponding account
-	var account models.Account
-	err := tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)
+	account, err := findAccountForRepoIDQuery.SelectOne(ctx, tx, upload.RepositoryID)
 	if err != nil {
 		return fmt.Errorf("cannot find account for abandoned upload %s: %s", upload.UUID, err.Error())
 	}
 
 	// remove from DB
-	_, err = tx.Delete(&upload)
+	err = models.UploadStore.Delete(ctx, tx, upload)
 	if err != nil {
 		return err
 	}

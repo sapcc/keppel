@@ -4,9 +4,11 @@
 package peerv1
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -18,11 +20,11 @@ import (
 type API struct {
 	cfg keppel.Configuration
 	ad  keppel.AuthDriver
-	db  *keppel.DB
+	db  *oblast.DB
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *oblast.DB) *API {
 	return &API{cfg, ad, db}
 }
 
@@ -37,11 +39,11 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 // TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
-func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *models.Peer {
+func (a *API) authenticateRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) *models.Peer {
 	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest: r,
 		Scopes:      auth.NewScopeSet(auth.PeerAPIScope),
-	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
+	}.Authorize(ctx, a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return nil
@@ -53,8 +55,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *model
 		return nil
 	}
 
-	var peer models.Peer
-	err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, uid.PeerHostName)
+	peer, err := keppel.FindPeer(ctx, a.db, uid.PeerHostName)
 	if err != nil {
 		keppel.AsRegistryV2Error(err).WriteAsTextTo(w)
 		return nil

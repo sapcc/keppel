@@ -33,7 +33,7 @@ func TestSweepBlobMounts(t *testing.T) {
 	// repo
 	assert.ErrEqual(t, sweepBlobMountsJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, sweepBlobMountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-mount-sweep-001.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/blob-mount-sweep-001.sql")
 
 	// upload two blobs that are not referenced by any manifest
 	s.Clock.StepBy(2 * time.Hour)
@@ -41,12 +41,12 @@ func TestSweepBlobMounts(t *testing.T) {
 	bogusBlob2 := test.GenerateExampleLayer(4)
 	dbBogusBlob1 := bogusBlob1.MustUpload(t, s, fooRepoRef)
 	dbBogusBlob2 := bogusBlob2.MustUpload(t, s, fooRepoRef)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-mount-sweep-002.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/blob-mount-sweep-002.sql")
 
 	// the next sweep should mark those blob's mounts for deletion
 	assert.ErrEqual(t, sweepBlobMountsJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, sweepBlobMountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-mount-sweep-003.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/blob-mount-sweep-003.sql")
 
 	// save one of those blob mounts from deletion by creating a manifest-blob
 	// reference for it (this reference is actually bogus and would be removed by
@@ -64,5 +64,5 @@ func TestSweepBlobMounts(t *testing.T) {
 	s.Clock.StepBy(2 * time.Hour)
 	assert.ErrEqual(t, sweepBlobMountsJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, sweepBlobMountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-mount-sweep-004.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/blob-mount-sweep-004.sql")
 }

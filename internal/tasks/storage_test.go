@@ -67,7 +67,7 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 	// setting the storage_sweeped_at timestamp on the account
 	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
 	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
-	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.AssertEqualToFile("fixtures/storage-sweep-000.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
@@ -82,19 +82,23 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 
 func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Manifest) (report trivy.ReportPayload, buf []byte) {
 	t.Helper()
+	ctx := t.Context()
+
 	buf = fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, manifest.Digest.String())
 	report = trivy.ReportPayload{
 		Format:   "json",
 		Contents: io.NopCloser(bytes.NewReader(buf)),
 	}
-	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
-	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+	repo := must.ReturnT(keppel.FindRepositoryByID(ctx, s.DB, manifest.RepositoryID))(t)
+	account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t)
 	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, report))
 	return report, buf
 }
 
 func TestSweepStorageBlobs(t *testing.T) {
 	j, s := setup(t)
+	ctx := t.Context()
+
 	s.Clock.StepBy(1 * time.Hour)
 	sweepStorageJob := j.StorageSweepJob(s.Registry)
 	tr, _, healthyBlobs, healthyManifests, healthyTrivyReports := setupStorageSweepTest(t, s, sweepStorageJob)
@@ -119,7 +123,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	sizeBytes := uint64(len(testBlob3.Contents))
 	must.SucceedT(t, s.SD.AppendToBlob(s.Ctx, account, storageID3, 1, Some(sizeBytes), bytes.NewReader(testBlob3.Contents)))
 	// ^ but no FinalizeBlob() since we're still uploading!
-	must.SucceedT(t, s.DB.Insert(&models.Upload{
+	must.SucceedT(t, models.UploadStore.Insert(ctx, s.DB, &models.Upload{
 		RepositoryID: 1,
 		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", // chosen at random, but fixed
 		StorageID:    storageID3,
@@ -179,7 +183,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 		PushedAt:         s.Clock.Now(),
 		NextValidationAt: s.Clock.Now().Add(models.BlobValidationInterval),
 	}
-	must.SucceedT(t, s.DB.Insert(&dbTestBlob1))
+	must.SucceedT(t, models.BlobStore.Insert(ctx, s.DB, &dbTestBlob1))
 	tr.DBChanges().Ignore()
 
 	// next StorageSweepJob should unmark blob 1 (because it's now in
@@ -215,6 +219,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 
 func TestSweepStorageManifests(t *testing.T) {
 	j, s := setup(t)
+	ctx := t.Context()
+
 	s.Clock.StepBy(1 * time.Hour)
 	sweepStorageJob := j.StorageSweepJob(s.Registry)
 	tr, images, healthyBlobs, healthyManifests, healthyTrivyReports := setupStorageSweepTest(t, s, sweepStorageJob)
@@ -259,7 +265,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	// upload that happened while StorageSweepJob was running: manifest was written
 	// to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
-	must.SucceedT(t, s.DB.Insert(&models.Manifest{
+	must.SucceedT(t, models.ManifestStore.Insert(ctx, s.DB, &models.Manifest{
 		RepositoryID:     1,
 		Digest:           testImageList1.Manifest.Digest,
 		MediaType:        testImageList1.Manifest.MediaType,
