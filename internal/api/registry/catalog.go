@@ -4,7 +4,6 @@
 package registryv2
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,9 +14,9 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
+	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -137,20 +136,14 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY name`
 
 func (a *API) getCatalogForAccount(accountName models.AccountName, includeAccountName bool) ([]string, error) {
-	var result []string
-	err := sqlext.ForeachRow(a.db, catalogGetQuery, []any{accountName},
-		func(rows *sql.Rows) error {
-			var name string
-			err := rows.Scan(&name)
-			if err == nil {
-				if includeAccountName {
-					result = append(result, fmt.Sprintf("%s/%s", accountName, name))
-				} else {
-					result = append(result, name)
-				}
-			}
-			return err
-		},
-	)
-	return result, err
+	result, err := keppel.SelectSeveralValues[string](a.db, catalogGetQuery, accountName)
+	if err != nil {
+		return nil, err
+	}
+	if includeAccountName {
+		for idx, repoName := range result {
+			result[idx] = string(accountName) + "/" + repoName
+		}
+	}
+	return result, nil
 }

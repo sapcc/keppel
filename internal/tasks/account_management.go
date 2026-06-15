@@ -5,7 +5,6 @@ package tasks
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -55,15 +54,7 @@ func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels)
 	}
 
 	// if there is a managed account that does not exist yet, create it
-	var existingAccountNames []models.AccountName
-	err = sqlext.ForeachRow(j.db, `SELECT name FROM accounts WHERE is_managed`, nil, func(rows *sql.Rows) error {
-		var accountName models.AccountName
-		err := rows.Scan(&accountName)
-		if err == nil {
-			existingAccountNames = append(existingAccountNames, accountName)
-		}
-		return err
-	})
+	existingAccountNames, err := keppel.SelectSeveralValues[models.AccountName](j.db, `SELECT name FROM accounts WHERE is_managed`)
 	if err != nil {
 		return "", err
 	}

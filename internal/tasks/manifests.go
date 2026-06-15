@@ -736,15 +736,11 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	// could the image have constituent images?
 	if manifest.MediaType != imageManifest.DockerV2Schema2MediaType && manifest.MediaType != imagespecs.MediaTypeImageManifest {
 		// collect vulnerability status of constituent images
-		err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{repo.ID, manifest.Digest}, func(rows *sql.Rows) error {
-			var vulnStatus models.VulnerabilityStatus
-			err := rows.Scan(&vulnStatus)
-			securityStatuses = append(securityStatuses, vulnStatus)
-			return err
-		})
+		substatuses, err := keppel.SelectSeveralValues[models.VulnerabilityStatus](j.db, securityInfoCheckSubmanifestInfoQuery, repo.ID, manifest.Digest)
 		if err != nil {
 			return err
 		}
+		securityStatuses = append(securityStatuses, substatuses...)
 	}
 
 	newVulnerabilityStatus := models.MergeVulnerabilityStatuses(securityStatuses...)

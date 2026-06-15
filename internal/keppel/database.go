@@ -4,6 +4,8 @@
 package keppel
 
 import (
+	"database/sql"
+
 	"github.com/dlmiddlecote/sqlstats"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/easypg"
@@ -454,6 +456,20 @@ var (
 func SelectOneValue[T any](db DBInterface, query string, args ...any) (T, error) {
 	var result T
 	err := db.QueryRow(query, args...).Scan(&result)
+	return result, err
+}
+
+// SelectSeveralValues executes a query that yields rows with a single value each.
+func SelectSeveralValues[T any](db DBInterface, query string, args ...any) ([]T, error) {
+	var result []T
+	err := sqlext.ForeachRow(db, query, args, func(rows *sql.Rows) error {
+		var value T
+		err := rows.Scan(&value)
+		if err == nil {
+			result = append(result, value)
+		}
+		return err
+	})
 	return result, err
 }
 
