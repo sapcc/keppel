@@ -238,22 +238,25 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		tagResults []models.Tag
-		tags       []string
-	)
-	_, err = a.db.Select(&tagResults, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
+	var tags []models.Tag
+	_, err = a.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	for _, tagResult := range tagResults {
-		tags = append(tags, tagResult.Name)
+	tagsByManifestDigest := make(map[digest.Digest][]string)
+	for _, tag := range tags {
+		tagsByManifestDigest[tag.Digest] = append(tagsByManifestDigest[tag.Digest], tag.Name)
 	}
 
 	for _, tagPolicy := range tagPolicies {
-		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags(tags) {
-			http.Error(w, processor.DeleteManifestBlockedByTagPolicyError{Policy: tagPolicy}.Error(), http.StatusConflict)
-			return
+		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) {
+			for manifestDigest, manifestTags := range tagsByManifestDigest {
+				if tagPolicy.MatchesTags(manifestTags) {
+					err := processor.DeleteManifestBlockedByTagPolicyError{Digest: manifestDigest, Policy: tagPolicy}
+					http.Error(w, err.Error(), http.StatusConflict)
+					return
+				}
+			}
 		}
 	}
 

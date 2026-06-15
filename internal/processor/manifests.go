@@ -882,11 +882,12 @@ func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, image
 // DeleteManifestBlockedByTagPolicyError is returned from DeleteManifest when
 // the manifest cannot be deleted because it is protected by a tag policy.
 type DeleteManifestBlockedByTagPolicyError struct {
+	Digest digest.Digest
 	Policy keppel.TagPolicy
 }
 
 func (e DeleteManifestBlockedByTagPolicyError) Error() string {
-	return fmt.Sprintf("cannot delete manifest because it is protected by tag policy (%s)", e.Policy.String())
+	return fmt.Sprintf("cannot delete manifest %s because it is protected by tag policy (%s)", e.Digest.String(), e.Policy.String())
 }
 
 // DeleteManifest deletes the given manifest from both the database and the
@@ -911,7 +912,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 
 	for _, tagPolicy := range tagPolicies {
 		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags(tags) {
-			return keppel.ErrDenied.WithError(DeleteManifestBlockedByTagPolicyError{tagPolicy}).WithStatus(http.StatusConflict)
+			return keppel.ErrDenied.WithError(DeleteManifestBlockedByTagPolicyError{manifestDigest, tagPolicy}).WithStatus(http.StatusConflict)
 		}
 	}
 

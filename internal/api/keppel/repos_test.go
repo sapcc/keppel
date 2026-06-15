@@ -149,10 +149,14 @@ func TestReposAPI(t *testing.T) {
 		ExpectText(t, http.StatusNotFound, "repository not found\n")
 
 	// test if tag policy prevents deletion
-	deletingTagPolicyJSON := `{"match_repository":".*","block_delete":true}`
+	//
+	// The "except_tag": "tag1" checks that tags of each image are considered separately.
+	// Even though we have an image tagged "tag1", that should not cause this policy to be ignored
+	// because there are matching images that do not have that tag.
+	deletingTagPolicyJSON := `{"match_repository":".*","match_tag":"tag2","except_tag":"tag1","block_delete":true}`
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $1`, "["+deletingTagPolicyJSON+"]")
 	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
-		ExpectText(t, http.StatusConflict, "cannot delete manifest because it is protected by tag policy ({\"match_repository\":\".*\",\"block_delete\":true})\n")
+		ExpectText(t, http.StatusConflict, fmt.Sprintf("cannot delete manifest %s because it is protected by tag policy ({\"match_repository\":\".*\",\"match_tag\":\"tag2\",\"except_tag\":\"tag1\",\"block_delete\":true})\n", test.DeterministicDummyDigest(2)))
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]'`)
 
 	// test DELETE happy case
