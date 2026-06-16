@@ -36,11 +36,11 @@ func TestReposAPI(t *testing.T) {
 	// setup five repos in each account (the `test2` account only exists to
 	// validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
-		must.SucceedT(t, s.DB.Insert(&models.Repository{
+		must.SucceedT(t, models.RepositoryStore.Insert(ctx, s.DB, &models.Repository{
 			Name:        fmt.Sprintf("repo1-%d", idx),
 			AccountName: "test1",
 		}))
-		must.SucceedT(t, s.DB.Insert(&models.Repository{
+		must.SucceedT(t, models.RepositoryStore.Insert(ctx, s.DB, &models.Repository{
 			Name:        fmt.Sprintf("repo2-%d", idx),
 			AccountName: "test2",
 		}))
@@ -58,7 +58,7 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:         blobPushedAt,
 			NextValidationAt: blobPushedAt.Add(models.BlobValidationInterval),
 		}
-		must.SucceedT(t, s.DB.Insert(&blob))
+		must.SucceedT(t, models.BlobStore.Insert(ctx, s.DB, &blob))
 		must.SucceedT(t, keppel.MountBlobIntoRepo(s.DB, blob, filledRepo))
 	}
 
@@ -66,7 +66,7 @@ func TestReposAPI(t *testing.T) {
 	for idx := 1; idx <= 8; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
-		must.SucceedT(t, s.DB.Insert(&models.Manifest{
+		must.SucceedT(t, models.ManifestStore.Insert(ctx, s.DB, &models.Manifest{
 			RepositoryID:     filledRepo.ID,
 			Digest:           dummyDigest,
 			MediaType:        "",
@@ -75,14 +75,14 @@ func TestReposAPI(t *testing.T) {
 			NextValidationAt: manifestPushedAt.Add(models.ManifestValidationInterval),
 		}))
 		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, models.ReducedAccount{Name: "test1", AuthTenantID: "tenant1"}, "repo1-3", dummyDigest, []byte("data")))
-		must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
+		must.SucceedT(t, models.TrivySecurityInfoStore.Insert(ctx, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,
 			VulnerabilityStatus: models.PendingVulnerabilityStatus,
 			NextCheckAt:         Some(time.Unix(0, 0)),
 		}))
 		if idx <= 3 {
-			must.SucceedT(t, s.DB.Insert(&models.Tag{
+			must.SucceedT(t, models.TagStore.Insert(ctx, s.DB, &models.Tag{
 				RepositoryID: 5, // repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       dummyDigest,
@@ -160,10 +160,10 @@ func TestReposAPI(t *testing.T) {
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]'`)
 
 	// test DELETE happy case
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-repo.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/before-delete-repo.sql")
 	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1", withPerms("delete:tenant1,view:tenant1")).
 		ExpectStatus(t, http.StatusNoContent)
 	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
 		ExpectStatus(t, http.StatusNoContent)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-repo.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/after-delete-repo.sql")
 }

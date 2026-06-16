@@ -26,7 +26,7 @@ import (
 func TestAccountsAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	ctx := t.Context()
-	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.AssertEmpty()
 
 	// test the /keppel/v1 endpoint
@@ -307,7 +307,7 @@ func TestAccountsAPI(t *testing.T) {
 func TestAccountValidationPolicies(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	ctx := t.Context()
-	_, tr0 := easypg.NewTracker(t, s.DB.Db)
+	_, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.AssertEmpty()
 
 	// shorthand for configuring the account "first" with a PUT request
@@ -511,7 +511,7 @@ func TestPutAccountRBACPolicyNormalization(t *testing.T) {
 func TestPutAccountErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	ctx := t.Context()
-	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.AssertEmpty()
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
@@ -1504,7 +1504,7 @@ func TestDeleteAccount(t *testing.T) {
 	)
 	ctx := t.Context()
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.Ignore()
 
 	// failure case: insufficient permissions (the "delete" permission refers to
@@ -2063,9 +2063,10 @@ func BenchmarkFindAccount(b *testing.B) {
 			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		)
 
+		ctx := b.Context()
 		b.ResetTimer()
 		for b.Loop() {
-			_ = must.ReturnT(keppel.FindAccount(s.DB, "test1"))(b)
+			_ = must.ReturnT(keppel.FindAccount(ctx, s.DB, "test1"))(b)
 		}
 	})
 }
@@ -2077,9 +2078,10 @@ func BenchmarkFindReducedAccount(b *testing.B) {
 			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		)
 
+		ctx := b.Context()
 		b.ResetTimer()
 		for b.Loop() {
-			_ = must.ReturnT(keppel.FindReducedAccount(s.DB, "test1"))(b)
+			_ = must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, "test1"))(b)
 		}
 	})
 }

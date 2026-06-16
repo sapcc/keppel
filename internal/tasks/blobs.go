@@ -68,9 +68,8 @@ func (j *Janitor) BlobSweepJob(registerer prometheus.Registerer) jobloop.Job { /
 				Help: "Counter for garbage collections on blobs in an account.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account models.Account, err error) {
-			err = j.db.SelectOne(&account, blobSweepSearchQuery, j.timeNow())
-			return account, err
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (models.Account, error) {
+			return models.AccountStore.SelectOne(ctx, j.db, blobSweepSearchQuery, j.timeNow())
 		},
 		ProcessTask: j.sweepBlobsInRepo,
 	}).Setup(registerer)
@@ -96,8 +95,7 @@ func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, 
 	}
 
 	// select blobs for deletion that were marked in the last run
-	var blobs []models.Blob
-	_, err = j.db.Select(&blobs, blobSelectMarkedQuery, account.Name, j.timeNow())
+	blobs, err := models.BlobStore.Select(ctx, j.db, blobSelectMarkedQuery, account.Name, j.timeNow())
 	if err != nil {
 		return err
 	}
@@ -119,7 +117,7 @@ func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, 
 	}
 	for _, blob := range blobs {
 		// without transaction: we need this committed right now
-		_, err := j.db.Delete(&blob)
+		err := models.BlobStore.Delete(ctx, j.db, blob)
 		if err != nil {
 			return err
 		}
@@ -159,9 +157,8 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 				Help: "Counter for blob validations.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (blob models.Blob, err error) {
-			err = j.db.SelectOne(&blob, validateBlobSearchQuery, j.timeNow())
-			return blob, err
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (models.Blob, error) {
+			return models.BlobStore.SelectOne(ctx, j.db, validateBlobSearchQuery, j.timeNow())
 		},
 		ProcessTask: j.validateBlob,
 	}).Setup(registerer)
@@ -169,7 +166,7 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 
 func (j *Janitor) validateBlob(ctx context.Context, blob models.Blob, _ prometheus.Labels) error {
 	// find corresponding account
-	account, err := keppel.FindAccount(j.db, blob.AccountName)
+	account, err := keppel.FindAccount(ctx, j.db, blob.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for manifest %s/%s: %s", blob.AccountName, blob.Digest, err.Error())
 	}

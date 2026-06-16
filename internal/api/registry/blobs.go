@@ -29,6 +29,8 @@ var isImageConfigBlobMediaType = map[string]bool{
 // This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
+	ctx := r.Context()
+
 	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
 	if account == nil {
 		return
@@ -46,7 +48,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// locate this blob from the DB
-	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo)
+	blob, err := keppel.FindBlobByRepository(ctx, a.db, blobDigest, *repo)
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -73,7 +75,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// ...and answer GET requests by replicating the blob contents
-		responseWasWritten, err := a.processor().ReplicateBlob(r.Context(), blob, *account, *repo, w)
+		responseWasWritten, err := a.processor().ReplicateBlob(ctx, blob, *account, *repo, w)
 
 		if err != nil {
 			switch {
@@ -131,7 +133,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	// CORS happens correctly. This is important for web UIs reading image config
 	// blobs in order to render informational UIs.
 	if !isImageConfigBlobMediaType[blob.MediaType] {
-		url, err := a.sd.URLForBlob(r.Context(), *account, blob.StorageID)
+		url, err := a.sd.URLForBlob(ctx, *account, blob.StorageID)
 		if err == nil {
 			w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 			w.Header().Set("Location", url)
@@ -145,7 +147,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return the blob contents to the client directly (TODO: support range requests)
-	reader, lengthBytes, err := a.sd.ReadBlob(r.Context(), *account, blob.StorageID)
+	reader, lengthBytes, err := a.sd.ReadBlob(ctx, *account, blob.StorageID)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -177,6 +179,8 @@ func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request,
 // This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
+	ctx := r.Context()
+
 	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
@@ -188,7 +192,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo)
+	blob, err := keppel.FindBlobByRepository(ctx, a.db, blobDigest, *repo)
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -198,7 +202,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// can only delete blob mount if it's not used by any manifests
-	refCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
+	refCount, err := keppel.SelectOneValue[uint64](a.db, `SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, r, err) {
 		return
 	}

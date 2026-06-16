@@ -39,7 +39,7 @@ func TestRateLimits(t *testing.T) {
 
 	testWithPrimary(t, setupOptions, func(s test.Setup) {
 		// create the "test1/foo" repository to ensure that we don't just always hit NAME_UNKNOWN errors
-		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(ctx, s.DB, "foo", models.AccountName("test1")))(t)
 
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 		bogusDigest := test.DeterministicDummyDigest(1).String()

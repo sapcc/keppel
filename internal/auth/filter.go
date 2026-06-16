@@ -4,12 +4,14 @@
 package auth
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 
 	"github.com/sapcc/go-bits/httpext"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -18,7 +20,7 @@ import (
 // Produces a new ScopeSet containing only those scopes that the given
 // `uid` is permitted to access and only those actions therein which this `uid`
 // is permitted to perform.
-func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audience, db *keppel.DB) (ScopeSet, error) {
+func filterAuthorized(ctx context.Context, ir IncomingRequest, uid keppel.UserIdentity, audience Audience, db *oblast.DB) (ScopeSet, error) {
 	result := make(ScopeSet, 0, len(ir.Scopes))
 	// make sure that additional scopes get appended at the end, on the offchance
 	// that a client might parse its token and look at access[0] to check for its
@@ -30,7 +32,7 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 		filtered := scope
 		switch scope.ResourceType {
 		case "registry":
-			filtered.Actions, err = filterRegistryActions(uid, audience, db, scope, &additional)
+			filtered.Actions, err = filterRegistryActions(ctx, uid, audience, db, scope, &additional)
 			if err != nil {
 				return nil, err
 			}
@@ -53,7 +55,7 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 			}
 
 		case "keppel_account":
-			filtered.Actions, err = filterKeppelAccountActions(uid, audience, db, scope)
+			filtered.Actions, err = filterKeppelAccountActions(ctx, uid, audience, db, scope)
 			if err != nil {
 				return nil, err
 			}
@@ -80,17 +82,18 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 	return append(result, additional...), nil
 }
 
-func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *keppel.DB) error {
+func addCatalogAccess(ctx context.Context, ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *oblast.DB) error {
 	var accounts []models.Account
 	if audience.AccountName == "" {
 		// on the standard API, all accounts are potentially accessible
-		_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+		var err error
+		accounts, err = models.AccountStore.Select(ctx, db, `SELECT * FROM accounts ORDER BY name`)
 		if err != nil {
 			return err
 		}
 	} else {
 		// on a domain-remapped API, only that API's account is accessible (if it exists)
-		account, err := keppel.FindAccount(db, audience.AccountName)
+		account, err := keppel.FindAccount(ctx, db, audience.AccountName)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
@@ -113,7 +116,7 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 	return nil
 }
 
-func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope Scope, additional *ScopeSet) ([]string, error) {
+func filterRegistryActions(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *oblast.DB, scope Scope, additional *ScopeSet) ([]string, error) {
 	var filtered []string
 
 	if audience.IsAnycast {
@@ -136,7 +139,7 @@ func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppe
 
 	if scope.Contains(CatalogEndpointScope) {
 		filtered = CatalogEndpointScope.Actions
-		err := addCatalogAccess(additional, uid, audience, db)
+		err := addCatalogAccess(ctx, additional, uid, audience, db)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +148,7 @@ func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppe
 	return filtered, nil
 }
 
-func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *keppel.DB) ([]string, error) {
+func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *oblast.DB) ([]string, error) {
 	repoScope := scope.ParseRepositoryScope(audience)
 	if repoScope.RepositoryName == "" {
 		// this happens when we are not on a domain-remapped API and thus expect a
@@ -235,7 +238,7 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 	return result, nil
 }
 
-func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope Scope) ([]string, error) {
+func filterKeppelAccountActions(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *oblast.DB, scope Scope) ([]string, error) {
 	if audience.AccountName != "" && scope.ResourceName != string(audience.AccountName) {
 		// domain-remapped APIs only allow access to that API's account
 		return nil, nil
@@ -246,7 +249,7 @@ func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *
 		return nil, nil
 	}
 
-	account, err := keppel.FindAccount(db, models.AccountName(scope.ResourceName))
+	account, err := keppel.FindAccount(ctx, db, models.AccountName(scope.ResourceName))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

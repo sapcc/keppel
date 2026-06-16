@@ -12,6 +12,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -23,11 +24,11 @@ type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
 	fd         keppel.FederationDriver
-	db         *keppel.DB
+	db         *oblast.DB
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, db *keppel.DB) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, db *oblast.DB) *API {
 	return &API{cfg, ad, fd, db}
 }
 
@@ -55,6 +56,7 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/auth")
+	ctx := r.Context()
 
 	// parse request
 	req, err := parseRequest(r.URL.RawQuery, a.cfg)
@@ -101,7 +103,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		AllowsDomainRemapping:    true,
 		AudienceForTokenIssuance: &req.IntendedAudience,
 		PartialAccessAllowed:     true,
-	}.Authorize(r.Context(), a.cfg, a.authDriver, a.db)
+	}.Authorize(ctx, a.cfg, a.authDriver, a.db)
 	if rerr != nil {
 		rerr.WriteAsAuthResponseTo(w)
 		return
@@ -115,7 +117,8 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, audience auth.Audience, accountName models.AccountName) error {
-	primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), accountName)
+	ctx := r.Context()
+	primaryHostName, err := a.fd.FindPrimaryAccount(ctx, accountName)
 	if err != nil {
 		return err
 	}

@@ -71,6 +71,8 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 
 func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, keppel.StorageDriver, models.ReducedAccount) models.Upload) {
 	j, s := setup(t)
+	ctx := t.Context()
+
 	account := models.ReducedAccount{Name: "test1", AuthTenantID: "test1authtenant"}
 	uploadJob := j.AbandonedUploadCleanupJob(s.Registry)
 
@@ -85,7 +87,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, kepp
 	upload.UUID = testUploadUUID
 	upload.StorageID = testStorageID
 	upload.UpdatedAt = s.Clock.Now()
-	must.SucceedT(t, s.DB.Insert(&upload))
+	must.SucceedT(t, models.UploadStore.Insert(ctx, s.DB, &upload))
 
 	// DeleteNextAbandonedUpload should not do anything since this upload is fairly recent
 	s.Clock.StepBy(3 * time.Hour)
@@ -99,7 +101,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, kepp
 	}
 
 	// now the DB should not contain any traces of the upload, only the account and repo
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-upload.sql")
+	easypg.AssertDBContent(t, s.DB.DB, "fixtures/after-delete-upload.sql")
 
 	// and once again, DeleteNextAbandonedUpload should indicate that there's nothing to do
 	assert.ErrEqual(t, uploadJob.ProcessOne(s.Ctx), sql.ErrNoRows)

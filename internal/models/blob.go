@@ -15,6 +15,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"go.podman.io/image/v5/manifest"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/oblast"
 )
 
 // Blob contains a record from the `blobs` table.
@@ -28,7 +29,7 @@ import (
 // needs to be chosen at the start of the blob upload, when the digest is not
 // known yet.
 type Blob struct {
-	ID                     int64             `db:"id"`
+	ID                     int64             `db:"id,auto"`
 	AccountName            AccountName       `db:"account_name"`
 	Digest                 digest.Digest     `db:"digest"`
 	SizeBytes              uint64            `db:"size_bytes"`
@@ -40,6 +41,13 @@ type Blob struct {
 	CanBeDeletedAt         Option[time.Time] `db:"can_be_deleted_at"` // see tasks.BlobSweepJob
 	BlocksVulnScanning     Option[bool]      `db:"blocks_vuln_scanning"`
 }
+
+// BlobStore provides loading and storing of [Blob] objects from the DB.
+var BlobStore = oblast.MustNewStore[Blob](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("blobs"),
+	oblast.PrimaryKeyIs("id"),
+)
 
 // SafeMediaType returns the MediaType field, but falls back to "application/octet-stream" if it is empty.
 func (b Blob) SafeMediaType() string {
@@ -121,3 +129,10 @@ type Upload struct {
 	NumChunks    uint32    `db:"num_chunks"`
 	UpdatedAt    time.Time `db:"updated_at"`
 }
+
+// UploadStore provides loading and storing of [Upload] objects from the DB.
+var UploadStore = oblast.MustNewStore[Upload](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("uploads"),
+	oblast.PrimaryKeyIs("repo_id", "uuid"),
+)

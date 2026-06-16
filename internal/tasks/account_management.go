@@ -54,8 +54,7 @@ func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels)
 	}
 
 	// if there is a managed account that does not exist yet, create it
-	var existingAccountNames []models.AccountName
-	_, err = j.db.Select(&existingAccountNames, "SELECT name FROM accounts WHERE is_managed")
+	existingAccountNames, err := keppel.SelectSeveralValues[models.AccountName](j.db, `SELECT name FROM accounts WHERE is_managed`)
 	if err != nil {
 		return "", err
 	}
@@ -66,8 +65,7 @@ func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels)
 	}
 
 	// otherwise return the next existing managed account that needs to be synced
-	err = j.db.SelectOne(&accountName, managedAccountEnforcementSelectQuery, j.timeNow())
-	return accountName, err
+	return keppel.SelectOneValue[models.AccountName](j.db, managedAccountEnforcementSelectQuery, j.timeNow())
 }
 
 func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) error {
@@ -87,7 +85,7 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 		nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 	} else {
 		var accountModel models.Account
-		accountModel, err = keppel.FindAccount(j.db, accountName)
+		accountModel, err = keppel.FindAccount(ctx, j.db, accountName)
 		if err != nil {
 			return err
 		}

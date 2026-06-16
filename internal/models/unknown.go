@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	"go.xyrillian.de/oblast"
 )
 
 // UnknownBlob contains a record from the `unknown_blobs` table.
@@ -16,6 +17,13 @@ type UnknownBlob struct {
 	StorageID      string      `db:"storage_id"`
 	CanBeDeletedAt time.Time   `db:"can_be_deleted_at"`
 }
+
+// UnknownBlobStore provides loading and storing of [UnknownBlob] objects from the DB.
+var UnknownBlobStore = oblast.MustNewStore[UnknownBlob](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("unknown_blobs"),
+	oblast.PrimaryKeyIs("account_name", "storage_id"),
+)
 
 // UnknownManifest contains a record from the `unknown_manifests` table.
 // This is only used by tasks.StorageSweepJob().
@@ -29,6 +37,13 @@ type UnknownManifest struct {
 	CanBeDeletedAt time.Time     `db:"can_be_deleted_at"`
 }
 
+// UnknownManifestStore provides loading and storing of [UnknownManifest] objects from the DB.
+var UnknownManifestStore = oblast.MustNewStore[UnknownManifest](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("unknown_manifests"),
+	oblast.PrimaryKeyIs("account_name", "repo_name", "digest"),
+)
+
 // UnknownTrivyReport contains a record from the `unknown_trivy_reports` table.
 // This is only used by tasks.StorageSweepJob().
 //
@@ -41,3 +56,10 @@ type UnknownTrivyReport struct {
 	Format         string        `db:"format"`
 	CanBeDeletedAt time.Time     `db:"can_be_deleted_at"`
 }
+
+// UnknownTrivyReportStore provides loading and storing of [UnknownTrivyReport] objects from the DB.
+var UnknownTrivyReportStore = oblast.MustNewStore[UnknownTrivyReport](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("unknown_trivy_reports"),
+	oblast.PrimaryKeyIs("account_name", "repo_name", "digest", "format"),
+)

@@ -24,6 +24,7 @@ import (
 	"github.com/sapcc/go-bits/mock"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
+	"go.xyrillian.de/oblast"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -157,7 +158,7 @@ func WithoutCurrentIssuerKey(params *setupParams) {
 type Setup struct {
 	// fields that are always set
 	Config       keppel.Configuration
-	DB           *keppel.DB
+	DB           *oblast.DB
 	Clock        *mock.Clock
 	SIDGenerator *StorageIDGenerator
 	Auditor      *audittools.MockAuditor
@@ -199,6 +200,8 @@ func GetReplicationPassword() string {
 // NewSetup prepares most or all pieces of Keppel for a test.
 func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	t.Helper()
+	ctx := t.Context()
+
 	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
 	var params setupParams
 	for _, option := range opts {
@@ -260,7 +263,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	if params.IsSecondary {
 		dbOpts = append(dbOpts, easypg.OverrideDatabaseName(t.Name()+"_secondary"))
 	}
-	s.DB = keppel.InitORM(easypg.ConnectForTest(t, keppel.DBConfiguration(), dbOpts...))
+	s.DB = oblast.NewDB(easypg.ConnectForTest(t, keppel.DBConfiguration(), dbOpts...))
 
 	// setup anycast if requested
 	if params.WithAnycast {
@@ -338,7 +341,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	// setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
 	for i, account := range params.Accounts {
-		must.SucceedT(t, s.DB.Insert(&params.Accounts[i]))
+		must.SucceedT(t, models.AccountStore.Insert(ctx, s.DB, &params.Accounts[i]))
 		must.SucceedT(t, fd.RecordExistingAccount(s.Ctx, account.Reduced(), s.Clock.Now()))
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
 			quota := s.Config.DefaultQuotas(account.AuthTenantID)
@@ -346,13 +349,13 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 				quota.Bytes = 5000000
 			}
 			quota.ManifestCount = 100
-			must.SucceedT(t, s.DB.Insert(&quota))
+			must.SucceedT(t, models.QuotasStore.Insert(ctx, s.DB, &quota))
 			quotasSetFor[account.AuthTenantID] = true
 		}
 	}
 	s.Accounts = params.Accounts
 	for i := range params.Repos {
-		must.SucceedT(t, s.DB.Insert(&params.Repos[i]))
+		must.SucceedT(t, models.RepositoryStore.Insert(ctx, s.DB, &params.Repos[i]))
 	}
 	s.Repos = params.Repos
 
@@ -361,12 +364,12 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
 			// give the secondary registry credentials for replicating from the primary
-			must.SucceedT(t, s.DB.Insert(&models.Peer{
+			must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB, &models.Peer{
 				HostName:             "registry.example.org",
 				UseForPullDelegation: true,
 				OurPassword:          GetReplicationPassword(),
 			}))
-			must.SucceedT(t, s1.DB.Insert(&models.Peer{
+			must.SucceedT(t, models.PeerStore.Insert(ctx, s1.DB, &models.Peer{
 				HostName:                 "registry-secondary.example.org",
 				TheirCurrentPasswordHash: replicationPasswordHash,
 			}))
@@ -377,7 +380,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 }
 
 // MustExec is a test helper function that executes a DB query and fails the test if it returns an error.
-func MustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
+func MustExec(t *testing.T, db *oblast.DB, query string, args ...any) {
 	t.Helper()
 	_, err := db.Exec(query, args...)
 	must.SucceedT(t, err)

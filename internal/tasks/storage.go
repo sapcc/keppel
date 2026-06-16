@@ -50,9 +50,8 @@ func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job 
 				Help: "Counter for garbage collections of an account's backing storage.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account models.Account, err error) {
-			err = j.db.SelectOne(&account, storageSweepSearchQuery, j.timeNow())
-			return account, err
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (models.Account, error) {
+			return models.AccountStore.SelectOne(ctx, j.db, storageSweepSearchQuery, j.timeNow())
 		},
 		ProcessTask: j.sweepStorage,
 	}).Setup(registerer)
@@ -127,8 +126,7 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 	}
 
 	// unmark/sweep phase: enumerate all unknown blobs
-	var unknownBlobs []models.UnknownBlob
-	_, err = j.db.Select(&unknownBlobs, `SELECT * FROM unknown_blobs WHERE account_name = $1`, account.Name)
+	unknownBlobs, err := models.UnknownBlobStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name)
 	if err != nil {
 		return err
 	}
@@ -136,7 +134,7 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 	for _, unknownBlob := range unknownBlobs {
 		// unmark blobs that have been recorded in the database in the meantime
 		if isKnownStorageID[unknownBlob.StorageID] {
-			_, err = j.db.Delete(&unknownBlob)
+			err = models.UnknownBlobStore.Delete(ctx, j.db, unknownBlob)
 			if err != nil {
 				return err
 			}
@@ -158,7 +156,7 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 		if isKnownStorageID[storageID] || isMarkedStorageID[storageID] {
 			continue
 		}
-		err := j.db.Insert(&models.UnknownBlob{
+		err := models.UnknownBlobStore.Insert(ctx, j.db, &models.UnknownBlob{
 			AccountName:    account.Name,
 			StorageID:      storageID,
 			CanBeDeletedAt: canBeDeletedAt,
@@ -195,7 +193,7 @@ func (j *Janitor) deleteUnknownBlob(ctx context.Context, blobsByStorageID map[st
 			return err
 		}
 	}
-	_, err = j.db.Delete(&unknownBlob)
+	err = models.UnknownBlobStore.Delete(ctx, j.db, unknownBlob)
 	return err
 }
 
@@ -220,8 +218,7 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 	}
 
 	// unmark/sweep phase: enumerate all unknown manifests
-	var unknownManifests []models.UnknownManifest
-	_, err = j.db.Select(&unknownManifests, `SELECT * FROM unknown_manifests WHERE account_name = $1`, account.Name)
+	unknownManifests, err := models.UnknownManifestStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name)
 	if err != nil {
 		return err
 	}
@@ -234,7 +231,7 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 
 		// unmark manifests that have been recorded in the database in the meantime
 		if isKnownManifest[unknownManifestInfo] {
-			_, err = j.db.Delete(&unknownManifest)
+			err = models.UnknownManifestStore.Delete(ctx, j.db, unknownManifest)
 			if err != nil {
 				return err
 			}
@@ -256,7 +253,7 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 		if isKnownManifest[manifest] || isMarkedManifest[manifest] {
 			continue
 		}
-		err := j.db.Insert(&models.UnknownManifest{
+		err := models.UnknownManifestStore.Insert(ctx, j.db, &models.UnknownManifest{
 			AccountName:    account.Name,
 			RepositoryName: manifest.RepositoryName,
 			Digest:         manifest.Digest,
@@ -286,7 +283,7 @@ func (j *Janitor) deleteUnknownManifest(ctx context.Context, isActualManifest ma
 			return err
 		}
 	}
-	_, err = j.db.Delete(&unknownManifest)
+	err = models.UnknownManifestStore.Delete(ctx, j.db, unknownManifest)
 	return err
 }
 
@@ -311,8 +308,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 	}
 
 	// unmark/sweep phase: enumerate all unknown Trivy reports
-	var unknownReports []models.UnknownTrivyReport
-	_, err = j.db.Select(&unknownReports, `SELECT * FROM unknown_trivy_reports WHERE account_name = $1`, account.Name)
+	unknownReports, err := models.UnknownTrivyReportStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name)
 	if err != nil {
 		return err
 	}
@@ -326,7 +322,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 
 		// unmark reports that have been recorded in the database in the meantime
 		if isKnownReport[unknownReportInfo] {
-			_, err = j.db.Delete(&unknownReport)
+			err = models.UnknownTrivyReportStore.Delete(ctx, j.db, unknownReport)
 			if err != nil {
 				return err
 			}
@@ -348,7 +344,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 		if isKnownReport[report] || isMarkedReport[report] {
 			continue
 		}
-		err := j.db.Insert(&models.UnknownTrivyReport{
+		err := models.UnknownTrivyReportStore.Insert(ctx, j.db, &models.UnknownTrivyReport{
 			AccountName:    account.Name,
 			RepositoryName: report.RepositoryName,
 			Digest:         report.Digest,
@@ -379,6 +375,6 @@ func (j *Janitor) deleteUnknownTrivyReport(ctx context.Context, isActualReport m
 			return err
 		}
 	}
-	_, err = j.db.Delete(&unknownReport)
+	err = models.UnknownTrivyReportStore.Delete(ctx, j.db, unknownReport)
 	return err
 }

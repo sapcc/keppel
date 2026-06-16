@@ -4,7 +4,6 @@
 package registryv2
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -14,6 +13,8 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
+
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 var tagsListQuery = sqlext.SimplifyWhitespace(`
@@ -56,17 +57,12 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	marker := query.Get("last")
 
 	// list tags (we request one more than `limit` to see if we need to paginate)
-	tags := []string{}
-	err = sqlext.ForeachRow(a.db, tagsListQuery, []any{repo.ID, marker, limit + 1}, func(rows *sql.Rows) error {
-		var tagName string
-		err = rows.Scan(&tagName)
-		if err == nil {
-			tags = append(tags, tagName)
-		}
-		return err
-	})
+	tags, err := keppel.SelectSeveralValues[string](a.db, tagsListQuery, repo.ID, marker, limit+1)
 	if respondWithError(w, r, err) {
 		return
+	}
+	if tags == nil {
+		tags = []string{} // serialize empty lists as `[]`, not as `null`
 	}
 
 	// do we need to paginate?

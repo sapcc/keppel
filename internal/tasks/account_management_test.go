@@ -27,7 +27,7 @@ func TestAccountManagementBasic(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.Ignore()
 	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)
 	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
@@ -78,16 +78,18 @@ func TestAccountManagementBasic(t *testing.T) {
 
 func TestAccountManagementWithReplicaCreation(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		ctx := t.Context()
+
 		_, s1 := setup(t)
 		j2, s2 := setupReplica(t, s1, "on_first_use")
 
-		tr, tr0 := easypg.NewTracker(t, s2.DB.Db)
+		tr, tr0 := easypg.NewTracker(t, s2.DB.DB)
 		tr0.Ignore()
 
 		// The setup already includes an account "test1" set up on both ends, but we
 		// want to test the setup of a managed replica account, so we will use a
 		// fresh account called "managed" instead.
-		must.SucceedT(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
+		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
 		s1.FD.NextSubleaseTokenSecretToIssue = "thisisasecret"
 		s2.FD.ValidSubleaseTokenSecrets["managed"] = "thisisasecret"
 
@@ -107,11 +109,13 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 
 func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	j, s := setup(t)
+	ctx := t.Context()
+
 	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)
 	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
 	blobSweepJob := j.BlobSweepJob(s.Registry)
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.Ignore()
 
 	// create a managed account named "abcde"
@@ -121,7 +125,7 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	tr.DBChanges().Ignore()
 
 	// give quota to its auth tenant
-	must.SucceedT(t, s.DB.Insert(&models.Quotas{
+	must.SucceedT(t, models.QuotasStore.Insert(ctx, s.DB, &models.Quotas{
 		AuthTenantID:  "12345",
 		ManifestCount: 100,
 	}))
@@ -251,7 +255,7 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
 	tr0.Ignore()
 	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
 	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)

@@ -6,10 +6,12 @@ package keppel
 import (
 	"database/sql"
 
-	"github.com/go-gorp/gorp/v3"
+	"github.com/dlmiddlecote/sqlstats"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/easypg"
-
-	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/oblast"
 )
 
 var sqlMigrations = map[string]string{
@@ -437,46 +439,56 @@ var sqlMigrations = map[string]string{
 	`,
 }
 
-// DB adds convenience functions on top of gorp.DbMap.
-type DB struct {
-	gorp.DbMap
+// DBInterface is implemented by both [*oblast.DB] and [*oblast.Tx].
+// We are using this interface in function signatures instead of [oblast.Handle] to allow compatibility with go-bits/sqlext methods.
+type DBInterface interface {
+	oblast.Handle
+	sqlext.Executor
 }
 
-// SelectBool is analogous to the other SelectFoo() functions from gorp.DbMap
-// like SelectFloat, SelectInt, SelectStr, etc.
-func (db *DB) SelectBool(query string, args ...any) (bool, error) {
-	var result bool
+var (
+	// prove documented interface implementations
+	_ DBInterface = &oblast.DB{}
+	_ DBInterface = &oblast.Tx{}
+)
+
+// SelectOneValue executes a query that yields a single row with a single value.
+func SelectOneValue[T any](db DBInterface, query string, args ...any) (T, error) {
+	var result T
 	err := db.QueryRow(query, args...).Scan(&result)
 	return result, err
 }
 
-// DBConfiguration returns the easypg.Configuration object that func main() needs to initialize the DB connection.
+// SelectSeveralValues executes a query that yields rows with a single value each.
+func SelectSeveralValues[T any](db DBInterface, query string, args ...any) ([]T, error) {
+	var result []T
+	err := sqlext.ForeachRow(db, query, args, func(rows *sql.Rows) error {
+		var value T
+		err := rows.Scan(&value)
+		if err == nil {
+			result = append(result, value)
+		}
+		return err
+	})
+	return result, err
+}
+
+// DBConfiguration returns the easypg.Configuration object that func InitDB() uses to initialize the DB connection.
+// This is exported because test.NewSetup() needs to be able to access it.
 func DBConfiguration() easypg.Configuration {
 	return easypg.Configuration{
 		Migrations: sqlMigrations,
 	}
 }
 
-// InitORM wraps a database connection into a gorp.DbMap instance.
-func InitORM(dbConn *sql.DB) *DB {
+// InitDB initializes a DB connection for productive use.
+// (Tests use the DB connection logic in test.NewSetup() instead.)
+func InitDB() *oblast.DB {
+	dbURL, dbName := getDatabaseURLFromEnvironment()
+	dbConn := must.Return(easypg.Connect(dbURL, DBConfiguration()))
 	// ensure that this process does not starve other Keppel processes for DB connections
 	dbConn.SetMaxOpenConns(16)
 
-	result := &DB{DbMap: gorp.DbMap{Db: dbConn, Dialect: gorp.PostgresDialect{}}}
-	result.DbMap.AddTableWithName(models.Account{}, "accounts").SetKeys(false, "name")
-	result.DbMap.AddTableWithName(models.Blob{}, "blobs").SetKeys(true, "id")
-	result.DbMap.AddTableWithName(models.Upload{}, "uploads").SetKeys(false, "repo_id", "uuid")
-	result.DbMap.AddTableWithName(models.Repository{}, "repos").SetKeys(true, "id")
-	result.DbMap.AddTableWithName(models.Manifest{}, "manifests").SetKeys(false, "repo_id", "digest")
-	result.DbMap.AddTableWithName(models.Tag{}, "tags").SetKeys(false, "repo_id", "name")
-	result.DbMap.AddTableWithName(models.ManifestContent{}, "manifest_contents").SetKeys(false, "repo_id", "digest")
-	result.DbMap.AddTableWithName(models.Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
-	result.DbMap.AddTableWithName(models.Peer{}, "peers").SetKeys(false, "hostname")
-	result.DbMap.AddTableWithName(models.PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")
-	result.DbMap.AddTableWithName(models.UnknownBlob{}, "unknown_blobs").SetKeys(false, "account_name", "storage_id")
-	result.DbMap.AddTableWithName(models.UnknownManifest{}, "unknown_manifests").SetKeys(false, "account_name", "repo_name", "digest")
-	result.DbMap.AddTableWithName(models.UnknownTrivyReport{}, "unknown_trivy_reports").SetKeys(false, "account_name", "repo_name", "digest", "format")
-	result.DbMap.AddTableWithName(models.TrivySecurityInfo{}, "trivy_security_info").SetKeys(false, "repo_id", "digest")
-
-	return result
+	prometheus.MustRegister(sqlstats.NewStatsCollector(dbName, dbConn))
+	return oblast.NewDB(dbConn)
 }
