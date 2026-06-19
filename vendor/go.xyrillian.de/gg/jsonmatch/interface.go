@@ -128,13 +128,6 @@
 //		},
 //	}.DiffAgainst(resp2.Body.Bytes())
 //	// ...
-//
-// # TODO
-//
-// As a special case, [json.RawMessage] may appear on the "expected" side to match string values that contain JSON themselves.
-// For example:
-//
-//	actual := `{"name":"data.json","type":"application/json","content":"{\"foo\":2"}`
 package jsonmatch // import "go.xyrillian.de/gg/jsonmatch"
 
 import (
