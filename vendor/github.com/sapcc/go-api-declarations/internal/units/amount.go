@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+// TODO: BaseUnitNone, UnitNone, EmptyFormat and NumberOnlyFormat can be removed when removing support for Limes v1 (after checking that no liquids use UnitNone anymore, see TODO in liquid/validation.go)
+
 // Amount describes an amount of a countable or measurable resource in terms of a base unit.
 // This type provides basic serialization and deserialization for unit or amount strings,
 // e.g. between "1 KiB" and Amount{"B", 1024}.
@@ -23,7 +25,12 @@ type BaseUnit string
 
 const (
 	// BaseUnitNone is used for countable (rather than measurable) resources.
+	//
+	// This only exists for backwards compatibility with Limes v1 and earlier versions of the LIQUID API.
+	// Updated LIQUID implementations as well as the Limes v2 API use units derived from [BaseUnitPiece] instead.
 	BaseUnitNone BaseUnit = ""
+	// BaseUnitPiece is used for countable (rather than measurable) resources.
+	BaseUnitPiece BaseUnit = "piece"
 	// BaseUnitBytes is used for resources that are measured in bytes or any multiple thereof.
 	BaseUnitBytes BaseUnit = "B"
 )
@@ -47,7 +54,8 @@ var bareUnitDefs = []struct {
 	Symbol string
 	Amount Amount
 }{
-	// the algorithm in String() relies on this list being sorted in descending order of amount
+	{"piece", Amount{BaseUnitPiece, 1}},
+	// the algorithm in Amount.Format() relies on entries in this list for the same base unit being sorted in descending order of amount
 	{"EiB", Amount{BaseUnitBytes, 1 << 60}},
 	{"PiB", Amount{BaseUnitBytes, 1 << 50}},
 	{"TiB", Amount{BaseUnitBytes, 1 << 40}},
@@ -184,7 +192,7 @@ func (a Amount) Format(formats Format) string {
 
 // Description formats this set of formats as a description for use in error messages:
 //
-//	desc, _ := (units.UnitOnlyFormat | unit.NumberWithUnitFormat).String()
+//	desc, _ := (units.UnitOnlyFormat | unit.NumberWithUnitFormat).Description()
 //	fmt.Println(desc) // prints: "<unit>" or "<number> <unit>"
 func (f Format) Description() (output string, multipleFormats bool) {
 	parts := make([]string, 0, 4)
