@@ -16,11 +16,11 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
+	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -625,7 +625,7 @@ func expectLabelsJSONOnManifest(t *testing.T, db *oblast.DB, manifestDigest dige
 
 	var actual map[string]string
 	must.SucceedT(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
-	assert.DeepEqual(t, "labels_json", actual, expected)
+	assert.Equal(t, actual, expected)
 }
 
 func TestImageManifestWrongBlobSize(t *testing.T) {
@@ -681,7 +681,7 @@ func TestManifestAnnotations(t *testing.T) {
 
 		var actual map[string]string
 		must.Succeed(json.Unmarshal([]byte(labelsJSONStr), &actual))
-		assert.DeepEqual(t, "annotations_json", actual, map[string]string{"abc": "def"})
+		assert.Equal(t, actual, map[string]string{"abc": "def"})
 	})
 }
 

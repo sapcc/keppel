@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -20,7 +20,7 @@ func TestConfigureAccount(t *testing.T) {
 	}
 
 	listOfAccounts := must.ReturnT(driver.ManagedAccountNames())(t)
-	assert.DeepEqual(t, "account", listOfAccounts, []models.AccountName{"abcde"})
+	assert.Equal(t, listOfAccounts, []models.AccountName{"abcde"})
 
 	maybeNewAccount, newSecurityScanPolicy, err := driver.ConfigureAccount("abcde")
 	must.SucceedT(t, err)
@@ -29,7 +29,7 @@ func TestConfigureAccount(t *testing.T) {
 		t.Fatal("ConfigureAccount returned None[keppel.Account]()")
 	}
 
-	expectedAccount := keppel.Account{
+	assert.Equal(t, newAccount, keppel.Account{
 		Name:         "abcde",
 		AuthTenantID: "12345",
 		GCPolicies: []keppel.GCPolicy{
@@ -73,9 +73,9 @@ func TestConfigureAccount(t *testing.T) {
 			RuleForManifest: "'important-label' in labels && 'some-label' in labels",
 			RequiredLabels:  []string{"important-label", "some-label"},
 		},
-	}
+	})
 
-	expectedSecurityScanPolicy := []keppel.SecurityScanPolicy{{
+	assert.Equal(t, newSecurityScanPolicy, []keppel.SecurityScanPolicy{{
 		RepositoryRx:      ".*",
 		VulnerabilityIDRx: ".*",
 		ExceptFixReleased: true,
@@ -83,16 +83,5 @@ func TestConfigureAccount(t *testing.T) {
 			Assessment: "risk accepted: vulnerabilities without an available fix are not actionable",
 			Ignore:     true,
 		},
-	}}
-
-	assert.DeepEqual(t, "securityScanPolicy", newSecurityScanPolicy, expectedSecurityScanPolicy)
-	// we cannot compare with the different pointers, so compare them directly and copy them over
-	assert.DeepEqual(t, "account.ReplicationPolicy[0].TimeConstraint", newAccount.GCPolicies[0].TimeConstraint, expectedAccount.GCPolicies[0].TimeConstraint)
-	expectedAccount.GCPolicies[0].TimeConstraint = newAccount.GCPolicies[0].TimeConstraint
-	assert.DeepEqual(t, "account.ReplicationPolicy", *newAccount.ReplicationPolicy, *expectedAccount.ReplicationPolicy)
-	expectedAccount.ReplicationPolicy = newAccount.ReplicationPolicy
-	assert.DeepEqual(t, "account.ValidationPolicy", *newAccount.ValidationPolicy, *expectedAccount.ValidationPolicy)
-	expectedAccount.ValidationPolicy = newAccount.ValidationPolicy
-
-	assert.DeepEqual(t, "account", newAccount, expectedAccount)
+	}})
 }

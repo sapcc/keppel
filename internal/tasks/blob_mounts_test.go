@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"go.xyrillian.de/gg/assert"
 
 	"github.com/sapcc/keppel/internal/test"
 )

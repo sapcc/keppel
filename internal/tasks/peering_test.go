@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/oblast"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -89,10 +89,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		}
 
 		// a failing issuance should not touch the DB
-		assert.DeepEqual(t, "peer state after failed IssueNewPasswordForPeer",
-			getPeerFromDB(t, s.DB),
-			peerBeforeFailedIssue,
-		)
+		assert.Equal(t, getPeerFromDB(t, s.DB), peerBeforeFailedIssue)
 	})
 }
 

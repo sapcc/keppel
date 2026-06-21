@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -62,8 +62,7 @@ func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...mode
 			RecordedAt: s.Clock.Now(),
 		})
 	}
-	assert.DeepEqual(t, "accounts announced to federation",
-		s.FD.RecordedAccounts, expected)
+	assert.Equal(t, s.FD.RecordedAccounts, expected)
 
 	// reset for next test step
 	s.FD.RecordedAccounts = nil

@@ -4,10 +4,9 @@
 package models
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
+	"go.xyrillian.de/gg/assert"
 )
 
 func TestRepoNameWithLeadingSlashRx(t *testing.T) {
@@ -46,8 +45,10 @@ func TestRepoNameWithLeadingSlashRx(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		matches := RepoNameWithLeadingSlashRx.MatchString(tc.input)
-		assert.DeepEqual(t, fmt.Sprintf("matches %q", tc.input), matches, tc.expected)
+		t.Run("input="+tc.input, func(t *testing.T) {
+			matches := RepoNameWithLeadingSlashRx.MatchString(tc.input)
+			assert.Equal(t, matches, tc.expected)
+		})
 	}
 }
 
@@ -124,7 +125,9 @@ func TestImageReferenceRx(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		submatches := ImageReferenceRx.FindStringSubmatch(tc.input)
-		assert.DeepEqual(t, fmt.Sprintf("submatches %q", tc.input), submatches, tc.expected)
+		t.Run("input="+tc.input, func(t *testing.T) {
+			submatches := ImageReferenceRx.FindStringSubmatch(tc.input)
+			assert.Equal(t, submatches, tc.expected)
+		})
 	}
 }

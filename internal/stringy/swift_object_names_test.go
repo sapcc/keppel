@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/go-bits/assert"
+	"go.xyrillian.de/gg/assert"
 )
 
 var (
@@ -28,7 +28,7 @@ func TestParseBlobObject(t *testing.T) {
 	// storage ID should remain the same after parsing in both directions
 	objName := BlobObjectName(storageID)
 	parsedStorageID = ParseBlobObjectName(objName)
-	assert.DeepEqual(t, "storageID", parsedStorageID, storageID)
+	assert.Equal(t, parsedStorageID, storageID)
 }
 
 func TestParseChunkObject(t *testing.T) {
@@ -54,8 +54,8 @@ func TestParseChunkObject(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected to parse chunk object name %s, but got error: %s", objName, err.Error())
 	}
-	assert.DeepEqual(t, "storageID", parsedStorageID, storageID)
-	assert.DeepEqual(t, "chunkNumber", parsedChunkNumber, chunkNumber)
+	assert.Equal(t, parsedStorageID, storageID)
+	assert.Equal(t, parsedChunkNumber, chunkNumber)
 }
 
 func TestParseManifestObject(t *testing.T) {
@@ -81,8 +81,8 @@ func TestParseManifestObject(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected to parse manifest object name %s, but got error: %s", objName, err.Error())
 	}
-	assert.DeepEqual(t, "repoName", parsedRepoName, repoName)
-	assert.DeepEqual(t, "manifestDigest", parsedManifestDigest, manifestDigest)
+	assert.Equal(t, parsedRepoName, repoName)
+	assert.Equal(t, parsedManifestDigest, manifestDigest)
 }
 
 func TestParseTrivyReportObject(t *testing.T) {
@@ -111,7 +111,7 @@ func TestParseTrivyReportObject(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected to parse trivy report object name %s, but got error: %s", objName, err.Error())
 	}
-	assert.DeepEqual(t, "repoName", parsedRepoName, repoName)
-	assert.DeepEqual(t, "manifestDigest", parsedManifestDigest, manifestDigest)
-	assert.DeepEqual(t, "format", parsedFormat, format)
+	assert.Equal(t, parsedRepoName, repoName)
+	assert.Equal(t, parsedManifestDigest, manifestDigest)
+	assert.Equal(t, parsedFormat, format)
 }

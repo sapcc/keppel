@@ -5,12 +5,11 @@ package test
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -141,7 +140,7 @@ func (s Setup) ExpectTrivyReportExistsInStorage(t testing.TB, manifest models.Ma
 	default:
 		// fallback for unknown formats, yields very suboptimal diff reports
 		// (when adding a new format, you probably want to add specific support for it with a different branch)
-		assert.DeepEqual(t, fmt.Sprintf("Trivy report %s/%s", manifest.Digest, format), actualContents, expectedContents)
+		assert.Equal(t, actualContents, expectedContents)
 	}
 }
 

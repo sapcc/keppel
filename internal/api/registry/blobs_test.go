@@ -16,9 +16,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
