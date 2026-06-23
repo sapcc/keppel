@@ -18,9 +18,9 @@ import (
 	"slices"
 	"strings"
 
+	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/jsonmatch"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/internal/testdiff"
 )
 
@@ -356,7 +356,7 @@ func (r Response) Response() *http.Response {
 //
 // Response body values on either side that are not valid UTF-8 may be mangled when rendering error messages,
 // in order to ensure that those messages are valid UTF-8.
-func (r Response) ExpectBody(t assert.TestingT, statusCode int, expectedBody []byte) {
+func (r Response) ExpectBody(t assert.TestingTB, statusCode int, expectedBody []byte) {
 	t.Helper()
 	if !r.ExpectStatus(t, statusCode) {
 		return
@@ -378,7 +378,7 @@ func (r Response) ExpectBody(t assert.TestingT, statusCode int, expectedBody []b
 //		ExpectJSON(t, http.StatusOK, jsonmatch.Array{
 //			jsonmatch.Object{"id": 42, "name": "test_asset"},
 //		})
-func (r Response) ExpectHeader(t assert.TestingT, key, expected string) Response {
+func (r Response) ExpectHeader(t assert.TestingTB, key, expected string) Response {
 	t.Helper()
 	actual := r.resp.Header.Get(key)
 	if actual != expected {
@@ -405,7 +405,7 @@ func (r Response) ExpectHeader(t assert.TestingT, key, expected string) Response
 //		}).ExpectJSON(t, http.StatusOK, jsonmatch.Array{
 //			jsonmatch.Object{"id": 42, "name": "test_asset"},
 //		})
-func (r Response) ExpectHeaders(t assert.TestingT, hdr http.Header) Response {
+func (r Response) ExpectHeaders(t assert.TestingTB, hdr http.Header) Response {
 	t.Helper()
 	for key, expected := range hdr {
 		key = textproto.CanonicalMIMEHeaderKey(key)
@@ -457,7 +457,7 @@ func (r Response) ExpectHeaders(t assert.TestingT, hdr http.Header) Response {
 //
 //	h.RespondTo(ctx, "DELETE /v1/assets/"+uuid).
 //		ExpectStatus(t, http.StatusNoContent)
-func (r Response) ExpectJSON(t assert.TestingT, statusCode int, expected jsonmatch.Diffable) {
+func (r Response) ExpectJSON(t assert.TestingTB, statusCode int, expected jsonmatch.Diffable) {
 	t.Helper()
 	if !r.ExpectStatus(t, statusCode) {
 		return
@@ -473,7 +473,7 @@ func (r Response) ExpectJSON(t assert.TestingT, statusCode int, expected jsonmat
 
 // ExpectStatus asserts that the status code is equal to the provided value.
 // It returns whether the assertion succeeded.
-func (r Response) ExpectStatus(t assert.TestingT, statusCode int) bool {
+func (r Response) ExpectStatus(t assert.TestingTB, statusCode int) bool {
 	t.Helper()
 	if r.resp.StatusCode == statusCode {
 		return true
@@ -487,7 +487,7 @@ func (r Response) ExpectStatus(t assert.TestingT, statusCode int) bool {
 //
 //   - the status code is equal to the provided value, and
 //   - the response body is a valid UTF-8 string matching the provided expected value.
-func (r Response) ExpectText(t assert.TestingT, statusCode int, expectedBody string) {
+func (r Response) ExpectText(t assert.TestingTB, statusCode int, expectedBody string) {
 	t.Helper()
 	if !r.ExpectStatus(t, statusCode) {
 		return
@@ -501,7 +501,7 @@ func (r Response) ExpectText(t assert.TestingT, statusCode int, expectedBody str
 //   - the response body matches the contents of the file at `fixturePath`.
 //
 // When this function is executed, the actual response body will be written into `fixturePath + ".actual"` as a side effect.
-func (r Response) ExpectBodyAsInFixture(t assert.TestingT, statusCode int, fixturePath string) {
+func (r Response) ExpectBodyAsInFixture(t assert.TestingTB, statusCode int, fixturePath string) {
 	t.Helper()
 	if !r.ExpectStatus(t, statusCode) {
 		return
