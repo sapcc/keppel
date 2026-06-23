@@ -15,10 +15,10 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/assert"
 	. "go.xyrillian.de/gg/option"
 	"go.xyrillian.de/oblast"
 

@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 
-	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/gg/internal/path"
 )
 
 func marshalExpectedForDiff(value any) string {
@@ -70,54 +69,9 @@ func diffAgainst(expected any, buf []byte) []Diff {
 		}}
 	}
 
-	// While recursing through the object, we maintain a `path` that identifies
-	// where we are in the callstack, e.g. when comparing
-	//
-	//	actual = { "foo": { "bar": [ 5, 23 ] } }
-	//	expected = { "foo": { "bar": [ 5, 42 ] } }
-	//
-	// we would generate a diff at Path = {"foo", "bar", 1}. Since diffs are
-	// usually rare, we only build Pointer strings out of these paths when we
-	// really need them. During recursion, `path` is maintained as a sequence of
-	// path fragments, most of which are constants to keep allocations to a
-	// minimum. WARNING: Because the `path` slice is heavily reused across nested
-	// function calls, it is not safe to store references to the `path` slice.
-	path := make([]pathElement, 0, 32)
-	return getDiffsForValue(path, expected, actual)
-}
-
-type pathElement struct {
-	Key   Option[string]
-	Index int
-}
-
-func keyElement(key string) pathElement { return pathElement{Some(key), 0} }
-func indexElement(idx int) pathElement  { return pathElement{None[string](), idx} }
-
-func pathIntoPointer(path []pathElement) Pointer {
-	if len(path) == 0 {
-		return ""
-	}
-	fragments := make([]string, len(path)+1)
-	fragments[0] = ""
-	for idx, elem := range path {
-		if key, ok := elem.Key.Unpack(); ok {
-			fragments[idx+1] = keyIntoPointerFragment(key)
-		} else {
-			fragments[idx+1] = strconv.Itoa(elem.Index)
-		}
-	}
-	return Pointer(strings.Join(fragments, "/"))
-}
-
-func keyIntoPointerFragment(key string) string {
-	buf, _ := json.Marshal(key)
-	s := string(buf)
-	s = strings.TrimPrefix(s, "\"")
-	s = strings.TrimSuffix(s, "\"")
-	s = strings.ReplaceAll(s, "~", "~0")
-	s = strings.ReplaceAll(s, "/", "~1")
-	return s
+	// NOTE: consider the warning in the docstring of [path.Path]
+	p := path.NewPath()
+	return getDiffsForValue(p, expected, actual)
 }
 
 const (
@@ -127,31 +81,31 @@ const (
 )
 
 // NOTE: getDiffsForValue is the main part of the recursion to generate the diff.
-func getDiffsForValue(path []pathElement, expected, actual any) []Diff {
+func getDiffsForValue(p path.Path, expected, actual any) []Diff {
 	// specialized handling for relevant recursible or capturable types
 	switch expected := expected.(type) {
 	case map[string]any:
-		return getDiffsForObject(path, expected, actual)
+		return getDiffsForObject(p, expected, actual)
 	case Object:
-		return getDiffsForObject(path, expected, actual)
+		return getDiffsForObject(p, expected, actual)
 	case []any:
-		return getDiffsForArray(path, expected, actual)
+		return getDiffsForArray(p, expected, actual)
 	case Array:
-		return getDiffsForArray(path, expected, actual)
+		return getDiffsForArray(p, expected, actual)
 	case []map[string]any:
 		downcasted := make([]any, len(expected))
 		for idx, val := range expected {
 			downcasted[idx] = val
 		}
-		return getDiffsForArray(path, downcasted, actual)
+		return getDiffsForArray(p, downcasted, actual)
 	case []Object:
 		downcasted := make([]any, len(expected))
 		for idx, val := range expected {
 			downcasted[idx] = val
 		}
-		return getDiffsForArray(path, downcasted, actual)
+		return getDiffsForArray(p, downcasted, actual)
 	case capturedField:
-		return getDiffsForCapturedField(path, expected, actual)
+		return getDiffsForCapturedField(p, expected, actual)
 	case irrelevant:
 		return nil
 	case nil:
@@ -162,7 +116,7 @@ func getDiffsForValue(path []pathElement, expected, actual any) []Diff {
 		} else {
 			return []Diff{{
 				Kind:         kindTypeMismatch,
-				Pointer:      pathIntoPointer(path),
+				Pointer:      Pointer(p.AsJSONPointer()),
 				ExpectedJSON: "null",
 				ActualJSON:   marshalActualForDiff(actual),
 			}}
@@ -179,14 +133,14 @@ func getDiffsForValue(path []pathElement, expected, actual any) []Diff {
 			// this branch is therefore unreachable in tests and only exists as defense in depth
 			return []Diff{{
 				Kind:         kindDispatchFailed,
-				Pointer:      pathIntoPointer(path),
+				Pointer:      Pointer(p.AsJSONPointer()),
 				ExpectedJSON: fmt.Sprintf("<custom diffable: %#v>", diffable),
 				ActualJSON:   fmt.Sprintf("<marshal error: %s>", err.Error()),
 			}}
 		}
 		diffs := diffable.DiffAgainst(buf)
 		for idx, diff := range diffs {
-			diff.Pointer = pathIntoPointer(path) + diff.Pointer
+			diff.Pointer = Pointer(p.AsJSONPointer()) + diff.Pointer
 			diffs[idx] = diff
 		}
 		return diffs
@@ -223,35 +177,35 @@ func getDiffsForValue(path []pathElement, expected, actual any) []Diff {
 	}
 	return []Diff{{
 		Kind:         kind,
-		Pointer:      pathIntoPointer(path),
+		Pointer:      Pointer(p.AsJSONPointer()),
 		ExpectedJSON: expectedJSON,
 		ActualJSON:   actualJSON,
 	}}
 }
 
-func getDiffsForObject(path []pathElement, expected map[string]any, actual any) []Diff {
+func getDiffsForObject(p path.Path, expected map[string]any, actual any) []Diff {
 	if actual, ok := actual.(map[string]any); ok {
-		return getDiffsForConfirmedObject(path, expected, actual)
+		return getDiffsForConfirmedObject(p, expected, actual)
 	}
 	return []Diff{{
 		Kind:         kindTypeMismatch,
-		Pointer:      pathIntoPointer(path),
+		Pointer:      Pointer(p.AsJSONPointer()),
 		ExpectedJSON: marshalExpectedForDiff(expected),
 		ActualJSON:   marshalActualForDiff(actual),
 	}}
 }
 
-func getDiffsForConfirmedObject(path []pathElement, expected, actual map[string]any) (diffs []Diff) {
+func getDiffsForConfirmedObject(p path.Path, expected, actual map[string]any) (diffs []Diff) {
 	// recurse into all fields
 	for _, key := range slices.Sorted(maps.Keys(actual)) {
-		subpath := append(path, keyElement(key))
+		subpath := append(p, path.KeyElement(key))
 		expectedValue, exists := expected[key]
 		if exists {
 			diffs = append(diffs, getDiffsForValue(subpath, expectedValue, actual[key])...)
 		} else {
 			diffs = append(diffs, Diff{
 				Kind:         kindValueMismatch,
-				Pointer:      pathIntoPointer(subpath),
+				Pointer:      Pointer(subpath.AsJSONPointer()),
 				ExpectedJSON: "<missing>",
 				ActualJSON:   marshalActualForDiff(actual[key]),
 			})
@@ -260,10 +214,10 @@ func getDiffsForConfirmedObject(path []pathElement, expected, actual map[string]
 	for _, key := range slices.Sorted(maps.Keys(expected)) {
 		_, exists := actual[key]
 		if !exists {
-			subpath := append(path, keyElement(key))
+			subpath := append(p, path.KeyElement(key))
 			diffs = append(diffs, Diff{
 				Kind:         kindValueMismatch,
-				Pointer:      pathIntoPointer(subpath),
+				Pointer:      Pointer(subpath.AsJSONPointer()),
 				ExpectedJSON: marshalExpectedForDiff(expected[key]),
 				ActualJSON:   "<missing>",
 			})
@@ -273,34 +227,34 @@ func getDiffsForConfirmedObject(path []pathElement, expected, actual map[string]
 	return diffs
 }
 
-func getDiffsForArray(path []pathElement, expected []any, actual any) []Diff {
+func getDiffsForArray(p path.Path, expected []any, actual any) []Diff {
 	if actual, ok := actual.([]any); ok {
-		return getDiffsForConfirmedArray(path, expected, actual)
+		return getDiffsForConfirmedArray(p, expected, actual)
 	}
 	return []Diff{{
 		Kind:         kindTypeMismatch,
-		Pointer:      pathIntoPointer(path),
+		Pointer:      Pointer(p.AsJSONPointer()),
 		ExpectedJSON: marshalExpectedForDiff(expected),
 		ActualJSON:   marshalActualForDiff(actual),
 	}}
 }
 
-func getDiffsForConfirmedArray(path []pathElement, expected, actual []any) (diffs []Diff) {
+func getDiffsForConfirmedArray(p path.Path, expected, actual []any) (diffs []Diff) {
 	// recurse into all elements
 	for idx := range max(len(actual), len(expected)) {
-		subpath := append(path, indexElement(idx))
+		subpath := append(p, path.IndexElement(idx))
 		switch {
 		case idx >= len(actual):
 			diffs = append(diffs, Diff{
 				Kind:         kindValueMismatch,
-				Pointer:      pathIntoPointer(subpath),
+				Pointer:      Pointer(subpath.AsJSONPointer()),
 				ActualJSON:   "<missing>",
 				ExpectedJSON: marshalExpectedForDiff(expected[idx]),
 			})
 		case idx >= len(expected):
 			diffs = append(diffs, Diff{
 				Kind:         kindValueMismatch,
-				Pointer:      pathIntoPointer(subpath),
+				Pointer:      Pointer(subpath.AsJSONPointer()),
 				ActualJSON:   marshalActualForDiff(actual[idx]),
 				ExpectedJSON: "<missing>",
 			})
@@ -312,13 +266,13 @@ func getDiffsForConfirmedArray(path []pathElement, expected, actual []any) (diff
 	return diffs
 }
 
-func getDiffsForCapturedField(path []pathElement, expected capturedField, actual any) []Diff {
+func getDiffsForCapturedField(p path.Path, expected capturedField, actual any) []Diff {
 	actualJSON := marshalActualForDiff(actual)
 	err := json.Unmarshal([]byte(actualJSON), expected.PointerToTarget)
 	if err != nil {
 		return []Diff{{
 			Kind:         fmt.Sprintf("cannot unmarshal into capture slot (%s)", err.Error()),
-			Pointer:      pathIntoPointer(path),
+			Pointer:      Pointer(p.AsJSONPointer()),
 			ActualJSON:   actualJSON,
 			ExpectedJSON: fmt.Sprintf("<capture slot of type %T>", expected.PointerToTarget),
 		}}

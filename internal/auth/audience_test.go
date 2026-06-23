@@ -4,10 +4,9 @@
 package auth
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
+	"go.xyrillian.de/gg/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -24,25 +23,25 @@ func TestValidAudience(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		// with anycast enabled, parsing and serializing should work exactly as specified in the testcase
-		cfg := keppel.Configuration{
-			APIPublicHostname:        "registry.example.org",
-			AnycastAPIPublicHostname: "registry-global.example.org",
-		}
-		desc := fmt.Sprintf("parsed audience of %q", tc.Hostname)
-		assert.DeepEqual(t, desc, IdentifyAudience(tc.Hostname, cfg), tc.Audience)
-		assert.DeepEqual(t, "audience.Hostname()", tc.Audience.Hostname(cfg), tc.Hostname)
+		t.Run("hostname="+tc.Hostname, func(t *testing.T) {
+			// with anycast enabled, parsing and serializing should work exactly as specified in the testcase
+			cfg := keppel.Configuration{
+				APIPublicHostname:        "registry.example.org",
+				AnycastAPIPublicHostname: "registry-global.example.org",
+			}
+			assert.Equal(t, IdentifyAudience(tc.Hostname, cfg), tc.Audience)
+			assert.Equal(t, tc.Audience.Hostname(cfg), tc.Hostname)
 
-		// with anycast disabled, parsing the anycast hostnames will fall back to the default audience
-		cfg.AnycastAPIPublicHostname = ""
-		desc = fmt.Sprintf("parsed audience of %q with anycast disabled", tc.Hostname)
-		if tc.Audience.IsAnycast {
-			assert.DeepEqual(t, desc, IdentifyAudience(tc.Hostname, cfg), Audience{IsAnycast: false})
-		} else {
-			// same as before for non-anycast hostnames
-			assert.DeepEqual(t, desc, IdentifyAudience(tc.Hostname, cfg), tc.Audience)
-			assert.DeepEqual(t, "audience.Hostname()", tc.Audience.Hostname(cfg), tc.Hostname)
-		}
+			// with anycast disabled, parsing the anycast hostnames will fall back to the default audience
+			cfg.AnycastAPIPublicHostname = ""
+			if tc.Audience.IsAnycast {
+				assert.Equal(t, IdentifyAudience(tc.Hostname, cfg), Audience{IsAnycast: false})
+			} else {
+				// same as before for non-anycast hostnames
+				assert.Equal(t, IdentifyAudience(tc.Hostname, cfg), tc.Audience)
+				assert.Equal(t, tc.Audience.Hostname(cfg), tc.Hostname)
+			}
+		})
 	}
 }
 
@@ -62,7 +61,8 @@ func TestInvalidAudience(t *testing.T) {
 	// all of these should fall back into the default audience instead of
 	// generating nonsensical Audience instances
 	for _, hostname := range brokenHostnames {
-		desc := fmt.Sprintf("parsed audience of %q", hostname)
-		assert.DeepEqual(t, desc, IdentifyAudience(hostname, cfg), Audience{IsAnycast: false})
+		t.Run("hostname="+hostname, func(t *testing.T) {
+			assert.Equal(t, IdentifyAudience(hostname, cfg), Audience{IsAnycast: false})
+		})
 	}
 }

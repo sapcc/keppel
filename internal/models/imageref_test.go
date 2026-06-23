@@ -4,10 +4,11 @@
 package models
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
+	"go.xyrillian.de/gg/assert"
 )
 
 func TestParseImageReferenceSuccess(t *testing.T) {
@@ -45,16 +46,18 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 			}
 
 			for _, reference := range references {
-				ref := ImageReference{hostName, repoName, ParseManifestReference(reference)}
-				parsedRef, interpretation, err := ParseImageReference(ref.String())
-				if err == nil {
-					if !assert.DeepEqual(t, "parse of %s", parsedRef, ref) {
+				t.Run(fmt.Sprintf("host=%s,repo=%s,ref=%s", hostName, repoName, reference), func(t *testing.T) {
+					ref := ImageReference{hostName, repoName, ParseManifestReference(reference)}
+					parsedRef, interpretation, err := ParseImageReference(ref.String())
+					if err == nil {
+						if !assert.Equal(t, parsedRef, ref) {
+							t.Logf("input interpretation was: %s", interpretation)
+						}
+					} else {
+						t.Errorf("expected %s to parse, but got error: %s", ref, err.Error())
 						t.Logf("input interpretation was: %s", interpretation)
 					}
-				} else {
-					t.Errorf("expected %s to parse, but got error: %s", ref, err.Error())
-					t.Logf("input interpretation was: %s", interpretation)
-				}
+				})
 			}
 		}
 	}
@@ -71,7 +74,7 @@ func TestParseImageReferenceLabelDigestSuccess(t *testing.T) {
 
 	parsedRef, interpretation, err := ParseImageReference(refActual.String())
 	if err == nil {
-		if !assert.DeepEqual(t, "parse of %s", parsedRef, refExpected) {
+		if !assert.Equal(t, parsedRef, refExpected) {
 			t.Logf("input interpretation was: %s", interpretation)
 		}
 	} else {

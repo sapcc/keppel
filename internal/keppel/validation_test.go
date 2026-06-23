@@ -6,7 +6,7 @@ package keppel
 import (
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
+	"go.xyrillian.de/gg/assert"
 )
 
 func TestCelExpressionRegexs(t *testing.T) {
@@ -51,9 +51,9 @@ func TestCelExpressionRegexs(t *testing.T) {
 
 			if matches {
 				labels := extractRequiredLabelsFromCEL(tc.expression)
-				assert.DeepEqual(t, tc.expression, labels, tc.labels)
+				assert.Equal(t, labels, tc.labels)
 			} else {
-				assert.DeepEqual(t, tc.expression, nil, tc.labels)
+				assert.Equal(t, nil, tc.labels)
 			}
 		})
 	}

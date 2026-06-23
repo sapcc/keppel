@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/assert"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"

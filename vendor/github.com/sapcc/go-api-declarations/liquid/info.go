@@ -174,7 +174,11 @@ type Unit = units.Unit
 
 var (
 	// UnitNone is used for countable (rather than measurable) resources or rates.
+	//
+	// Deprecated: Use [UnitPiece] instead. It has exactly the same meaning within Limes, and merely serializes differently.
 	UnitNone = units.UnitNone
+	// UnitPiece is used for countable (rather than measurable) resources or rates.
+	UnitPiece = units.UnitPiece
 
 	// UnitBytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
 	UnitBytes = units.UnitBytes

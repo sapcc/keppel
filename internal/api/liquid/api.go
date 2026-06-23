@@ -79,7 +79,7 @@ func (a *API) handleLiquidGetInfo(w http.ResponseWriter, r *http.Request) {
 		Resources: map[liquid.ResourceName]liquid.ResourceInfo{
 			"images": {
 				DisplayName: "Images",
-				Unit:        liquid.UnitNone,
+				Unit:        liquid.UnitPiece,
 				Topology:    liquid.FlatTopology,
 				HasCapacity: false,
 				HasQuota:    true,

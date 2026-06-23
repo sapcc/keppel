@@ -191,7 +191,7 @@ github.com/redis/go-redis/v9/push
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/sapcc/go-api-declarations v1.23.0
+# github.com/sapcc/go-api-declarations v1.24.0
 ## explicit; go 1.26
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
@@ -261,8 +261,10 @@ go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
-# go.xyrillian.de/gg v1.9.1
-## explicit; go 1.24
+# go.xyrillian.de/gg v1.10.1
+## explicit; go 1.26
+go.xyrillian.de/gg/assert
+go.xyrillian.de/gg/internal/path
 go.xyrillian.de/gg/jsonmatch
 go.xyrillian.de/gg/option
 # go.xyrillian.de/oblast v0.10.0

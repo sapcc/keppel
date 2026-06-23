@@ -12,8 +12,8 @@ import (
 
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-api-declarations/cadf"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"go.xyrillian.de/gg/assert"
 
 	"github.com/sapcc/keppel/internal/test"
 )

@@ -17,6 +17,8 @@ type Unit struct {
 var (
 	// UnitNone is used for countable (rather than measurable) resources.
 	//
+	// This only exists for backwards compatibility with Limes v1 and earlier versions of the LIQUID API.
+	// Updated LIQUID implementations as well as the Limes v2 API use [UnitPiece] in place of UnitNone.
 	UnitNone = Unit{
 		amount: Amount{Base: BaseUnitNone, Factor: 0},
 		// ^ NOTE: Factor = 0 does not make sense, it should be 1 (as in `realUnitNone` below).
@@ -26,6 +28,17 @@ var (
 	}
 	realUnitNone = Unit{
 		amount: Amount{Base: BaseUnitNone, Factor: 1},
+	}
+
+	// UnitPiece is used for countable (rather than measurable) resources.
+	// It differs from UnitNone in that it never has an empty serialization, and thus can be multiplied safely:
+	//
+	//		UnitPiece.String()               // "piece"
+	//		UnitPiece.MultiplyBy(2).String() // "2 piece"
+	//		UnitNone.String()                // ""
+	//		UnitNone.MultiplyBy(2).String()  // "2 "!? (MultiplyBy panics to prevent this situation)
+	UnitPiece = Unit{
+		amount: Amount{Base: BaseUnitPiece, Factor: 1},
 	}
 
 	// UnitBytes is exactly that.
