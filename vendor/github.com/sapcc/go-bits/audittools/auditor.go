@@ -22,9 +22,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-api-declarations/cadf"
+	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/jsonmatch"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/internal"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
@@ -208,7 +208,7 @@ func (a *MockAuditor) Record(event Event) {
 // At the end of the call, the recording will be disposed, so the next ExpectEvents call will not check against the same events again.
 //
 // If you do not have a *testing.T (e.g. under Ginkgo), use func RecordedEvents instead.
-func (a *MockAuditor) ExpectEvents(t assert.TestingT, expectedEvents ...cadf.Event) {
+func (a *MockAuditor) ExpectEvents(t assert.TestingTB, expectedEvents ...cadf.Event) {
 	t.Helper()
 
 	actualEvents := a.RecordedEvents()
