@@ -6,6 +6,7 @@
 DELET = "DELET"
 fo = "fo"
 
+
 [files]
 extend-exclude = [
   "go.mod",

@@ -187,8 +187,8 @@ github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/sapcc/go-api-declarations v1.24.0 h1:sGBvOMVSM1olJlyvNoQSk7NX5uatXHKkztGDBPnTWMs=
 github.com/sapcc/go-api-declarations v1.24.0/go.mod h1:ZWRTijvgF8o8aHg5stgg7u4DF6jFrd0X97le/uGlZsA=
-github.com/sapcc/go-bits v0.0.0-20260621162543-178db349f39d h1:Y3haqPapstc6xt86bz1G/wnpmO3xRNd8fUFsQvIOi/Y=
-github.com/sapcc/go-bits v0.0.0-20260621162543-178db349f39d/go.mod h1:iijO1r0HeCbtam2ekqGr9fZOrtFF13dKrCrvPRmbK/w=
+github.com/sapcc/go-bits v0.0.0-20260623114633-b9734b46a368 h1:RZRK9YiWgFGXCAXm3rm5DVHUONKseTTZlYzvjtfkvn4=
+github.com/sapcc/go-bits v0.0.0-20260623114633-b9734b46a368/go.mod h1:iijO1r0HeCbtam2ekqGr9fZOrtFF13dKrCrvPRmbK/w=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
