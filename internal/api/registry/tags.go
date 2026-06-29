@@ -23,9 +23,9 @@ var tagsListQuery = sqlext.SimplifyWhitespace(`
 	 ORDER BY name ASC LIMIT $3
 `)
 
-func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleListTags(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
-	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleListTagsAnycast)
+	account, repo, _, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, a.handleListTagsAnycast)
 	if account == nil {
 		return
 	}
@@ -84,7 +84,7 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (a *API) handleListTagsAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
+func (a *API) handleListTagsAnycast(w http.ResponseWriter, r *http.Request, vars map[string]string, info anycastRequestInfo) {
 	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
 	if respondWithError(w, r, err) {
 		return
