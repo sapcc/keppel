@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	pr "go.xyrillian.de/gg/pathrouter"
 	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -58,49 +59,53 @@ func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
-	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleToplevel)
-	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleGetCatalog)
-
-	//NOTE: We used to match account name and repository name separately here,
-	// but that is not possible anymore since domain-remapped APIs do not have the
-	// account name in the URL path. The "repository" variable is split later in
-	// checkAccountAccess().
-	r.Methods("DELETE").
-		Path("/v2/{repository:.+}/blobs/{digest}").
-		HandlerFunc(a.handleDeleteBlob)
-	r.Methods("GET", "HEAD").
-		Path("/v2/{repository:.+}/blobs/{digest}").
-		HandlerFunc(a.handleGetOrHeadBlob)
-	r.Methods("POST").
-		Path("/v2/{repository:.+}/blobs/uploads/").
-		HandlerFunc(a.handleStartBlobUpload)
-	r.Methods("DELETE").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleDeleteBlobUpload)
-	r.Methods("GET").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleGetBlobUpload)
-	r.Methods("PATCH").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleContinueBlobUpload)
-	r.Methods("PUT").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleFinishBlobUpload)
-	r.Methods("DELETE").
-		Path("/v2/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handleDeleteManifest)
-	r.Methods("GET", "HEAD").
-		Path("/v2/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handleGetOrHeadManifest)
-	r.Methods("PUT").
-		Path("/v2/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handlePutManifest)
-	r.Methods("GET").
-		Path("/v2/{repository:.+}/referrers/{reference}").
-		HandlerFunc(a.handleGetReferrers)
-	r.Methods("GET").
-		Path("/v2/{repository:.+}/tags/list").
-		HandlerFunc(a.handleListTags)
+	// NOTE 1: This uses gg/pathrouter instead of gorilla/mux for the actual path matching
+	//         to improve performance esp. for important endpoints like GetManifest and GetBlob.
+	// NOTE 2: Most HEAD handlers are deleted to match the endpoint list from
+	//         <https://github.com/opencontainers/distribution-spec/blob/main/spec.md#endpoints>.
+	r.PathPrefix("/v2/").Handler(pr.Element("v2", pr.Choice(
+		pr.Element("/", pr.Handlers(pr.ByMethod{
+			http.MethodGet:  a.handleToplevel,
+			http.MethodHead: nil,
+		})),
+		pr.Element("_catalog", pr.Handlers(pr.ByMethod{
+			http.MethodGet:  a.handleGetCatalog,
+			http.MethodHead: nil,
+		})),
+		pr.CatchAllVariable("repository", pr.Choice(
+			pr.Element("blobs", pr.Choice(
+				pr.Variable("digest", pr.Handlers(pr.ByMethod{
+					http.MethodDelete: a.handleDeleteBlob,
+					http.MethodGet:    a.handleGetOrHeadBlob,
+				})),
+				pr.Element("uploads", pr.Choice(
+					pr.Element("/", pr.Handlers(pr.ByMethod{
+						http.MethodPost: a.handleStartBlobUpload,
+					})),
+					pr.Variable("uuid", pr.Handlers(pr.ByMethod{
+						http.MethodDelete: a.handleDeleteBlobUpload,
+						http.MethodGet:    a.handleGetBlobUpload,
+						http.MethodHead:   nil,
+						http.MethodPatch:  a.handleContinueBlobUpload,
+						http.MethodPut:    a.handleFinishBlobUpload,
+					})),
+				)),
+			)),
+			pr.Element("manifests", pr.Variable("reference", pr.Handlers(pr.ByMethod{
+				http.MethodDelete: a.handleDeleteManifest,
+				http.MethodGet:    a.handleGetOrHeadManifest,
+				http.MethodPut:    a.handlePutManifest,
+			}))),
+			pr.Element("referrers", pr.Variable("reference", pr.Handlers(pr.ByMethod{
+				http.MethodGet:  a.handleGetReferrers,
+				http.MethodHead: nil,
+			}))),
+			pr.Element("tags", pr.Element("list", pr.Handlers(pr.ByMethod{
+				http.MethodGet:  a.handleListTags,
+				http.MethodHead: nil,
+			}))),
+		)),
+	)))
 }
 
 func (a *API) processor() *processor.Processor {
@@ -108,7 +113,8 @@ func (a *API) processor() *processor.Processor {
 }
 
 // This implements the GET /v2/ endpoint.
-func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request, vars map[string]string) {
+	_ = vars
 	httpapi.IdentifyEndpoint(r, "/v2/")
 	ctx := r.Context()
 
@@ -193,7 +199,7 @@ func (info anycastRequestInfo) asPrometheusLabels() prometheus.Labels {
 //
 // TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
 // TODO: return non-pointer arguments to avoid useless heap allocations
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.ReducedRepository, *auth.Authorization, *auth.Challenge) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, vars map[string]string, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, map[string]string, anycastRequestInfo)) (*models.ReducedAccount, *models.ReducedRepository, *auth.Authorization, *auth.Challenge) {
 	ctx := r.Context()
 
 	// must be set even for 401 responses!
@@ -202,7 +208,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	// check that repo name is wellformed
 	scope := auth.Scope{
 		ResourceType: "repository",
-		ResourceName: mux.Vars(r)["repository"],
+		ResourceName: vars["repository"],
 	}
 	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
@@ -247,7 +253,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 					keppel.ErrUnknown.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 				} else {
 					mappedPrimaryHostName := authz.Audience.MapPeerHostname(primaryHostName)
-					anycastHandler(w, r, anycastRequestInfo{repoScope.AccountName, repoScope.RepositoryName, mappedPrimaryHostName})
+					anycastHandler(w, r, vars, anycastRequestInfo{repoScope.AccountName, repoScope.RepositoryName, mappedPrimaryHostName})
 				}
 				return nil, nil, nil, nil
 			case errors.Is(err, keppel.ErrNoSuchPrimaryAccount):

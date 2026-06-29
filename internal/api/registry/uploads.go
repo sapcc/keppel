@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
@@ -37,11 +36,11 @@ import (
 )
 
 // This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
-func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/")
 	ctx := r.Context()
 
-	account, repo, authz, _ := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, vars, createRepoIfMissing, nil)
 	if account == nil {
 		return
 	}
@@ -302,15 +301,15 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 }
 
 // This implements the DELETE /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
-func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	ctx := r.Context()
 
-	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, _, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
-	upload, ok := a.findUpload(w, r, *repo)
+	upload, ok := a.findUpload(w, r, vars, *repo)
 	if !ok {
 		return
 	}
@@ -344,14 +343,14 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 // This implements the GET /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
-func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 
-	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
-	upload, ok := a.findUpload(w, r, *repo)
+	upload, ok := a.findUpload(w, r, vars, *repo)
 	if !ok {
 		return
 	}
@@ -381,15 +380,15 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 // This implements the PATCH /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
-func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	ctx := r.Context()
 
-	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
-	upload, ok := a.findUpload(w, r, *repo)
+	upload, ok := a.findUpload(w, r, vars, *repo)
 	if !ok {
 		return
 	}
@@ -433,15 +432,15 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 // This implements the PUT /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
-func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	ctx := r.Context()
 
-	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
-	upload, ok := a.findUpload(w, r, *repo)
+	upload, ok := a.findUpload(w, r, vars, *repo)
 	if !ok {
 		return
 	}
@@ -509,8 +508,8 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 // TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
-func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.ReducedRepository) (models.Upload, bool) {
-	uploadUUID := mux.Vars(r)["uuid"]
+func (a *API) findUpload(w http.ResponseWriter, r *http.Request, vars map[string]string, repo models.ReducedRepository) (models.Upload, bool) {
+	uploadUUID := vars["uuid"]
 	ctx := r.Context()
 
 	upload, err := keppel.FindUploadByRepository(ctx, a.db, uploadUUID, repo)

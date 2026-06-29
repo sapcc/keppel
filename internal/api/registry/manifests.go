@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
@@ -28,11 +27,11 @@ import (
 )
 
 // This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
-func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	ctx := r.Context()
 
-	account, repo, authz, challenge := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
+	account, repo, authz, challenge := a.checkAccountAccess(w, r, vars, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
 	if account == nil {
 		return
 	}
@@ -42,7 +41,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reference := models.ParseManifestReference(mux.Vars(r)["reference"])
+	reference := models.ParseManifestReference(vars["reference"])
 	dbManifest, err := a.findManifestInDB(ctx, *repo, reference)
 	var manifestBytes []byte
 
@@ -61,7 +60,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.IsDeleting && (userType != keppel.PeerUser && userType != keppel.TrivyUser) {
 			// when replicating from external, only authenticated users can trigger the replication
 			if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
-				if !authz.ScopeSet.AllowsAnonymousFirstPullOn(mux.Vars(r)["repository"]) {
+				if !authz.ScopeSet.AllowsAnonymousFirstPullOn(vars["repository"]) {
 					rerr := keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images")
 					// this must be a 401 and include a challenge; clients should be able to understand that
 					// they can retry this after authenticating and expect a different result
@@ -252,7 +251,7 @@ func (a *API) getManifestContentFromDB(repoID int64, digestStr digest.Digest) ([
 	)
 }
 
-func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
+func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Request, vars map[string]string, info anycastRequestInfo) {
 	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
 	if respondWithError(w, r, err) {
 		return
@@ -261,11 +260,11 @@ func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Requ
 }
 
 // This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
-func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	ctx := r.Context()
 
-	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
@@ -276,7 +275,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// delete tag or manifest from the database
-	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
+	ref := models.ParseManifestReference(vars["reference"])
 	actx := keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
@@ -298,11 +297,11 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 }
 
 // This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
-func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
+func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	ctx := r.Context()
 
-	account, repo, authz, _ := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, vars, createRepoIfMissing, nil)
 	if account == nil {
 		return
 	}
@@ -346,7 +345,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate and store manifest
-	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
+	ref := models.ParseManifestReference(vars["reference"])
 	incomingManifest := processor.IncomingManifest{
 		Reference: ref,
 		MediaType: r.Header.Get("Content-Type"),

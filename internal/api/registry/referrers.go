@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/httpapi"
@@ -20,16 +19,16 @@ var (
 	getManifestBySubjectAndArtifactTypeQuery = models.ManifestStore.MustPrepareSelectQueryWhere(`repo_id = $1 AND subject_digest = $2 AND artifact_type = $3`)
 )
 
-func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/referrers/:reference")
 	ctx := r.Context()
 
-	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, _, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
 
-	digest := mux.Vars(r)["reference"]
+	digest := vars["reference"]
 	filterArtifactType := r.URL.Query().Get("artifactType")
 	var (
 		dbManifests []models.Manifest

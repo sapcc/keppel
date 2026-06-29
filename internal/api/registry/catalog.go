@@ -23,7 +23,8 @@ import (
 const maxLimit = 100
 
 // This implements the GET /v2/_catalog endpoint.
-func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request, vars map[string]string) {
+	_ = vars
 	httpapi.IdentifyEndpoint(r, "/v2/_catalog")
 	ctx := r.Context()
 

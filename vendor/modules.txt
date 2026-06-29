@@ -263,6 +263,8 @@ go.xyrillian.de/gg/assert
 go.xyrillian.de/gg/internal/path
 go.xyrillian.de/gg/jsonmatch
 go.xyrillian.de/gg/option
+go.xyrillian.de/gg/options
+go.xyrillian.de/gg/pathrouter
 # go.xyrillian.de/oblast v0.10.0
 ## explicit; go 1.26.0
 go.xyrillian.de/oblast
