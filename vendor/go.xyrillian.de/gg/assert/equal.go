@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"go.xyrillian.de/gg/internal/path"
@@ -76,6 +77,18 @@ func formatValue(v reflect.Value) string {
 	return fmt.Sprintf("%#v", v)
 }
 
+func formatString(str string) string {
+	if strings.ContainsRune(str, '"') && !strings.ContainsRune(str, '`') && !strings.ContainsFunc(str, isControlCharacter) {
+		return fmt.Sprintf("`%s`", str)
+	} else {
+		return fmt.Sprintf("%q", str)
+	}
+}
+
+func isControlCharacter(r rune) bool {
+	return unicode.Is(unicode.C, r)
+}
+
 func findInequalities(p path.Path, actual, expected reflect.Value) (result []inequality) {
 	// try to recurse into structured type to find the specific location of the inequality
 	// (thus producing a more succinct error message esp. with large and deeply nested structures)
@@ -98,6 +111,15 @@ func findInequalities(p path.Path, actual, expected reflect.Value) (result []ine
 				result = findInequalities(subpath, actualElem, expectedElem)
 			}
 		}
+	case reflect.String:
+		// string types do not allow structured recursion, but they have a special case for formatting
+		actualStr := actual.Convert(reflect.TypeFor[string]()).Interface().(string)
+		expectedStr := expected.Convert(reflect.TypeFor[string]()).Interface().(string)
+		return []inequality{{
+			Pointer:  p.AsGoExpression("actual"),
+			Actual:   formatString(actualStr),
+			Expected: formatString(expectedStr),
+		}}
 	}
 
 	// if we do not have a recursion method for the type in question,
@@ -118,8 +140,8 @@ func findInequalitiesInArrayOrSlice(p path.Path, actual, expected reflect.Value)
 		if utf8.Valid(actualPayload) && utf8.Valid(expectedPayload) {
 			return []inequality{{
 				Pointer:  p.AsGoExpression("actual"),
-				Actual:   formatByteSliceViaString(actualPayload),
-				Expected: formatByteSliceViaString(expectedPayload),
+				Actual:   fmt.Sprintf(`[]byte(%s)`, formatString(string(actualPayload))),
+				Expected: fmt.Sprintf(`[]byte(%s)`, formatString(string(expectedPayload))),
 			}}
 		}
 	}
@@ -164,15 +186,6 @@ func findInequalitiesInArrayOrSlice(p path.Path, actual, expected reflect.Value)
 	}
 
 	return result
-}
-
-func formatByteSliceViaString(buf []byte) string {
-	str := string(buf)
-	if strings.Contains(str, `"`) && !strings.Contains(str, "`") {
-		return fmt.Sprintf("[]byte(`%s`)", str)
-	} else {
-		return fmt.Sprintf("[]byte(%q)", str)
-	}
 }
 
 func buildSingleInequalityForArrayOrSlice(p path.Path, actual, expected reflect.Value) inequality {
