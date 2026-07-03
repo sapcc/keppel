@@ -9,6 +9,7 @@ path = [
   ".github/CODEOWNERS",
   ".github/renovate.json",
   ".gitignore",
+  ".hyperspace/pull_request_bot.json",
   ".license-scan-overrides.jsonl",
   ".license-scan-rules.json",
   "build/**/*",
