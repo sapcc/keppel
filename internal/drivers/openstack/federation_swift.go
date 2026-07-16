@@ -5,6 +5,7 @@ package openstack
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -54,6 +55,7 @@ func (fd *federationDriverSwift) Init(ctx context.Context, ad keppel.AuthDriver,
 // SwiftContainerCredentials contains common initialization logic for drivers that need to access just a specific Swift container.
 type SwiftContainerCredentials struct {
 	EnvPrefix     string `json:"env_prefix"`
+	ServiceType   string `json:"service_type"`
 	ContainerName string `json:"container_name"`
 }
 
@@ -68,6 +70,7 @@ func (creds SwiftContainerCredentials) Connect(ctx context.Context) (*schwift.Co
 	if err != nil {
 		return nil, err
 	}
+	eo.Type = cmp.Or(creds.ServiceType, "object-store")
 	swiftV1, err := openstack.NewObjectStorageV1(provider, eo)
 	if err != nil {
 		return nil, errors.New("cannot find Swift v1 API for federation driver: " + err.Error())
