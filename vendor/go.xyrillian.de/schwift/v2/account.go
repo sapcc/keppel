@@ -36,9 +36,10 @@ type Account struct {
 	baseURL string
 	name    string
 	// cache
-	headers   *AccountHeaders
-	caps      *Capabilities
-	capsMutex sync.Mutex
+	headers    *AccountHeaders
+	caps       *Capabilities
+	modifyCaps func(*Capabilities)
+	capsMutex  sync.Mutex
 }
 
 // IsEqualTo returns true if both Account instances refer to the same account.
@@ -207,9 +208,26 @@ func (a *Account) Capabilities(ctx context.Context) (Capabilities, error) {
 	if err != nil {
 		return caps, err
 	}
+	if a.modifyCaps != nil {
+		a.modifyCaps(&caps)
+	}
 
 	a.caps = &caps
 	return caps, nil
+}
+
+// ModifyReportedCapabilities allows the caller to tamper with the capabilities reported by [Account.Capabilities].
+// This is necessary when dealing with non-compliant server implementations that do not report their capabilities correctly
+// (e.g. Ceph does not report "tempurl.allowed_digests", which breaks [Object.TempURL]).
+//
+// This call impacts all calls to [Account.Capabilities] that are made after this call succeeds.
+// Calls to [Account.RawCapabilities] are not affected by this modification.
+// Calls to this method do not stack: If this method is called multiple times, only the last modification will take effect.
+func (a *Account) ModifyReportedCapabilities(modify func(*Capabilities)) {
+	a.capsMutex.Lock()
+	defer a.capsMutex.Unlock()
+	a.caps = nil // to force refetch+modify during next Capabilities() call
+	a.modifyCaps = modify
 }
 
 // RawCapabilities queries the GET /info endpoint of the Swift server providing
