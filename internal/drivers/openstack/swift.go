@@ -70,6 +70,7 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 	if err != nil {
 		return err
 	}
+	d.mainAccount.ModifyReportedCapabilities(fixCapabilities)
 	d.containerInfos = make(map[models.AccountName]*swiftContainerInfo)
 	return nil
 }
@@ -81,7 +82,19 @@ func (d *swiftDriver) getBackendAccount(authTenantID string) *schwift.Account {
 	if d.UseServiceUserProject {
 		return d.mainAccount
 	}
-	return d.mainAccount.SwitchAccount("AUTH_" + authTenantID)
+	backendAccount := d.mainAccount.SwitchAccount("AUTH_" + authTenantID)
+	backendAccount.ModifyReportedCapabilities(fixCapabilities)
+	return backendAccount
+}
+
+func fixCapabilities(caps *schwift.Capabilities) {
+	// current Ceph versions (as of time of writing this comment) do not report tempurl.allowed_digests,
+	// which confuses Schwift's Object.TempURL() method <https://github.com/cobaltcore-dev/cloud-storage/issues/525>
+	if len(caps.TempURL.AllowedDigests) == 0 {
+		// but we know that Ceph supports sha256 as of <https://github.com/ceph/ceph/pull/47723>,
+		// and that is all we need for Schwift to start working
+		caps.TempURL.AllowedDigests = []string{"sha256"}
+	}
 }
 
 func (d *swiftDriver) getBackendContainerName(account models.ReducedAccount) string {
