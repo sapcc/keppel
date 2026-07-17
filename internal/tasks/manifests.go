@@ -274,7 +274,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account models.Acco
 }
 
 func (j *Janitor) performTagSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, tagPolicies []keppel.TagPolicy, syncPayload *keppel.ReplicaSyncPayload) error {
-	tags, err := models.TagStore.SelectWhere(ctx, j.db, `repo_id = $1`, repo.ID)
+	tags, err := models.TagStore.SelectWhere(ctx, j.db, `repo_id = $1`, repo.ID).Collect()
 	if err != nil {
 		return fmt.Errorf("cannot list tags: %w", err)
 	}
@@ -336,7 +336,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account models.Reduce
 	// enumerate manifests in this repo (this only needs to consider untagged
 	// manifests: we run right after performTagSync, therefore all images that are
 	// tagged right now were already confirmed to still be good)
-	manifests, err := repoUntaggedManifestsSelectQuery.Select(ctx, j.db, repo.ID)
+	manifests, err := repoUntaggedManifestsSelectQuery.Select(ctx, j.db, repo.ID).Collect()
 	if err != nil {
 		return fmt.Errorf("cannot list manifests: %w", err)
 	}
@@ -439,7 +439,7 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 `)
 
 func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, manifest models.Manifest, parsedManifest keppel.ParsedManifest) (layerBlobs []models.Blob, err error) {
-	blobs, err := models.BlobStore.Select(ctx, j.db, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
+	blobs, err := models.BlobStore.Select(ctx, j.db, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest).Collect()
 	if err != nil {
 		return nil, err
 	}
@@ -492,7 +492,7 @@ func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) 
 		},
 		BeginTx: j.db.Begin,
 		DiscoverRow: func(ctx context.Context, tx *oblast.Tx, _ prometheus.Labels) ([]models.TrivySecurityInfo, error) {
-			securityInfos, err := models.TrivySecurityInfoStore.Select(ctx, tx, securityCheckSelectQuery, j.timeNow())
+			securityInfos, err := models.TrivySecurityInfoStore.Select(ctx, tx, securityCheckSelectQuery, j.timeNow()).Collect()
 
 			// jobloop expects to receive errNoRows instead of an empty result
 			if len(securityInfos) == 0 {

@@ -52,7 +52,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *oblast.DB) {
 	}
 
 	// remove old entries from `peers` table
-	allPeers := must.Return(models.PeerStore.Select(ctx, db, `SELECT * FROM peers`))
+	allPeers := must.Return(models.PeerStore.Select(ctx, db, `SELECT * FROM peers`).Collect())
 	for _, peer := range allPeers {
 		if !isPeerHostName[peer.HostName] {
 			must.Succeed(models.PeerStore.Delete(ctx, db, peer))

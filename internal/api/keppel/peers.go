@@ -51,7 +51,7 @@ func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	peers, err := models.PeerStore.Select(ctx, a.db, `SELECT * FROM peers ORDER BY hostname`)
+	peers, err := models.PeerStore.Select(ctx, a.db, `SELECT * FROM peers ORDER BY hostname`).Collect()
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

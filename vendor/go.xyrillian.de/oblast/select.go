@@ -18,54 +18,12 @@ import (
 // according to the column names reported by the database as part of the result set.
 //
 // An error is returned if any column name in the result set does not correspond to an addressable field in R.
-func (s Store[R]) Select(ctx context.Context, db Handle, query string, args ...any) ([]R, error) {
+// Errors can be retrieved through the methods on type [Selection].
+func (s Store[R]) Select(ctx context.Context, db Handle, query string, args ...any) Selection[R] {
 	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
 	//       Any expression that does not depend on type R should be factored out into a reusable function.
 
-	rows, indexes, err := startSelectQuery(ctx, db, s.plan, query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []R
-	slots := make([]any, len(indexes))
-	for rows.Next() {
-		var target *R
-		result, target = growRecordSlice(result)
-		err = collectRow(rows, s.plan, reflect.ValueOf(target).Elem(), slots, indexes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return result, newIOError(err, "Rows.Err", rows.Err())
-}
-
-// Appends an empty R to the slice and returns a pointer to it, as well as the updated slice.
-// It is more efficient to write:
-//
-//	var result []R
-//	for rows.Next() {
-//		var target *R
-//		result, target = growRecordSlice(result)
-//		doSomethingWith(rows, reflect.ValueOf(target).Elem())
-//	}
-//
-// Instead of the more obvious:
-//
-//	var result []R
-//	for rows.Next() {
-//		var target R
-//		doSomethingWith(rows, reflect.ValueOf(&target).Elem())
-//		result = append(result, target)
-//	}
-//
-// In the second phrasing, `target` escapes to the heap because of `reflect.ValueOf(&target)`,
-// causing an additional allocation for `target` as well as a memcpy of `target` during `append()`.
-func growRecordSlice[R any](records []R) (newRecords []R, target *R) {
-	var zero R
-	newRecords = append(records, zero)
-	return newRecords, &newRecords[len(newRecords)-1]
+	return Selection[R]{startSelectQuery(ctx, db, s.plan, query, args...)}
 }
 
 // SelectWhere is like [Store.Select], but you only provide the part of the SELECT query that comes after the WHERE.
@@ -81,39 +39,24 @@ func growRecordSlice[R any](records []R) (newRecords []R, target *R) {
 // Besides a condition for the WHERE clause, it may contain additional clauses, such as ORDER BY or LIMIT.
 //
 // Returns an error if [NewStore] was called without the [TableNameIs] option, which is required to generate a query for this method.
-func (s Store[R]) SelectWhere(ctx context.Context, db Handle, partialQuery string, args ...any) ([]R, error) {
+// Errors can be retrieved through the methods on type [Selection].
+func (s Store[R]) SelectWhere(ctx context.Context, db Handle, partialQuery string, args ...any) Selection[R] {
 	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
 	//       Any expression that does not depend on type R should be factored out into a reusable function.
 
-	rows, indexes, err := startSelectWhereQuery(ctx, db, s.plan, partialQuery, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []R
-	slots := make([]any, len(indexes))
-	for rows.Next() {
-		var target *R
-		result, target = growRecordSlice(result)
-		err = collectRow(rows, s.plan, reflect.ValueOf(target).Elem(), slots, indexes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return result, newIOError(err, "Rows.Err", rows.Err())
+	return Selection[R]{startSelectWhereQuery(ctx, db, s.plan, partialQuery, args...)}
 }
 
-func startSelectQuery(ctx context.Context, db Handle, plan plan, query string, args ...any) (handle.Rows, [][]int, error) {
+func startSelectQuery(ctx context.Context, db Handle, plan plan, query string, args ...any) selection {
 	rows, err := db.OblastQuery(ctx, query, args)
 	if err != nil {
-		return nil, nil, fmt.Errorf("during Query(): %w", err)
+		return selection{Err: fmt.Errorf("during Query(): %w", err)}
 	}
 
 	columnNames, err := rows.Columns()
 	if err != nil {
 		err = fmt.Errorf("during rows.Columns(): %w", err)
-		return nil, nil, newIOError(err, "Rows.Close", rows.Close())
+		return selection{Err: newIOError(err, "Rows.Close", rows.Close())}
 	}
 	indexes := make([][]int, len(columnNames))
 	for idx, columnName := range columnNames {
@@ -124,38 +67,35 @@ func startSelectQuery(ctx context.Context, db Handle, plan plan, query string, a
 				"result has column %q in position %d, but no field in type %s has `db:%[1]q`",
 				columnName, idx, plan.TypeName,
 			)
-			return nil, nil, newIOError(err, "Rows.Close", rows.Close())
+			return selection{Err: newIOError(err, "Rows.Close", rows.Close())}
 		}
 	}
 
-	return rows, indexes, nil
+	return selection{
+		Rows:                           rows,
+		Slots:                          make([]any, len(indexes)),
+		Err:                            nil,
+		Indexes:                        indexes,
+		TransparentPointerStructFields: plan.TransparentPointerStructFields,
+	}
 }
 
-func startSelectWhereQuery(ctx context.Context, db Handle, plan plan, partialQuery string, args ...any) (rows handle.Rows, indexes [][]int, err error) {
+func startSelectWhereQuery(ctx context.Context, db Handle, plan plan, partialQuery string, args ...any) selection {
 	if plan.Select.Query == "" {
-		return nil, nil, errors.New("cannot execute SelectWhere() because query could not be autogenerated")
+		return selection{Err: errors.New("cannot execute SelectWhere() because query could not be autogenerated")}
 	}
 	query := plan.Select.Query + partialQuery
-	rows, err = db.OblastQuery(ctx, query, args)
+	rows, err := db.OblastQuery(ctx, query, args)
 	if err != nil {
-		err = fmt.Errorf("during Query(): %w", err)
+		return selection{Err: fmt.Errorf("during Query(): %w", err)}
 	}
-	return rows, plan.Select.ScanIndexes, err
-}
-
-func collectRow(rows handle.Rows, plan plan, v reflect.Value, slots []any, indexes [][]int) error {
-	for _, field := range plan.TransparentPointerStructFields {
-		f := v.FieldByIndex(field.Index)
-		f.Set(reflect.New(f.Type().Elem()))
+	return selection{
+		Rows:                           rows,
+		Slots:                          make([]any, len(plan.Select.ScanIndexes)),
+		Err:                            nil,
+		Indexes:                        plan.Select.ScanIndexes,
+		TransparentPointerStructFields: plan.TransparentPointerStructFields,
 	}
-	for idx, index := range indexes {
-		slots[idx] = v.FieldByIndex(index).Addr().Interface()
-	}
-	err := rows.Scan(slots...)
-	if err != nil {
-		return newIOError(err, "Rows.Close", rows.Close())
-	}
-	return nil
 }
 
 // SelectOne executes the provided SQL query and fills an instance of the record type R if there is exactly one row in the result set,
@@ -172,17 +112,7 @@ func (s Store[R]) SelectOne(ctx context.Context, db Handle, query string, args .
 	// NOTE: The "limitation in the interface of database/sql" is that type sql.Row does not have the Columns() method,
 	//       which we need when mapping result columns to struct fields for user-provided queries.
 
-	results, err := s.Select(ctx, db, query, args...)
-	switch {
-	case err != nil:
-		var zero R
-		return zero, err
-	case len(results) == 0:
-		var zero R
-		return zero, sql.ErrNoRows
-	default:
-		return results[0], nil
-	}
+	return s.Select(ctx, db, query, args...).First()
 }
 
 // SelectOneOrNone is like SelectOne, but returns [None] instead of [sql.ErrNoRows].
@@ -190,15 +120,7 @@ func (s Store[R]) SelectOneOrNone(ctx context.Context, db Handle, query string, 
 	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
 	//       Any expression that does not depend on type R should be factored out into a reusable function.
 
-	results, err := s.Select(ctx, db, query, args...)
-	switch {
-	case err != nil:
-		return None[R](), err
-	case len(results) == 0:
-		return None[R](), nil
-	default:
-		return Some(results[0]), nil
-	}
+	return s.Select(ctx, db, query, args...).FirstOrNone()
 }
 
 // SelectOneWhere is like [Store.SelectOne], but you only provide the part of the SELECT query that comes after the WHERE.
@@ -295,27 +217,10 @@ type PreparedSelectQuery[R any] struct {
 }
 
 // Select behaves the same as [Store.SelectWhere], but uses the query that was precomputed when q was constructed.
-func (q PreparedSelectQuery[R]) Select(ctx context.Context, db Handle, args ...any) ([]R, error) {
+func (q PreparedSelectQuery[R]) Select(ctx context.Context, db Handle, args ...any) Selection[R] {
 	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
 	//       Any expression that does not depend on type R should be factored out into a reusable function.
-
-	rows, indexes, err := startSelectQuery(ctx, db, q.store.plan, q.query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []R
-	slots := make([]any, len(indexes))
-	for rows.Next() {
-		var target *R
-		result, target = growRecordSlice(result)
-		err = collectRow(rows, q.store.plan, reflect.ValueOf(target).Elem(), slots, indexes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return result, newIOError(err, "Rows.Err", rows.Err())
+	return Selection[R]{startSelectQuery(ctx, db, q.store.plan, q.query, args...)}
 }
 
 // SelectOne behaves the same as [Store.SelectOneWhere], but uses the query that was precomputed when q was constructed.
@@ -331,4 +236,162 @@ func (q PreparedSelectQuery[R]) SelectOne(ctx context.Context, db Handle, args .
 // SelectOneOrNone is like SelectOne, but returns [None] instead of [sql.ErrNoRows].
 func (q PreparedSelectQuery[R]) SelectOneOrNone(ctx context.Context, db Handle, args ...any) (Option[R], error) {
 	return noRowsToNone(q.SelectOne(ctx, db, args...))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// type Selection
+
+// Selection provides access to the result set from a [Store.Select], [Store.SelectWhere] or [PreparedSelectQuery.Select] call.
+//
+// Instances of this type are not meant to be held in variables.
+// Instead, chain one of its method calls directly after the Select or SelectWhere call to choose how to process the result set.
+type Selection[R any] struct {
+	selection
+}
+
+// selection contains the payload of [Selection].
+// This separate type does not have type arguments and thus is not duplicated by monomorphization.
+type selection struct {
+	// from startSelectQuery()
+	Rows  handle.Rows
+	Slots []any // NOTE: len(s.Slots) == len(s.Indexes)
+	Err   error // NOTE: if this field is set, all other fields will be unset
+	// from plan
+	Indexes                        [][]int
+	TransparentPointerStructFields []fieldInfo
+}
+
+func (s selection) collectRow(v reflect.Value, slots []any) error {
+	for _, field := range s.TransparentPointerStructFields {
+		f := v.FieldByIndex(field.Index)
+		f.Set(reflect.New(f.Type().Elem()))
+	}
+	for idx, index := range s.Indexes {
+		slots[idx] = v.FieldByIndex(index).Addr().Interface()
+	}
+	err := s.Rows.Scan(slots...)
+	if err != nil {
+		return newIOError(err, "Rows.Close", s.Rows.Close())
+	}
+	return nil
+}
+
+// Collect returns all of the selected records as a slice.
+// This is the most versatile output format for type [Selection], but may cause a spike in memory usage for big result sets.
+func (s Selection[R]) Collect() ([]R, error) {
+	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
+	//       Any expression that does not depend on type R should be factored out into a reusable function.
+
+	if s.Err != nil {
+		return nil, s.Err
+	}
+
+	var result []R
+	for s.Rows.Next() {
+		var target *R
+		result, target = growRecordSlice(result)
+		err := s.collectRow(reflect.ValueOf(target).Elem(), s.Slots)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, s.Rows.Err()
+}
+
+// Appends an empty R to the slice and returns a pointer to it, as well as the updated slice.
+// It is more efficient to write:
+//
+//	var result []R
+//	for rows.Next() {
+//		var target *R
+//		result, target = growRecordSlice(result)
+//		doSomethingWith(rows, reflect.ValueOf(target).Elem())
+//	}
+//
+// Instead of the more obvious:
+//
+//	var result []R
+//	for rows.Next() {
+//		var target R
+//		doSomethingWith(rows, reflect.ValueOf(&target).Elem())
+//		result = append(result, target)
+//	}
+//
+// In the second phrasing, `target` escapes to the heap because of `reflect.ValueOf(&target)`,
+// causing an additional allocation for `target` as well as a memcpy of `target` during `append()`.
+func growRecordSlice[R any](records []R) (newRecords []R, target *R) {
+	var zero R
+	newRecords = append(records, zero)
+	return newRecords, &newRecords[len(newRecords)-1]
+}
+
+// Foreach retrieves the selected records one at a time, and calls the provided callback once for each record in order.
+// An error is returned if a database error occurs, of if any of the callback invocations returns an error.
+// In either case, subsequent records from the result set will not be loaded and the callbgck will not be invoked again.
+func (s Selection[R]) Foreach(action func(R) error) error {
+	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
+	//       Any expression that does not depend on type R should be factored out into a reusable function.
+
+	if s.Err != nil {
+		return s.Err
+	}
+
+	// NOTE: `record` will escape to the heap because of the reflect.ValueOf() call.
+	// By reusing the same `record` throughout the loop, this function will only allocate at most one instance of R on the heap.
+	var record R
+	v := reflect.ValueOf(&record).Elem()
+	for s.Rows.Next() {
+		var zero R
+		record = zero
+		err := s.collectRow(v, s.Slots)
+		if err != nil {
+			return err
+		}
+		err = action(record)
+		if err != nil {
+			return newIOError(err, "Rows.Close", s.Rows.Close())
+		}
+	}
+	return nil
+}
+
+// First retrieves just the first record from the result set, and then closes the result set without checking for additional records.
+// If there are no rows in the result set, [sql.ErrNoRows] is returned.
+// Using this method results in similar behavior to [Store.SelectOne].
+func (s Selection[R]) First() (R, error) {
+	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
+	//       Any expression that does not depend on type R should be factored out into a reusable function.
+
+	var record R
+	if s.Err != nil {
+		return record, s.Err
+	}
+	if !s.Rows.Next() {
+		return record, sql.ErrNoRows
+	}
+	err := s.collectRow(reflect.ValueOf(&record).Elem(), s.Slots)
+	if err == nil {
+		err = s.Rows.Close()
+	}
+	return record, err
+}
+
+// FirstOrNone is like [Selection.First], but signals an empty result set using None instead of [sql.ErrNoRows].
+func (s Selection[R]) FirstOrNone() (Option[R], error) {
+	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
+	//       Any expression that does not depend on type R should be factored out into a reusable function.
+
+	if s.Err != nil {
+		return None[R](), s.Err
+	}
+	if !s.Rows.Next() {
+		return None[R](), nil
+	}
+	var record R
+	err := s.collectRow(reflect.ValueOf(&record).Elem(), s.Slots)
+	if err == nil {
+		err = s.Rows.Close()
+	}
+	return Some(record), err
 }

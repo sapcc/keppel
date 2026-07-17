@@ -43,6 +43,11 @@ type Dialect interface {
 	// behave like UPDATE if a record with the same primary key already exists.
 	// This is only used for record types that have a primary key.
 	UpsertClause(pkColumns, otherColumns []string) string
+
+	// String returns a unique identifier for this Dialect instance.
+	// Different instances shall return the same string only if all their methods behave identically.
+	// This information is used to cache generated query plans.
+	String() string
 }
 
 // MariaDBDialect is the dialect of MariaDB 10.5+ databases.
@@ -81,6 +86,10 @@ func (d mariadbDialect) UpsertClause(pkColumns, otherColumns []string) string {
 	return ` ON DUPLICATE KEY UPDATE ` + strings.Join(clauses, ", ")
 }
 
+func (mariadbDialect) String() string {
+	return "mariadb"
+}
+
 // PostgresDialect is the dialect of PostgreSQL databases.
 func PostgresDialect() Dialect {
 	return postgresDialect{}
@@ -117,6 +126,10 @@ func (d postgresDialect) UpsertClause(pkColumns, otherColumns []string) string {
 	}
 }
 
+func (postgresDialect) String() string {
+	return "postgres"
+}
+
 // SqliteDialect is the dialect of SQLite 3.35.0+ databases.
 //
 // This dialect does NOT support ancient SQLite versions (3.35.0 was released 2021-03-12)
@@ -141,4 +154,8 @@ func (sqliteDialect) CanUseLastInsertId() bool {
 
 func (sqliteDialect) UpsertClause(pkColumns, otherColumns []string) string {
 	return postgresDialect{}.UpsertClause(pkColumns, otherColumns)
+}
+
+func (sqliteDialect) String() string {
+	return "sqliteDialect"
 }

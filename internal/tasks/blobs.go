@@ -95,7 +95,7 @@ func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, 
 	}
 
 	// select blobs for deletion that were marked in the last run
-	blobs, err := models.BlobStore.Select(ctx, j.db, blobSelectMarkedQuery, account.Name, j.timeNow())
+	blobs, err := models.BlobStore.Select(ctx, j.db, blobSelectMarkedQuery, account.Name, j.timeNow()).Collect()
 	if err != nil {
 		return err
 	}

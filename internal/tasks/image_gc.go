@@ -114,15 +114,9 @@ type manifestData struct {
 }
 
 func (j *Janitor) executeGCPolicies(ctx context.Context, account models.ReducedAccount, repo models.Repository, gcPolicies []keppel.GCPolicy, tagPolicies []keppel.TagPolicy) error {
-	// load manifests in repo
-	dbManifests, err := models.ManifestStore.SelectWhere(ctx, j.db, `repo_id = $1`, repo.ID)
-	if err != nil {
-		return err
-	}
-
-	// setup a bit of structure to track state in during the policy evaluation
+	// load manifests in repo, setup a bit of structure to track state in during the policy evaluation
 	var manifests []*manifestData
-	for _, m := range dbManifests {
+	err := models.ManifestStore.SelectWhere(ctx, j.db, `repo_id = $1`, repo.ID).Foreach(func(m models.Manifest) error {
 		manifests = append(manifests, &manifestData{
 			Manifest: m,
 			GCStatus: keppel.GCStatus{
@@ -130,6 +124,10 @@ func (j *Janitor) executeGCPolicies(ctx context.Context, account models.ReducedA
 			},
 			IsDeleted: false,
 		})
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	// load tags (for matching policies on match_tag, except_tag and only_untagged)

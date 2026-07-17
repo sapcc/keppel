@@ -3,6 +3,21 @@ SPDX-FileCopyrightText: 2026 Stefan Majewsky <majewsky@gmx.net>
 SPDX-License-Identifier: Apache-2.0
 -->
 
+# v0.12.0 (2026-07-17)
+
+Changes:
+
+- Computations performed during `NewStore` are now cached, thus improving performance for repeated calls with the same arguments,
+  at the extra cost of one mutex read lock (amortized) per call.
+
+# v0.11.0 (2026-07-17)
+
+API changes:
+
+- Add type `Selection`.
+- Change methods `Store.Select`, `Store.SelectWhere` and `PreparedSelectQuery.Select` to return type `Selection`.
+  The old behavior can be obtained by chaining a call to `Selection.Collect` immediately afterwards.
+
 # v0.10.0 (2026-05-22)
 
 Changes:

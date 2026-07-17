@@ -36,9 +36,9 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 		err         error
 	)
 	if filterArtifactType == "" {
-		dbManifests, err = getManifestBySubjectQuery.Select(ctx, a.db, repo.ID, digest)
+		dbManifests, err = getManifestBySubjectQuery.Select(ctx, a.db, repo.ID, digest).Collect()
 	} else {
-		dbManifests, err = getManifestBySubjectAndArtifactTypeQuery.Select(ctx, a.db, repo.ID, digest, filterArtifactType)
+		dbManifests, err = getManifestBySubjectAndArtifactTypeQuery.Select(ctx, a.db, repo.ID, digest, filterArtifactType).Collect()
 	}
 	if respondWithError(w, r, err) {
 		return

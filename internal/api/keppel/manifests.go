@@ -101,7 +101,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbManifests, err := models.ManifestStore.Select(ctx, a.db, manifestQuery, vulnBindValues...)
+	dbManifests, err := models.ManifestStore.Select(ctx, a.db, manifestQuery, vulnBindValues...).Collect()
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -117,14 +117,11 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbSecurityInfos, err := models.TrivySecurityInfoStore.Select(ctx, a.db, securityInfoQuery, securityBindValues...)
+	securityInfos, err := models.TrivySecurityInfoByDigest.IndexFrom(
+		models.TrivySecurityInfoStore.Select(ctx, a.db, securityInfoQuery, securityBindValues...),
+	)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
-	}
-
-	securityInfos := make(map[digest.Digest]models.TrivySecurityInfo, len(dbSecurityInfos))
-	for _, securityInfo := range dbSecurityInfos {
-		securityInfos[securityInfo.Digest] = securityInfo
 	}
 
 	var result struct {
@@ -170,19 +167,19 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		// last digest
 		firstDigest := result.Manifests[0].Digest
 		lastDigest := result.Manifests[len(result.Manifests)-1].Digest
-		dbTags, err := models.TagStore.Select(ctx, a.db, tagGetQuery, repo.ID, firstDigest, lastDigest)
-		if respondwith.ObfuscatedErrorText(w, err) {
-			return
-		}
-
 		tagsByDigest := make(map[digest.Digest][]Tag)
-		for _, dbTag := range dbTags {
+		err := models.TagStore.Select(ctx, a.db, tagGetQuery, repo.ID, firstDigest, lastDigest).Foreach(func(dbTag models.Tag) error {
 			tagsByDigest[dbTag.Digest] = append(tagsByDigest[dbTag.Digest], Tag{
 				Name:         dbTag.Name,
 				PushedAt:     dbTag.PushedAt.Unix(),
 				LastPulledAt: keppel.MaybeTimeToUnix(dbTag.LastPulledAt),
 			})
+			return nil
+		})
+		if respondwith.ObfuscatedErrorText(w, err) {
+			return
 		}
+
 		for _, manifest := range result.Manifests {
 			manifest.Tags = tagsByDigest[manifest.Digest]
 			// sort in deterministic order for unit test

@@ -894,13 +894,9 @@ func (e DeleteManifestBlockedByTagPolicyError) Error() string {
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
 func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifestDigest digest.Digest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
-	tagResults, err := models.TagStore.SelectWhere(ctx, p.db, `repo_id = $1 AND digest = $2`, repo.ID, manifestDigest)
+	tags, err := keppel.SelectSeveralValues[string](p.db, `SELECT name FROM tags WHERE repo_id = $1 AND digest = $2`, repo.ID, manifestDigest)
 	if err != nil {
 		return err
-	}
-	tags := make([]string, len(tagResults))
-	for idx, tagResult := range tagResults {
-		tags[idx] = tagResult.Name
 	}
 
 	for _, tagPolicy := range tagPolicies {
