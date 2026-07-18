@@ -111,15 +111,26 @@ func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Redu
 func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
 	path := d.getBlobPath(account, storageID)
 	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		return nil, 0, classifyError(err)
 	}
 	stat, err := f.Stat()
+	if os.IsNotExist(err) {
+		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		f.Close()
 		return nil, 0, classifyError(err)
 	}
 	return f, keppel.AtLeastZero(stat.Size()), nil
+}
+
+// ReadBlobForValidation implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+	return d.ReadBlob(ctx, account, storageID)
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.
@@ -139,6 +150,11 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Reduced
 	path := d.getManifestPath(account, repoName, manifestDigest)
 	content, err := os.ReadFile(path)
 	return content, classifyError(err)
+}
+
+// ReadManifestForValidation implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadManifestForValidation(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+	return d.ReadManifest(ctx, account, repoName, manifestDigest)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.

@@ -75,6 +75,11 @@ func AddStorageCommandTo(parent *cobra.Command) {
 			Run:  wrapStorageCommand(executeReadBlob),
 		},
 		&cobra.Command{
+			Use:  "read-blob-for-validation <storage-id>",
+			Args: cobra.ExactArgs(1),
+			Run:  wrapStorageCommand(executeReadBlobForValidation),
+		},
+		&cobra.Command{
 			Use:  "url-for-blob <storage-id>",
 			Args: cobra.ExactArgs(1),
 			Run:  wrapStorageCommand(executeURLForBlob),
@@ -88,6 +93,11 @@ func AddStorageCommandTo(parent *cobra.Command) {
 			Use:  "read-manifest <repo-name> <digest>",
 			Args: cobra.ExactArgs(2),
 			Run:  wrapStorageCommand(executeReadManifest),
+		},
+		&cobra.Command{
+			Use:  "read-manifest-for-validation <repo-name> <digest>",
+			Args: cobra.ExactArgs(2),
+			Run:  wrapStorageCommand(executeReadManifestForValidation),
 		},
 		&cobra.Command{
 			Use:  "write-manifest <repo-name> <digest> <content>",
@@ -240,6 +250,27 @@ func executeReadBlob(ctx context.Context, sd keppel.StorageDriver, account model
 	outputJSON(result)
 }
 
+func executeReadBlobForValidation(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
+	storageID := args[0]
+
+	contents, sizeBytes, err := sd.ReadBlobForValidation(ctx, account, storageID)
+	if err != nil {
+		logg.Fatal("ReadBlob failed: %s", err.Error())
+	}
+	defer contents.Close()
+
+	contentBytes, err := io.ReadAll(contents)
+	if err != nil {
+		logg.Fatal("failed to read blob contents: %s", err.Error())
+	}
+
+	result := map[string]any{
+		"contents":   string(contentBytes),
+		"size_bytes": sizeBytes,
+	}
+	outputJSON(result)
+}
+
 func executeURLForBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
 	storageID := args[0]
 
@@ -270,6 +301,23 @@ func executeReadManifest(ctx context.Context, sd keppel.StorageDriver, account m
 	}
 
 	result, err := sd.ReadManifest(ctx, account, repoName, d)
+	if err != nil {
+		logg.Fatal("ReadManifest failed: %s", err.Error())
+	}
+
+	os.Stdout.Write(result)
+}
+
+func executeReadManifestForValidation(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
+	repoName := args[0]
+	digestStr := args[1]
+
+	d, err := digest.Parse(digestStr)
+	if err != nil {
+		logg.Fatal("invalid digest: %s", err.Error())
+	}
+
+	result, err := sd.ReadManifestForValidation(ctx, account, repoName, d)
 	if err != nil {
 		logg.Fatal("ReadManifest failed: %s", err.Error())
 	}
