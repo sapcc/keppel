@@ -178,7 +178,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
 func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest) error {
-	manifestBytes, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	manifestBytes, err := p.sd.ReadManifestForValidation(ctx, account, repo.Name, manifest.Digest)
 	if err != nil {
 		return err
 	}

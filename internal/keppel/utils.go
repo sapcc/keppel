@@ -12,6 +12,9 @@ import (
 	. "go.xyrillian.de/gg/option"
 )
 
+// ChunkSizeBytes is the maximum size for chunks that Keppel writes into a [StorageDriver].
+const ChunkSizeBytes = 500 << 20 // 500 MiB
+
 // IsRunningTests is set to true only during unit tests.
 var IsRunningTests = false
 

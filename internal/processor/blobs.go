@@ -33,7 +33,7 @@ func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Red
 		return fmt.Errorf("cannot parse blob digest: %s", err.Error())
 	}
 
-	readCloser, _, err := p.sd.ReadBlob(ctx, account, blob.StorageID)
+	readCloser, _, err := p.sd.ReadBlobForValidation(ctx, account, blob.StorageID)
 	if err != nil {
 		return err
 	}
@@ -263,19 +263,17 @@ func (p *Processor) AppendToBlob(ctx context.Context, account models.ReducedAcco
 	return err
 }
 
-const chunkSizeBytes = 500 << 20 // 500 MiB
-
 // This function contains the logic for splitting `contents` (containing `lengthBytes`) into chunks of `chunkSizeBytes` max.
 func foreachChunkWithKnownSize(contents io.Reader, lengthBytes uint64, action func(io.Reader, uint64) error) error {
 	//NOTE: This function is written such that `action` is called at least once,
 	// even when `contents` is empty.
 	remainingBytes := lengthBytes
-	for remainingBytes > chunkSizeBytes {
-		err := action(io.LimitReader(contents, chunkSizeBytes), chunkSizeBytes)
+	for remainingBytes > keppel.ChunkSizeBytes {
+		err := action(io.LimitReader(contents, keppel.ChunkSizeBytes), keppel.ChunkSizeBytes)
 		if err != nil {
 			return err
 		}
-		remainingBytes -= chunkSizeBytes
+		remainingBytes -= keppel.ChunkSizeBytes
 	}
 	return action(contents, remainingBytes)
 }
@@ -285,7 +283,7 @@ func foreachChunkWithUnknownSize(contents *chunkingTrackingReader, action func(i
 	//NOTE: This function is written such that `action` is called at least once,
 	// even when `contents` is empty.
 	for {
-		err := action(io.LimitReader(contents, chunkSizeBytes))
+		err := action(io.LimitReader(contents, keppel.ChunkSizeBytes))
 		if err != nil {
 			return err
 		}

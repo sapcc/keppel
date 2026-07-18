@@ -51,6 +51,9 @@ type StorageDriver interface {
 	AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error
 
 	ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (contents io.ReadCloser, sizeBytes uint64, err error)
+	// ReadBlobForValidation is the same as ReadBlob but when the multi storage driver is used, it also migrates blobs from the old driver to the new storage driver.
+	ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (contents io.ReadCloser, sizeBytes uint64, err error)
+
 	// If the blob can be retrieved by a publicly accessible URL, URLForBlob shall
 	// return it. Otherwise ErrCannotGenerateURL shall be returned to instruct the
 	// caller fall back to ReadBlob().
@@ -64,6 +67,8 @@ type StorageDriver interface {
 	// but adding this extra complication to the interface is not worth it because most operations
 	// involving manifests need to buffer into []byte at some point anyway.
 	ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) ([]byte, error)
+	// ReadManifestForValidation is the same as ReadManifest but when the multi storage driver is used, it also migrates manifests from the old driver to the new storage driver.
+	ReadManifestForValidation(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) ([]byte, error)
 	WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, contents []byte) error
 	DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) error
 
@@ -160,4 +165,17 @@ func GenerateStorageID() string {
 		panic(err.Error())
 	}
 	return hex.EncodeToString(buf)
+}
+
+// NotFoundInStorageError is a generic error that the backend could not find the specific entry
+type NotFoundInStorageError struct {
+	Inner error
+}
+
+func (e NotFoundInStorageError) Error() string {
+	return e.Inner.Error()
+}
+
+func (e NotFoundInStorageError) Unwrap() error {
+	return e.Inner
 }

@@ -76,6 +76,9 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 		flags = flags | os.O_CREATE | os.O_TRUNC
 	}
 	f, err := os.OpenFile(tmpPath, flags, 0666) // subject to umask
+	if os.IsNotExist(err) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		return err
 	}
@@ -88,29 +91,48 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
-	return os.Rename(tmpPath, path)
+	err := os.Rename(tmpPath, path)
+	if os.IsNotExist(err) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
-	return os.Remove(tmpPath)
+	err := os.Remove(tmpPath)
+	if os.IsNotExist(err) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // ReadBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
 	path := d.getBlobPath(account, storageID)
 	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		return nil, 0, err
 	}
 	stat, err := f.Stat()
+	if os.IsNotExist(err) {
+		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		f.Close()
 		return nil, 0, err
 	}
 	return f, keppel.AtLeastZero(stat.Size()), nil
+}
+
+// ReadBlobForValidation implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+	return d.ReadBlob(ctx, account, storageID)
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.
@@ -121,13 +143,26 @@ func (d *StorageDriver) URLForBlob(ctx context.Context, account models.ReducedAc
 // DeleteBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAccount, storageID string) error {
 	path := d.getBlobPath(account, storageID)
-	return os.Remove(path)
+	err := os.Remove(path)
+	if os.IsNotExist(err) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
 	path := d.getManifestPath(account, repoName, manifestDigest)
-	return os.ReadFile(path)
+	content, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, keppel.NotFoundInStorageError{Inner: err}
+	}
+	return content, err
+}
+
+// ReadManifestForValidation implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadManifestForValidation(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+	return d.ReadManifest(ctx, account, repoName, manifestDigest)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
@@ -148,13 +183,21 @@ func (d *StorageDriver) WriteManifest(ctx context.Context, account models.Reduce
 // DeleteManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) error {
 	path := d.getManifestPath(account, repoName, manifestDigest)
-	return os.Remove(path)
+	err := os.Remove(path)
+	if os.IsNotExist(err) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (io.ReadCloser, error) {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
-	return os.Open(path)
+	reader, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, keppel.NotFoundInStorageError{Inner: err}
+	}
+	return reader, err
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
@@ -180,7 +223,11 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 // DeleteTrivyReport implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
-	return os.Remove(path)
+	err := os.Remove(path)
+	if os.IsNotExist(err) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // ListStorageContents implements the keppel.StorageDriver interface.
