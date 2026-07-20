@@ -126,7 +126,7 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 	}
 
 	// unmark/sweep phase: enumerate all unknown blobs
-	unknownBlobs, err := models.UnknownBlobStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name)
+	unknownBlobs, err := models.UnknownBlobStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name).Collect()
 	if err != nil {
 		return err
 	}
@@ -218,7 +218,7 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 	}
 
 	// unmark/sweep phase: enumerate all unknown manifests
-	unknownManifests, err := models.UnknownManifestStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name)
+	unknownManifests, err := models.UnknownManifestStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name).Collect()
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 	}
 
 	// unmark/sweep phase: enumerate all unknown Trivy reports
-	unknownReports, err := models.UnknownTrivyReportStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name)
+	unknownReports, err := models.UnknownTrivyReportStore.SelectWhere(ctx, j.db, `account_name = $1`, account.Name).Collect()
 	if err != nil {
 		return err
 	}

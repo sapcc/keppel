@@ -26,7 +26,7 @@ require (
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.40.0
 	go.xyrillian.de/gg v1.11.1
-	go.xyrillian.de/oblast v0.10.0
+	go.xyrillian.de/oblast v0.12.0
 	go.xyrillian.de/schwift/v2 v2.2.0
 )
 

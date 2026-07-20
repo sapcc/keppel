@@ -242,13 +242,13 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tags, err := models.TagStore.SelectWhere(ctx, a.db, `repo_id = $1`, repo.ID)
+	tagsByManifestDigest := make(map[digest.Digest][]string)
+	err = models.TagStore.SelectWhere(ctx, a.db, `repo_id = $1`, repo.ID).Foreach(func(tag models.Tag) error {
+		tagsByManifestDigest[tag.Digest] = append(tagsByManifestDigest[tag.Digest], tag.Name)
+		return nil
+	})
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
-	}
-	tagsByManifestDigest := make(map[digest.Digest][]string)
-	for _, tag := range tags {
-		tagsByManifestDigest[tag.Digest] = append(tagsByManifestDigest[tag.Digest], tag.Name)
 	}
 
 	for _, tagPolicy := range tagPolicies {

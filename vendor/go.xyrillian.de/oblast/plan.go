@@ -10,7 +10,65 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 )
+
+// planOpts holds additional arguments to buildPlan().
+type planOpts struct {
+	StructTagKey          string // defaults to "db"
+	TableName             string
+	PrimaryKeyColumnNames []string
+}
+
+func collectPlanOptions(popts []PlanOption) planOpts {
+	opts := planOpts{
+		StructTagKey: "db",
+	}
+	for _, popt := range popts {
+		popt(&opts)
+	}
+	return opts
+}
+
+type planCacheKey struct {
+	Type                  reflect.Type
+	Dialect               string
+	StructTagKey          string
+	TableName             string
+	PrimaryKeyColumnNames string
+}
+
+var (
+	generatedPlans      = make(map[planCacheKey]plan)
+	generatedPlansMutex sync.RWMutex
+)
+
+// getOrBuildPlan is like [buildPlan], but caches generated plans and tries to reuse cached plans.
+func getOrBuildPlan(t reflect.Type, dialect Dialect, opts planOpts) (plan, error) {
+	key := planCacheKey{
+		Type:                  t,
+		Dialect:               dialect.String(),
+		StructTagKey:          opts.StructTagKey,
+		TableName:             opts.TableName,
+		PrimaryKeyColumnNames: strings.Join(opts.PrimaryKeyColumnNames, "\000"),
+	}
+
+	generatedPlansMutex.RLock()
+	p, ok := generatedPlans[key]
+	generatedPlansMutex.RUnlock()
+	if ok {
+		return p, nil
+	}
+
+	p, err := buildPlan(t, dialect, opts)
+	if err != nil {
+		return plan{}, err
+	}
+	generatedPlansMutex.Lock()
+	generatedPlans[key] = p
+	generatedPlansMutex.Unlock()
+	return p, nil
+}
 
 // plan holds all information that we can derive from reflecting on a given type.
 // The queries held within are only valid within the context of a given SQL dialect.
@@ -61,22 +119,10 @@ type plannedQuery struct {
 	ScanIndexes [][]int
 }
 
-// planOpts holds additional arguments to buildPlan().
-type planOpts struct {
-	StructTagKey          string // defaults to "db"
-	TableName             string
-	PrimaryKeyColumnNames []string
-}
-
 // buildPlan creates a new plan for the given struct type.
 func buildPlan(t reflect.Type, dialect Dialect, opts planOpts) (plan, error) {
 	if t.Kind() != reflect.Struct {
 		return plan{}, fmt.Errorf("expected struct type, but got kind %q", t.Kind().String())
-	}
-
-	// apply defaults to planOpts fields
-	if opts.StructTagKey == "" {
-		opts.StructTagKey = "db"
 	}
 
 	var p = plan{

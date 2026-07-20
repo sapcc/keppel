@@ -32,3 +32,6 @@ var TrivySecurityInfoStore = oblast.MustNewStore[TrivySecurityInfo](
 	oblast.TableNameIs("trivy_security_info"),
 	oblast.PrimaryKeyIs("repo_id", "digest"),
 )
+
+// TrivySecurityInfoByDigest is an [oblast.RuntimeIndex] sorting [TrivySecurityInfo] by digest.
+var TrivySecurityInfoByDigest = oblast.NewRuntimeIndex(func(t TrivySecurityInfo) digest.Digest { return t.Digest })

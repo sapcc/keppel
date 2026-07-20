@@ -27,7 +27,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
 	ctx := r.Context()
 
-	accounts, err := models.AccountStore.Select(ctx, a.db, `SELECT * FROM accounts ORDER BY name`)
+	accounts, err := models.AccountStore.Select(ctx, a.db, `SELECT * FROM accounts ORDER BY name`).Collect()
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

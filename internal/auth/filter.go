@@ -87,7 +87,7 @@ func addCatalogAccess(ctx context.Context, ss *ScopeSet, uid keppel.UserIdentity
 	if audience.AccountName == "" {
 		// on the standard API, all accounts are potentially accessible
 		var err error
-		accounts, err = models.AccountStore.Select(ctx, db, `SELECT * FROM accounts ORDER BY name`)
+		accounts, err = models.AccountStore.Select(ctx, db, `SELECT * FROM accounts ORDER BY name`).Collect()
 		if err != nil {
 			return err
 		}

@@ -4,6 +4,7 @@
 package registryv2
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/http"
 
@@ -36,9 +37,9 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 		err         error
 	)
 	if filterArtifactType == "" {
-		dbManifests, err = getManifestBySubjectQuery.Select(ctx, a.db, repo.ID, digest)
+		dbManifests, err = getManifestBySubjectQuery.Select(ctx, a.db, repo.ID, digest).Collect()
 	} else {
-		dbManifests, err = getManifestBySubjectAndArtifactTypeQuery.Select(ctx, a.db, repo.ID, digest, filterArtifactType)
+		dbManifests, err = getManifestBySubjectAndArtifactTypeQuery.Select(ctx, a.db, repo.ID, digest, filterArtifactType).Collect()
 	}
 	if respondWithError(w, r, err) {
 		return
@@ -55,22 +56,13 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		manifest := imgspecv1.Descriptor{
-			MediaType:   dbManifest.MediaType,
-			Size:        int64(dbManifest.SizeBytes), //nolint:gosec // validated on write
-			Digest:      dbManifest.Digest,
-			Annotations: annotations,
-		}
-
-		artifactType := dbManifest.ArtifactType
-		if artifactType == "" {
-			artifactType = dbManifest.MediaType
-		}
-		if artifactType != "" {
-			manifest.ArtifactType = artifactType
-		}
-
-		manifests = append(manifests, manifest)
+		manifests = append(manifests, imgspecv1.Descriptor{
+			MediaType:    dbManifest.MediaType,
+			Size:         int64(dbManifest.SizeBytes), //nolint:gosec // validated on write
+			Digest:       dbManifest.Digest,
+			Annotations:  annotations,
+			ArtifactType: cmp.Or(dbManifest.ArtifactType, dbManifest.MediaType),
+		})
 	}
 
 	// TODO: pagination?
