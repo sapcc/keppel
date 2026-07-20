@@ -473,18 +473,26 @@ func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.Reduc
 	return err
 }
 
-// BlobCount returns how many blobs exist in this storage driver. This is mostly
-// used to validate that failure cases do not commit data to the storage.
+// BlobCount returns how many blobs exist in this storage driver.
+// This is used to validate that failure cases do not commit data to the storage.
 func (d *StorageDriver) BlobCount() int {
 	d.blobsMutex.RLock()
 	defer d.blobsMutex.RUnlock()
 	return len(d.blobs)
 }
 
-// ManifestCount returns how many manifests exist in this storage driver. This is mostly
-// used to validate that failure cases do not commit data to the storage.
+// ManifestCount returns how many manifests exist in this storage driver.
+// This is used to validate that failure cases do not commit data to the storage.
 func (d *StorageDriver) ManifestCount() int {
 	d.manifestMutex.RLock()
 	defer d.manifestMutex.RUnlock()
 	return len(d.manifests)
+}
+
+// TrivyReportCount returns how many Trivy reports exist in this storage driver.
+// This is used to validate that failure cases do not commit data to the storage.
+func (d *StorageDriver) TrivyReportCount() int {
+	d.trivyReportsMutex.RLock()
+	defer d.trivyReportsMutex.RUnlock()
+	return len(d.trivyReports)
 }
