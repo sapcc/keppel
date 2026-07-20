@@ -224,6 +224,26 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *oblast.DB) 
 	if count > 0 {
 		t.Errorf("expected 0 uploads in the DB, but found %d uploads", count)
 	}
+
+	// same checks for manifests
+	for _, table := range []string{"manifests", "manifest_contents"} {
+		count = must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM `+table))(t)
+		if count > 0 {
+			t.Errorf("expected 0 %s in the DB, but found %d %[1]s", table, count)
+		}
+	}
+	if sd.ManifestCount() > 0 {
+		t.Errorf("expected 0 blobs in the storage, but found %d blobs", sd.BlobCount())
+	}
+
+	// same checks for Trivy reports
+	count = must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM trivy_security_info`))(t)
+	if count > 0 {
+		t.Errorf("expected 0 Trivy reports in the DB, but found %d Trivy reports", count)
+	}
+	if sd.TrivyReportCount() > 0 {
+		t.Errorf("expected 0 Trivy reports in the storage, but found %d Trivy reports", sd.BlobCount())
+	}
 }
 
 //nolint:unparam
