@@ -1,3 +1,10 @@
+# v2.2.1 (2026-07-21)
+
+Changes:
+
+- `Account.Headers` and `Container.Headers` are now thread-safe.
+- The minimum Go version is now 1.26.
+
 # v2.2.0 (2026-07-17)
 
 Changes:

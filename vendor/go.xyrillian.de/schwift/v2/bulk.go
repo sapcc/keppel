@@ -1,26 +1,12 @@
-/******************************************************************************
-*
-*  Copyright 2018 Stefan Majewsky <majewsky@gmx.net>
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-*  Unless required by applicable law or agreed to in writing, software
-*  distributed under the License is distributed on an "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*  See the License for the specific language governing permissions and
-*  limitations under the License.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: 2018 Stefan Majewsky <majewsky@gmx.net>
+// SPDX-License-Identifier: Apache-2.0
 
 package schwift
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,7 +15,6 @@ import (
 	"strings"
 
 	"go.xyrillian.de/schwift/v2/capabilities"
-	"go.xyrillian.de/schwift/v2/internal/errext"
 )
 
 // BulkUploadFormat enumerates possible archive formats for Container.BulkUpload().
@@ -76,7 +61,7 @@ func (a *Account) BulkUpload(ctx context.Context, uploadPath string, format Bulk
 	}
 
 	req := Request{
-		Method:            "PUT",
+		Method:            http.MethodPut,
 		Body:              contents,
 		Options:           cloneRequestOptions(opts, nil),
 		ExpectStatusCodes: []int{200},
@@ -216,7 +201,7 @@ func (a *Account) bulkDeleteSingle(ctx context.Context, objects []*Object, conta
 			numNotFound++
 			return nil
 		}
-		if statusErr, ok := errext.As[UnexpectedStatusCodeError](err); ok {
+		if statusErr, ok := errors.AsType[UnexpectedStatusCodeError](err); ok {
 			errs = append(errs, BulkObjectError{
 				ContainerName: containerName,
 				ObjectName:    objectName,
@@ -259,7 +244,7 @@ func (a *Account) bulkDeleteSingle(ctx context.Context, objects []*Object, conta
 // account.Capabilities.BulkDelete.MaximumDeletesPerRequest`.
 func (a *Account) bulkDelete(ctx context.Context, names []string, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
 	req := Request{
-		Method:            "DELETE",
+		Method:            http.MethodDelete,
 		Body:              strings.NewReader(strings.Join(names, "\n") + "\n"),
 		Options:           cloneRequestOptions(opts, nil),
 		ExpectStatusCodes: []int{200},

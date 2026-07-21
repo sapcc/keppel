@@ -1,20 +1,5 @@
-/******************************************************************************
-*
-*  Copyright 2018 Stefan Majewsky <majewsky@gmx.net>
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-*  Unless required by applicable law or agreed to in writing, software
-*  distributed under the License is distributed on an "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*  See the License for the specific language governing permissions and
-*  limitations under the License.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: 2018 Stefan Majewsky <majewsky@gmx.net>
+// SPDX-License-Identifier: Apache-2.0
 
 package schwift
 
@@ -126,7 +111,7 @@ func (o *Object) Headers(ctx context.Context) (ObjectHeaders, error) {
 
 func (o *Object) fetchHeaders(ctx context.Context, opts *RequestOptions) (*ObjectHeaders, error) {
 	resp, err := Request{
-		Method:        "HEAD",
+		Method:        http.MethodHead,
 		ContainerName: o.c.name,
 		ObjectName:    o.name,
 		Options:       opts,
@@ -152,7 +137,7 @@ func (o *Object) fetchHeaders(ctx context.Context, opts *RequestOptions) (*Objec
 // A successful POST request implies Invalidate() since it may change metadata.
 func (o *Object) Update(ctx context.Context, headers ObjectHeaders, opts *RequestOptions) error {
 	resp, err := Request{
-		Method:            "POST",
+		Method:            http.MethodPost,
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           cloneRequestOptions(opts, headers.Headers),
@@ -263,7 +248,7 @@ func (o *Object) Upload(ctx context.Context, content io.Reader, opts *UploadOpti
 	}
 
 	resp, err := Request{
-		Method:            "PUT",
+		Method:            http.MethodPut,
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           ropts,
@@ -415,7 +400,7 @@ func (o *Object) Delete(ctx context.Context, opts *DeleteOptions, ropts *Request
 	}
 
 	resp, err := Request{
-		Method:            "DELETE",
+		Method:            http.MethodDelete,
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           ropts,
@@ -455,7 +440,7 @@ func (o *Object) Invalidate() {
 // object results in undefined behavior.
 func (o *Object) Download(ctx context.Context, opts *RequestOptions) DownloadedObject {
 	resp, err := Request{
-		Method:            "GET",
+		Method:            http.MethodGet,
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           opts,
@@ -641,7 +626,7 @@ func (o *Object) URL() (string, error) {
 //	err := c.Update(ctx, hdr, nil)
 //
 //	//...we can use it to generate temporary URLs.
-//	url := o.TempURL(ctx, key, "GET", time.Now().Add(10 * time.Minute))
+//	url := o.TempURL(ctx, key, http.MethodGet, time.Now().Add(10 * time.Minute))
 //	resp, err := http.Get(url)
 //	//This time, resp.StatusCode == 200 because the URL includes a token.
 func (o *Object) TempURL(ctx context.Context, key, method string, expires time.Time) (string, error) {

@@ -269,12 +269,11 @@ go.xyrillian.de/gg/option
 ## explicit; go 1.26
 go.xyrillian.de/oblast
 go.xyrillian.de/oblast/handle
-# go.xyrillian.de/schwift/v2 v2.2.0
-## explicit; go 1.25.0
+# go.xyrillian.de/schwift/v2 v2.2.1
+## explicit; go 1.26
 go.xyrillian.de/schwift/v2
 go.xyrillian.de/schwift/v2/capabilities
 go.xyrillian.de/schwift/v2/gopherschwift
-go.xyrillian.de/schwift/v2/internal/errext
 # go.yaml.in/yaml/v3 v3.0.4
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
