@@ -54,7 +54,7 @@ func init() {
 func (d *swiftDriver) PluginTypeID() string { return "swift" }
 
 // Init implements the keppel.StorageDriver interface.
-func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+func (d *swiftDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	k, ok := ad.(*keystoneDriver)
 	if !ok {
 		return keppel.ErrAuthDriverMismatch

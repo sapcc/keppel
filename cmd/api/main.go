@@ -55,7 +55,7 @@ func run(cmd *cobra.Command, args []string) {
 	rc := must.Return(initRedis())
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), rc))
 	fd := must.Return(keppel.NewFederationDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
-	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
+	sd := must.Return(keppel.NewStorageDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
 	icd := must.Return(keppel.NewInboundCacheDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
 
 	rle := (*keppel.RateLimitEngine)(nil)

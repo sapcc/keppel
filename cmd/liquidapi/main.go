@@ -42,7 +42,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	db := keppel.InitDB()
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
-	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
+	sd := must.Return(keppel.NewStorageDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
 
 	// wire up HTTP handlers
 	handler := httpapi.Compose(

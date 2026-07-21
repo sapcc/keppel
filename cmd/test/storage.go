@@ -173,7 +173,7 @@ func wrapStorageCommand(action func(context.Context, keppel.StorageDriver, model
 			must.Return(json.Marshal(storageDriverType)),
 			storageDriverParamsJSON,
 		)
-		sd := must.Return(keppel.NewStorageDriver(storageConfig, ad, cfg))
+		sd := must.Return(keppel.NewStorageDriver(ctx, storageConfig, ad, cfg))
 
 		action(ctx, sd, account, args)
 	}

@@ -34,7 +34,7 @@ type StorageDriver struct {
 func (d *StorageDriver) PluginTypeID() string { return "filesystem" }
 
 // Init implements the keppel.StorageDriver interface.
-func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
+func (d *StorageDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
 	d.RootPath, err = filepath.Abs(d.RootPath)
 	return err
 }
