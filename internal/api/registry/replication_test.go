@@ -391,7 +391,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			requestCounter := 0
 			tertiaryHandler := func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet {
-					http.Error(w, r.Method+"not allowed", http.StatusMethodNotAllowed)
+					http.Error(w, r.Method+" not allowed", http.StatusMethodNotAllowed)
 					return
 				}
 				for _, blob := range append(image.Layers, image.Config) {
@@ -415,6 +415,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 					w.Write(image.Manifest.Contents)
 					return
 				}
+				http.NotFound(w, r)
 			}
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
@@ -437,6 +438,75 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			s1.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
 				httptest.WithHeaders(tokenHeaders1),
 			).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
+		})
+	})
+}
+
+func TestReplicationChainedFromExternalToInternalReplica(t *testing.T) {
+	// Another test with three registries: registry-external is fully mocked,
+	// s1 holds an external replica of that, s2 holds a replica of s1.
+	//
+	// We test that a regular user pulling from s2 can replicate all the way all at once,
+	// whereas an anonymous user will get rejected on s2 the same as it would on s1.
+	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
+		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
+			if !firstPass {
+				return // no second pass needed
+			}
+
+			// setup registry-external as a mostly static responder
+			image := test.GenerateImage(test.GenerateExampleLayer(1))
+			externalHandler := func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					http.Error(w, r.Method+" not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				for _, blob := range append(image.Layers, image.Config) {
+					if r.URL.Path == "/v2/foo/blobs/"+blob.Digest.String() {
+						w.Header().Set("Content-Length", strconv.Itoa(len(blob.Contents)))
+						w.WriteHeader(http.StatusOK)
+						w.Write(blob.Contents)
+						return
+					}
+				}
+				if r.URL.Path == "/v2/foo/manifests/latest" {
+					w.Header().Set("Content-Type", image.Manifest.MediaType)
+					w.Header().Set("Content-Length", strconv.Itoa(len(image.Manifest.Contents)))
+					w.WriteHeader(http.StatusOK)
+					w.Write(image.Manifest.Contents)
+					return
+				}
+				http.NotFound(w, r)
+			}
+			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-external.example.org"] = http.HandlerFunc(externalHandler)
+
+			// reconfigure "test1" on primary into an external replica
+			test.MustExec(t, s1.DB, `UPDATE accounts SET external_peer_url = $2 WHERE name = $1`,
+				"test1", "registry-external.example.org")
+
+			// anonymous user on both accounts gets rejected in the same way...
+			for _, s := range []test.Setup{s1, s2} {
+				t.Run("host="+s.Config.APIPublicHostname, func(t *testing.T) {
+					// even when anonymous pull is enabled (because that's not the same as anonymous first pull)
+					test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+						test.ToJSON([]keppel.RBACPolicy{{
+							RepositoryPattern: ".*",
+							Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
+						}}),
+					)
+					anonTokenHeaders := s.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull"})
+					s.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(anonTokenHeaders)).
+						ExpectJSON(t, http.StatusUnauthorized, test.ErrorCodeWithMessage{
+							Code:    keppel.ErrDenied,
+							Message: "repository does not exist here, and anonymous users may not create new repositories",
+						})
+				})
+			}
+
+			// ... but an authenticated user on s2 triggers replication both into s1 and s2
+			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
+			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "latest")
 		})
 	})
 }

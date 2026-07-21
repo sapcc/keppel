@@ -267,12 +267,36 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil, nil
 	}
 
+	requestingUserType := authz.UserIdentity.UserType()
+	if authz.UserIdentity.UserType() == keppel.PeerUser {
+		// if another Keppel is performing requests on a user's behalf,
+		// access checks are usually contingent on that user's type
+		// (cf. long comment in mayReplicateManifest())
+		if userType, ok := keppel.ParseUserType(r.Header.Get("X-Keppel-Requesting-User-Type")).Unpack(); ok {
+			requestingUserType = userType
+		}
+	}
+
 	canCreateRepoIfMissing := false
 	switch strategy {
 	case createRepoIfMissing:
 		canCreateRepoIfMissing = true
 	case createRepoIfMissingAndReplica:
-		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && (authz.UserIdentity.UserType() == keppel.RegularUser || authz.ScopeSet.AllowsAnonymousFirstPullOn(scope.ResourceName)))
+		switch {
+		case account.UpstreamPeerHostName != "":
+			// on (internal) replica accounts, may always create missing repos to replicate images
+			canCreateRepoIfMissing = true // on replicas
+		case account.ExternalPeerURL != "":
+			// on external replica accounts, may create missing repos if acting as a regular user or as an anon user with firstpull privilege
+			if requestingUserType == keppel.RegularUser {
+				canCreateRepoIfMissing = true
+			} else {
+				canCreateRepoIfMissing = authz.ScopeSet.AllowsAnonymousFirstPullOn(scope.ResourceName)
+			}
+		default:
+			// on non-replica accounts, do not create repos until something is uploaded
+			canCreateRepoIfMissing = false
+		}
 	}
 
 	var repo models.ReducedRepository
@@ -282,7 +306,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		repo, err = keppel.FindReducedRepository(ctx, a.db, repoScope.RepositoryName, account.Name)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		if strategy == createRepoIfMissingAndReplica && account.ExternalPeerURL != "" && authz.UserIdentity.UserType() == keppel.AnonymousUser {
+		if strategy == createRepoIfMissingAndReplica && account.ExternalPeerURL != "" && requestingUserType == keppel.AnonymousUser {
 			rerr := keppel.ErrDenied.With("repository does not exist here, and anonymous users may not create new repositories")
 			// this must be a 401 and include a challenge; clients should be able to understand that
 			// they can retry this after authenticating and expect a different result

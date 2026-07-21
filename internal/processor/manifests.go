@@ -698,7 +698,15 @@ func (e UpstreamManifestMissingError) Error() string {
 // ReplicateManifest replicates the manifest from its account's upstream registry.
 // On success, the manifest's metadata and contents are returned.
 func (p *Processor) ReplicateManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, reference models.ManifestReference, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, []byte, error) {
-	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
+	// when replicating from another Keppel, include a hint about the type of requesting user
+	// (cf. usage of this header in internal/api/registry for why this is necessary)
+	var extraHeaders http.Header
+	if account.UpstreamPeerHostName != "" {
+		extraHeaders = make(http.Header)
+		extraHeaders.Set("X-Keppel-Requesting-User-Type", actx.UserIdentity.UserType().String())
+	}
+
+	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference, extraHeaders)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
 			return nil, nil, UpstreamManifestMissingError{reference, err}
@@ -769,7 +777,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 // upstream registry. If not, false is returned, An error is returned only if
 // the account is not a replica, or if the upstream registry cannot be queried.
 func (p *Processor) CheckManifestOnPrimary(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, reference models.ManifestReference) (bool, error) {
-	_, _, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
+	_, _, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference, nil)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
 			return false, nil
@@ -799,7 +807,7 @@ func errorIsUpstreamRateLimit(err error) bool {
 
 // Downloads a manifest from an account's upstream using
 // RepoClient.DownloadManifest(), but also takes into account the inbound cache.
-func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
+func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, ref models.ManifestReference, extraHeaders http.Header) (manifestBytes []byte, manifestMediaType string, err error) {
 	c, err := p.getRepoClientForUpstream(ctx, account, repo)
 	if err != nil {
 		return nil, "", err
@@ -824,6 +832,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 	// cache miss -> download from actual upstream registry
 	manifestBytes, manifestMediaType, err = c.DownloadManifest(ctx, ref, &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
+		ExtraHeaders:                extraHeaders,
 	})
 	if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
 		// when a pull from an external registry runs into a rate limit, ask a

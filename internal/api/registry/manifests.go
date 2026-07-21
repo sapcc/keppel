@@ -22,6 +22,7 @@ import (
 	accept "github.com/timewasted/go-accept-headers"
 
 	"github.com/sapcc/keppel/internal/api"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
@@ -53,23 +54,14 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if errors.Is(err, sql.ErrNoRows) {
-		// if the manifest does not exist there, we may have the option of replicating
-		// from upstream (as an exception, other Keppels replicating from us always
-		// see the true 404 to properly replicate the non-existence of the manifest
-		// from this account into the replica account)
-		userType := authz.UserIdentity.UserType()
-		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.IsDeleting && (userType != keppel.PeerUser && userType != keppel.TrivyUser) {
-			// when replicating from external, only authenticated users can trigger the replication
-			if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
-				if !authz.ScopeSet.AllowsAnonymousFirstPullOn(mux.Vars(r)["repository"]) {
-					rerr := keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images")
-					// this must be a 401 and include a challenge; clients should be able to understand that
-					// they can retry this after authenticating and expect a different result
-					challenge.AddTo(rerr).WithStatus(http.StatusUnauthorized).WriteAsRegistryV2ResponseTo(w, r)
-					return
-				}
-			}
+		// if the manifest does not exist there, we may have the option of replicating from upstream
+		tryReplication, rerr := mayReplicateManifest(*account, *authz, *challenge, r)
+		if rerr != nil {
+			rerr.WriteAsRegistryV2ResponseTo(w, r)
+			return
+		}
 
+		if tryReplication {
 			tagPolicies, err := api.GetTagPolicies(a.db, *account)
 			if respondWithError(w, r, err) {
 				return
@@ -219,6 +211,55 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// Checks whether the requesting user may replicate missing manifests in this account/repo.
+// If not, returns either false (to render a regular 404 response) or an error (to render a custom response).
+func mayReplicateManifest(account models.ReducedAccount, authz auth.Authorization, challenge auth.Challenge, r *http.Request) (bool, *keppel.RegistryV2Error) {
+	// check account eligibility
+	if account.UpstreamPeerHostName == "" && account.ExternalPeerURL == "" {
+		return false, nil // not a replica account of any kind
+	}
+	if account.IsDeleting {
+		return false, nil // refuse to add new images to an account that is being deleted
+	}
+
+	// check user eligibility
+	userType := authz.UserIdentity.UserType()
+	if userType == keppel.TrivyUser {
+		return false, nil // our internal Trivy instance may only check images that are already replicated
+	}
+	if userType == keppel.PeerUser {
+		// other Keppels replicating from us usually see the true state of the manifest
+		//
+		// (esp. for the case where this account is an external replica, and the other Keppel holds a replica of it,
+		// when a user deletes a replicated image here, we want this deletion to be replicated into the replica,
+		// so we need to report 404 here; though usually replication between Keppel is handled by the specialized
+		// manifest-sync API, this fallback path should also have the same effect)
+		//
+		// HOWEVER: authenticated users interacting with a replica in a different Keppel should be able to trigger
+		// a replication in the external replica here (i.e. replication from external -> external replica -> replica
+		// should be possible with a single request to the internal replica account), so we do allow replication
+		// by a PeerUser if it is acting on behalf of a RegularUser with appropriate permissions
+		if account.ExternalPeerURL != "" {
+			if r.Header.Get("X-Keppel-Requesting-User-Type") == keppel.RegularUser.String() {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	// when replicating from external, only authenticated users can trigger the replication
+	if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
+		if !authz.ScopeSet.AllowsAnonymousFirstPullOn(mux.Vars(r)["repository"]) {
+			rerr := keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images")
+			// this must be a 401 and include a challenge; clients should be able to understand that
+			// they can retry this after authenticating and expect a different result
+			return false, challenge.AddTo(rerr).WithStatus(http.StatusUnauthorized)
+		}
+	}
+
+	return true, nil
 }
 
 func (a *API) findManifestInDB(ctx context.Context, repo models.ReducedRepository, reference models.ManifestReference) (*models.Manifest, error) {
