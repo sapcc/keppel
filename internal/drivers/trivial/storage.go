@@ -70,7 +70,7 @@ type trivyReportKey struct {
 func (d *StorageDriver) PluginTypeID() string { return "in-memory-for-testing" }
 
 // Init implements the keppel.StorageDriver interface.
-func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+func (d *StorageDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	d.blobs = make(map[blobKey][]byte)
 	d.blobChunkCounts = make(map[blobKey]uint32)
 	d.manifests = make(map[manifestKey][]byte)

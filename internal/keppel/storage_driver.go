@@ -26,9 +26,9 @@ type StorageDriver interface {
 	// perform first-time initialization.
 	//
 	// Implementations should inspect the auth driver to ensure that the
-	// federation driver can work with this authentication method, or return
+	// storage driver can work with this authentication method, or return
 	// ErrAuthDriverMismatch otherwise.
-	Init(AuthDriver, Configuration) error
+	Init(context.Context, AuthDriver, Configuration) error
 
 	// `storageID` identifies blobs within an account. (The storage ID is
 	// different from the digest: The storage ID gets chosen at the start of the
@@ -144,9 +144,9 @@ var StorageDriverRegistry pluggable.Registry[StorageDriver]
 // The supplied config must be a string of the form {"type":"foobar","params":{...}},
 // where `type` is the plugin type ID and `params` is json.Unmarshal()ed into
 // the driver instance to supply driver-specific configuration.
-func NewStorageDriver(configJSON string, ad AuthDriver, cfg Configuration) (StorageDriver, error) {
+func NewStorageDriver(ctx context.Context, configJSON string, ad AuthDriver, cfg Configuration) (StorageDriver, error) {
 	callInit := func(sd StorageDriver) error {
-		return sd.Init(ad, cfg)
+		return sd.Init(ctx, ad, cfg)
 	}
 	return newDriver("KEPPEL_DRIVER_STORAGE", StorageDriverRegistry, configJSON, callInit)
 }
