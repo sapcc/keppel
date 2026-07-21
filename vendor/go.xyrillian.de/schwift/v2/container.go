@@ -1,26 +1,12 @@
-/******************************************************************************
-*
-*  Copyright 2018 Stefan Majewsky <majewsky@gmx.net>
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-*  Unless required by applicable law or agreed to in writing, software
-*  distributed under the License is distributed on an "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*  See the License for the specific language governing permissions and
-*  limitations under the License.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: 2018 Stefan Majewsky <majewsky@gmx.net>
+// SPDX-License-Identifier: Apache-2.0
 
 package schwift
 
 import (
 	"context"
 	"net/http"
+	"sync"
 )
 
 // Container represents a Swift container. Instances are usually obtained by
@@ -30,7 +16,8 @@ type Container struct {
 	a    *Account
 	name string
 	// cache
-	headers *ContainerHeaders
+	headers      *ContainerHeaders
+	headersMutex sync.Mutex
 }
 
 // IsEqualTo returns true if both Container instances refer to the same container.
@@ -75,16 +62,15 @@ func (c *Container) Exists(ctx context.Context) (bool, error) {
 // has not been cached yet, a HEAD request is issued on the container.
 //
 // This operation fails with http.StatusNotFound if the container does not exist.
-//
-// WARNING: This method is not thread-safe. Calling it concurrently on the same
-// object results in undefined behavior.
 func (c *Container) Headers(ctx context.Context) (ContainerHeaders, error) {
+	c.headersMutex.Lock()
+	defer c.headersMutex.Unlock()
 	if c.headers != nil {
 		return *c.headers, nil
 	}
 
 	resp, err := Request{
-		Method:            "HEAD",
+		Method:            http.MethodHead,
 		ContainerName:     c.name,
 		ExpectStatusCodes: []int{204},
 	}.Do(ctx, c.a.backend)
@@ -110,7 +96,7 @@ func (c *Container) Headers(ctx context.Context) (ContainerHeaders, error) {
 // A successful POST request implies Invalidate() since it may change metadata.
 func (c *Container) Update(ctx context.Context, headers ContainerHeaders, opts *RequestOptions) error {
 	resp, err := Request{
-		Method:            "POST",
+		Method:            http.MethodPost,
 		ContainerName:     c.name,
 		Options:           cloneRequestOptions(opts, headers.Headers),
 		ExpectStatusCodes: []int{204},
@@ -130,7 +116,7 @@ func (c *Container) Update(ctx context.Context, headers ContainerHeaders, opts *
 // A successful PUT request implies Invalidate() since it may change metadata.
 func (c *Container) Create(ctx context.Context, opts *RequestOptions) error {
 	resp, err := Request{
-		Method:            "PUT",
+		Method:            http.MethodPut,
 		ContainerName:     c.name,
 		Options:           opts,
 		ExpectStatusCodes: []int{201, 202},
@@ -153,7 +139,7 @@ func (c *Container) Create(ctx context.Context, opts *RequestOptions) error {
 // A successful DELETE request implies Invalidate().
 func (c *Container) Delete(ctx context.Context, opts *RequestOptions) error {
 	resp, err := Request{
-		Method:            "DELETE",
+		Method:            http.MethodDelete,
 		ContainerName:     c.name,
 		Options:           opts,
 		ExpectStatusCodes: []int{204},
@@ -167,10 +153,9 @@ func (c *Container) Delete(ctx context.Context, opts *RequestOptions) error {
 
 // Invalidate clears the internal cache of this Container instance. The next call
 // to Headers() on this instance will issue a HEAD request on the container.
-//
-// WARNING: This method is not thread-safe. Calling it concurrently on the same
-// object results in undefined behavior.
 func (c *Container) Invalidate() {
+	c.headersMutex.Lock()
+	defer c.headersMutex.Unlock()
 	c.headers = nil
 }
 
@@ -183,7 +168,7 @@ func (c *Container) Invalidate() {
 //	container, err := account.Container("documents").EnsureExists()
 func (c *Container) EnsureExists(ctx context.Context) (*Container, error) {
 	resp, err := Request{
-		Method:            "PUT",
+		Method:            http.MethodPut,
 		ContainerName:     c.name,
 		ExpectStatusCodes: []int{201, 202},
 		DrainResponseBody: true,

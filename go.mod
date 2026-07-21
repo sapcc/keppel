@@ -27,7 +27,7 @@ require (
 	go.podman.io/image/v5 v5.40.0
 	go.xyrillian.de/gg v1.11.1
 	go.xyrillian.de/oblast v0.12.0
-	go.xyrillian.de/schwift/v2 v2.2.0
+	go.xyrillian.de/schwift/v2 v2.2.1
 )
 
 require (
