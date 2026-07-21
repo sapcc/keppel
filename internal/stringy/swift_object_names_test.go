@@ -4,13 +4,14 @@
 package stringy
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/opencontainers/go-digest"
 	"go.xyrillian.de/gg/assert"
 )
 
-var (
+const (
 	storageID         string        = "bd1df5ffd83b94f365adc7b9011e2079856cd4aa401ee19b6cdfcffcecad7a61"
 	manifestDigest    digest.Digest = digest.Digest("sha256:1d6f90850896f753a6c4c5d8edc7086f0290ce90a34d92439c30d1257f44979f")
 	repoName          string        = "foo-repository"
@@ -56,6 +57,9 @@ func TestParseChunkObject(t *testing.T) {
 	}
 	assert.Equal(t, parsedStorageID, storageID)
 	assert.Equal(t, parsedChunkNumber, chunkNumber)
+
+	// ChunkObjectPrefix must be a true prefix of ChunkObjectName
+	assert.Equal(t, strings.HasPrefix(objName, ChunkObjectPrefix(storageID)), true)
 }
 
 func TestParseManifestObject(t *testing.T) {

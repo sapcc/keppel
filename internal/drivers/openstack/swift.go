@@ -37,8 +37,9 @@ type swiftContainerInfo struct {
 }
 
 type swiftDriver struct {
-	ServiceType           string `json:"service_type"`
-	UseServiceUserProject bool   `json:"use_service_user_project"`
+	ServiceType             string `json:"service_type"`
+	UseServiceUserProject   bool   `json:"use_service_user_project"`
+	ApplyWorkaroundsForCeph bool   `json:"apply_workarounds_for_ceph"`
 
 	mainAccount         *schwift.Account
 	containerInfos      map[models.AccountName]*swiftContainerInfo
@@ -294,7 +295,24 @@ func (d *swiftDriver) DeleteBlob(ctx context.Context, account models.ReducedAcco
 	if err != nil {
 		return err
 	}
-	err = c.Object(stringy.BlobObjectName(storageID)).Delete(ctx, &schwift.DeleteOptions{DeleteSegments: true}, nil)
+	obj := c.Object(stringy.BlobObjectName(storageID))
+
+	if d.ApplyWorkaroundsForCeph {
+		// Ceph codepath: Ceph does not understand ?multipart-manifest=get, so we need to enumerate chunks on our own
+		iter := c.Objects()
+		iter.Prefix = stringy.ChunkObjectPrefix(storageID)
+		objects, err := iter.Collect(ctx)
+		if err != nil {
+			return fmt.Errorf("while enumerating chunks of %s: %w", obj.Name(), err)
+		}
+		objects = append(objects, obj) // delete the blob together with its chunks
+		_, _, err = c.Account().BulkDelete(ctx, objects, nil, nil)
+		reportObjectErrorsIfAny("DeleteBlob", err)
+		return err
+	}
+
+	// regular codepath: let Schwift figure out what to delete via ?multipart-manifest=get
+	err = obj.Delete(ctx, &schwift.DeleteOptions{DeleteSegments: true}, nil)
 	reportObjectErrorsIfAny("DeleteBlob", err)
 	return err
 }
