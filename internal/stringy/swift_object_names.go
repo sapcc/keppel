@@ -18,8 +18,14 @@ func BlobObjectName(storageID string) string {
 
 // ChunkObjectName builds the name under which a chunk with the provided storage ID and chunk number will be stored in a Swift container.
 func ChunkObjectName(storageID string, chunkNumber uint32) string {
-	//NOTE: uint32 numbers never have more than 10 digits
+	// NOTE: uint32 numbers never have more than 10 digits
 	return fmt.Sprintf("_chunks/%s/%s/%s/%010d", storageID[0:2], storageID[2:4], storageID[4:], chunkNumber)
+}
+
+// ChunkObjectPrefix returns the common prefix of all values returned by ChunkObjectName for the given storageID.
+// It can be used to list chunk objects for a single blob.
+func ChunkObjectPrefix(storageID string) string {
+	return fmt.Sprintf("_chunks/%s/%s/%s/", storageID[0:2], storageID[2:4], storageID[4:])
 }
 
 // ManifestObjectName builds the name under which a manifest with the provided repository name and digest will be stored in a Swift container.
