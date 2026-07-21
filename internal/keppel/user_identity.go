@@ -8,6 +8,7 @@ import (
 
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/pluggable"
+	. "go.xyrillian.de/gg/option"
 )
 
 // UserType is an enum that identifies the general type of user. User types are
@@ -28,6 +29,36 @@ const (
 	// JanitorUser is a dummy UserType for when the janitor needs an Authorization for audit logging purposes.
 	JanitorUser
 )
+
+var validUserTypes = []UserType{RegularUser, AnonymousUser, PeerUser, TrivyUser, JanitorUser}
+
+// String converts this UserType into a string representation.
+func (u UserType) String() string {
+	switch u {
+	case RegularUser:
+		return "regular"
+	case AnonymousUser:
+		return "anonymous"
+	case PeerUser:
+		return "peer"
+	case TrivyUser:
+		return "trivy"
+	case JanitorUser:
+		return "janitor"
+	default:
+		panic(fmt.Sprintf("unknown UserType value: %d", u))
+	}
+}
+
+// ParseUserType reverses the effect of [UserType.String], returning None for invalid inputs.
+func ParseUserType(value string) Option[UserType] {
+	for _, u := range validUserTypes {
+		if u.String() == value {
+			return Some(u)
+		}
+	}
+	return None[UserType]()
+}
 
 // UserIdentity describes the identity and access rights of a user. For regular
 // users, it is returned by methods in the AuthDriver interface. For all other
