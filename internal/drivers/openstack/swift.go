@@ -41,7 +41,12 @@ type swiftDriver struct {
 	UseServiceUserProject   bool   `json:"use_service_user_project"`
 	ApplyWorkaroundsForCeph bool   `json:"apply_workarounds_for_ceph"`
 
-	mainAccount         *schwift.Account
+	mainAccount *schwift.Account
+
+	// NOTE: This is only used if UseServiceUserProject == true.
+	mainTempURLKey string
+
+	// NOTE: This is only used if UseServiceUserProject == false.
 	containerInfos      map[models.AccountName]*swiftContainerInfo
 	containerInfosMutex sync.RWMutex
 }
@@ -72,7 +77,33 @@ func (d *swiftDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel
 		return err
 	}
 	d.mainAccount.ModifyReportedCapabilities(fixCapabilities)
-	d.containerInfos = make(map[models.AccountName]*swiftContainerInfo)
+
+	if d.UseServiceUserProject {
+		// with UseServiceUserProject = true, we will be taking the tempurl key from account level
+		hdr, err := d.mainAccount.Headers(ctx)
+		if err != nil {
+			return err
+		}
+		d.mainTempURLKey = cmp.Or(hdr.TempURLKey().Get(), hdr.TempURLKey2().Get())
+
+		// generate tempurl key if none exists yet
+		if d.mainTempURLKey == "" {
+			d.mainTempURLKey, err = generateSecret()
+			if err != nil {
+				return err
+			}
+			hdr := schwift.NewAccountHeaders()
+			hdr.TempURLKey().Set(d.mainTempURLKey)
+			err = d.mainAccount.Update(ctx, hdr, nil)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		// with UseServiceUserProject = false, we will be issuing tempurl keys per container in getBackendConnection()
+		d.containerInfos = make(map[models.AccountName]*swiftContainerInfo)
+	}
+
 	return nil
 }
 
@@ -105,14 +136,21 @@ func (d *swiftDriver) getBackendContainerName(account models.ReducedAccount) str
 	return "keppel-" + string(account.Name)
 }
 
-func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.ReducedAccount) (*schwift.Container, *swiftContainerInfo, error) {
+func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.ReducedAccount) (_ *schwift.Container, tempURLKey string, _ error) {
 	c := d.getBackendAccount(account.AuthTenantID).Container(d.getBackendContainerName(account))
 
-	// we want to cache the tempurl key to speed up URLForBlob() calls; but we
+	// if all containers are in the same account, use that account's tempurl key
+	if d.UseServiceUserProject {
+		return c, d.mainTempURLKey, nil
+	}
+
+	// otherwise use the individual tempurl keys of each container
+	//
+	// We want to cache the tempurl key to speed up URLForBlob() calls, but we
 	// cannot cache it indefinitely because the Keppel account (and hence the
 	// Swift container) may get deleted and later re-created with a different
-	// tempurl key; by only caching tempurl keys for a few minutes, we get the
-	// opportunity to self-heal when the tempurl key changes
+	// tempurl key. By only caching tempurl keys for a few minutes, we get the
+	// opportunity to self-heal when the tempurl key changes.
 	d.containerInfosMutex.RLock()
 	info := d.containerInfos[account.Name]
 	d.containerInfosMutex.RUnlock()
@@ -121,7 +159,7 @@ func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.R
 		// get container metadata (404 is not a problem, in that case we will create the container down below)
 		hdr, err := c.Headers(ctx)
 		if err != nil && !schwift.Is(err, http.StatusNotFound) {
-			return nil, nil, err
+			return nil, "", err
 		}
 
 		tempURLKey := hdr.TempURLKey().Get()
@@ -136,7 +174,7 @@ func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.R
 			if tempURLKey == "" {
 				tempURLKey, err = generateSecret()
 				if err != nil {
-					return nil, nil, err
+					return nil, "", err
 				}
 				hdr.TempURLKey().Set(tempURLKey)
 			}
@@ -147,7 +185,7 @@ func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.R
 			}
 			err = c.Create(ctx, hdr.ToOpts())
 			if err != nil {
-				return nil, nil, err
+				return nil, "", err
 			}
 		}
 
@@ -159,8 +197,7 @@ func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.R
 		d.containerInfos[account.Name] = info
 		d.containerInfosMutex.Unlock()
 	}
-
-	return c, info, nil
+	return c, info.TempURLKey, nil
 }
 
 func generateSecret() (string, error) {
@@ -280,13 +317,13 @@ func (d *swiftDriver) ReadBlob(ctx context.Context, account models.ReducedAccoun
 
 // URLForBlob implements the keppel.StorageDriver interface.
 func (d *swiftDriver) URLForBlob(ctx context.Context, account models.ReducedAccount, storageID string) (string, error) {
-	c, info, err := d.getBackendConnection(ctx, account)
+	c, tempURLKey, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return "", err
 	}
 
 	expiresAt := time.Now().Add(20 * time.Minute)
-	return c.Object(stringy.BlobObjectName(storageID)).TempURL(ctx, info.TempURLKey, "GET", expiresAt)
+	return c.Object(stringy.BlobObjectName(storageID)).TempURL(ctx, tempURLKey, "GET", expiresAt)
 }
 
 // DeleteBlob implements the keppel.StorageDriver interface.

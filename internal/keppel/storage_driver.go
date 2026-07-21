@@ -26,7 +26,7 @@ type StorageDriver interface {
 	// perform first-time initialization.
 	//
 	// Implementations should inspect the auth driver to ensure that the
-	// federation driver can work with this authentication method, or return
+	// storage driver can work with this authentication method, or return
 	// ErrAuthDriverMismatch otherwise.
 	Init(context.Context, AuthDriver, Configuration) error
 
