@@ -205,7 +205,7 @@ func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.Reduced
 	defer d.blobsMutex.RUnlock()
 	_, exists := d.blobs[k]
 	if !exists {
-		return errNoSuchBlob
+		return keppel.NotFoundInStorageError{Inner: errNoSuchBlob}
 	}
 	d.blobChunkCountsMutex.Lock()
 	defer d.blobChunkCountsMutex.Unlock()
@@ -233,9 +233,14 @@ func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAcco
 	}
 	contents, exists := d.blobs[blobKey]
 	if !exists {
-		return nil, 0, errNoSuchBlob
+		return nil, 0, keppel.NotFoundInStorageError{Inner: errNoSuchBlob}
 	}
 	return io.NopCloser(bytes.NewReader(contents)), uint64(len(contents)), nil
+}
+
+// ReadBlobForValidation implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+	return d.ReadBlob(ctx, account, storageID)
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.
@@ -253,7 +258,7 @@ func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAc
 	defer d.blobsMutex.Unlock()
 	_, exists := d.blobs[k]
 	if !exists {
-		return errNoSuchBlob
+		return keppel.NotFoundInStorageError{Inner: errNoSuchBlob}
 	}
 	delete(d.blobs, k)
 	d.blobChunkCountsMutex.Lock()
@@ -272,9 +277,14 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Reduced
 	defer d.manifestMutex.RUnlock()
 	contents, exists := d.manifests[k]
 	if !exists {
-		return nil, errNoSuchManifest
+		return nil, keppel.NotFoundInStorageError{Inner: errNoSuchManifest}
 	}
 	return contents, nil
+}
+
+// ReadManifestForValidation implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadManifestForValidation(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+	return d.ReadManifest(ctx, account, repoName, manifestDigest)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
@@ -299,7 +309,7 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Reduc
 	defer d.manifestMutex.Unlock()
 	_, exists := d.manifests[k]
 	if !exists {
-		return errNoSuchManifest
+		return keppel.NotFoundInStorageError{Inner: errNoSuchManifest}
 	}
 	delete(d.manifests, k)
 	return nil
@@ -315,7 +325,7 @@ func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.Redu
 	defer d.trivyReportsMutex.RUnlock()
 	contents, exists := d.trivyReports[k]
 	if !exists {
-		return nil, errNoSuchTrivyReport
+		return nil, keppel.NotFoundInStorageError{Inner: errNoSuchTrivyReport}
 	}
 	return io.NopCloser(bytes.NewReader(contents)), nil
 }
@@ -349,7 +359,7 @@ func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.Re
 	defer d.trivyReportsMutex.Unlock()
 	_, exists := d.trivyReports[k]
 	if !exists {
-		return errNoSuchTrivyReport
+		return keppel.NotFoundInStorageError{Inner: errNoSuchTrivyReport}
 	}
 	delete(d.trivyReports, k)
 	return nil

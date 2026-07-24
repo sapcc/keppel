@@ -233,7 +233,11 @@ func (d *swiftDriver) AppendToBlob(ctx context.Context, account models.ReducedAc
 		hdr.SizeBytes().Set(l)
 	}
 	o := c.Object(stringy.ChunkObjectName(storageID, chunkNumber))
-	return uploadToObject(ctx, o, chunk, nil, hdr.ToOpts())
+	err = uploadToObject(ctx, o, chunk, nil, hdr.ToOpts())
+	if schwift.Is(err, http.StatusNotFound) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // FinalizeBlob implements the keppel.StorageDriver interface.
@@ -250,6 +254,9 @@ func (d *swiftDriver) FinalizeBlob(ctx context.Context, account models.ReducedAc
 		},
 		&schwift.TruncateOptions{DeleteSegments: false},
 	)
+	if schwift.Is(err, http.StatusNotFound) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		return err
 	}
@@ -257,6 +264,9 @@ func (d *swiftDriver) FinalizeBlob(ctx context.Context, account models.ReducedAc
 	for chunkNumber := uint32(1); chunkNumber <= chunkCount; chunkNumber++ {
 		co := c.Object(stringy.ChunkObjectName(storageID, chunkNumber))
 		hdr, err := co.Headers(ctx)
+		if schwift.Is(err, http.StatusNotFound) {
+			return keppel.NotFoundInStorageError{Inner: err}
+		}
 		if err != nil {
 			return err
 		}
@@ -265,6 +275,9 @@ func (d *swiftDriver) FinalizeBlob(ctx context.Context, account models.ReducedAc
 			SizeBytes: hdr.SizeBytes().Get(),
 			Etag:      hdr.Etag().Get(),
 		})
+		if schwift.Is(err, http.StatusNotFound) {
+			return keppel.NotFoundInStorageError{Inner: err}
+		}
 		if err != nil {
 			return err
 		}
@@ -308,11 +321,27 @@ func (d *swiftDriver) ReadBlob(ctx context.Context, account models.ReducedAccoun
 	}
 	o := c.Object(stringy.BlobObjectName(storageID))
 	hdr, err := o.Headers(ctx)
+	if schwift.Is(err, http.StatusNotFound) {
+		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		return nil, 0, err
 	}
+
 	reader, err := o.Download(ctx, nil).AsReadCloser()
+	if schwift.Is(err, http.StatusNotFound) {
+		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+	}
 	return reader, hdr.SizeBytes().Get(), err
+}
+
+// ReadBlobForValidation implements the keppel.StorageDriver interface.
+func (d *swiftDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+	reader, size, err := d.ReadBlob(ctx, account, storageID)
+	if schwift.Is(err, http.StatusNotFound) {
+		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+	}
+	return reader, size, err
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.
@@ -351,6 +380,9 @@ func (d *swiftDriver) DeleteBlob(ctx context.Context, account models.ReducedAcco
 	// regular codepath: let Schwift figure out what to delete via ?multipart-manifest=get
 	err = obj.Delete(ctx, &schwift.DeleteOptions{DeleteSegments: true}, nil)
 	reportObjectErrorsIfAny("DeleteBlob", err)
+	if schwift.Is(err, http.StatusNotFound) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
 	return err
 }
 
@@ -373,7 +405,20 @@ func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAc
 		return nil, err
 	}
 	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
-	return o.Download(ctx, nil).AsByteSlice()
+	content, err := o.Download(ctx, nil).AsByteSlice()
+	if schwift.Is(err, http.StatusNotFound) {
+		return nil, keppel.NotFoundInStorageError{Inner: err}
+	}
+	return content, err
+}
+
+// ReadManifestForValidation implements the keppel.StorageDriver interface.
+func (d *swiftDriver) ReadManifestForValidation(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+	content, err := d.ReadManifest(ctx, account, repoName, manifestDigest)
+	if schwift.Is(err, http.StatusNotFound) {
+		return nil, keppel.NotFoundInStorageError{Inner: err}
+	}
+	return content, err
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
@@ -393,7 +438,11 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 		return err
 	}
 	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
-	return o.Delete(ctx, nil, nil)
+	err = o.Delete(ctx, nil, nil)
+	if schwift.Is(err, http.StatusNotFound) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
@@ -403,7 +452,11 @@ func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.Reduce
 		return nil, err
 	}
 	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
-	return o.Download(ctx, nil).AsReadCloser()
+	reader, err := o.Download(ctx, nil).AsReadCloser()
+	if schwift.Is(err, http.StatusNotFound) {
+		return nil, keppel.NotFoundInStorageError{Inner: err}
+	}
+	return reader, err
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
@@ -423,7 +476,11 @@ func (d *swiftDriver) DeleteTrivyReport(ctx context.Context, account models.Redu
 		return err
 	}
 	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
-	return o.Delete(ctx, nil, nil)
+	err = o.Delete(ctx, nil, nil)
+	if schwift.Is(err, http.StatusNotFound) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
 }
 
 // ListStorageContents implements the keppel.StorageDriver interface.
@@ -552,6 +609,9 @@ func (d *swiftDriver) CanSetupAccount(ctx context.Context, account models.Reduce
 // CleanupAccount implements the keppel.StorageDriver interface.
 func (d *swiftDriver) CleanupAccount(ctx context.Context, account models.ReducedAccount) error {
 	c, _, err := d.getBackendConnection(ctx, account)
+	if schwift.Is(err, http.StatusNotFound) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
 	if err != nil {
 		return err
 	}
