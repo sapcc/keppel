@@ -21,7 +21,7 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.24.0
-	github.com/sapcc/go-bits v0.0.0-20260721134224-acf388eecf26
+	github.com/sapcc/go-bits v0.0.0-20260723170232-89c8670b5841
 	github.com/spf13/cobra v1.10.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.40.0
@@ -48,7 +48,7 @@ require (
 	github.com/moby/moby/client v0.4.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.70.0 // indirect
+	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/rabbitmq/amqp091-go v1.13.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
