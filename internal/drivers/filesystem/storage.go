@@ -21,6 +21,13 @@ import (
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
+func classifyError(err error) error {
+	if os.IsNotExist(err) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
+}
+
 func init() {
 	keppel.StorageDriverRegistry.Add(func() keppel.StorageDriver { return &StorageDriver{} })
 }
@@ -77,7 +84,7 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 	}
 	f, err := os.OpenFile(tmpPath, flags, 0666) // subject to umask
 	if err != nil {
-		return err
+		return classifyError(err)
 	}
 	defer f.Close()
 	_, err = io.Copy(f, chunk)
@@ -88,14 +95,16 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
-	return os.Rename(tmpPath, path)
+	err := os.Rename(tmpPath, path)
+	return classifyError(err)
 }
 
 // AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
-	return os.Remove(tmpPath)
+	err := os.Remove(tmpPath)
+	return classifyError(err)
 }
 
 // ReadBlob implements the keppel.StorageDriver interface.
@@ -103,12 +112,12 @@ func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAcco
 	path := d.getBlobPath(account, storageID)
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, classifyError(err)
 	}
 	stat, err := f.Stat()
 	if err != nil {
 		f.Close()
-		return nil, 0, err
+		return nil, 0, classifyError(err)
 	}
 	return f, keppel.AtLeastZero(stat.Size()), nil
 }
@@ -121,13 +130,15 @@ func (d *StorageDriver) URLForBlob(ctx context.Context, account models.ReducedAc
 // DeleteBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAccount, storageID string) error {
 	path := d.getBlobPath(account, storageID)
-	return os.Remove(path)
+	err := os.Remove(path)
+	return classifyError(err)
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
 	path := d.getManifestPath(account, repoName, manifestDigest)
-	return os.ReadFile(path)
+	content, err := os.ReadFile(path)
+	return content, classifyError(err)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
@@ -148,13 +159,15 @@ func (d *StorageDriver) WriteManifest(ctx context.Context, account models.Reduce
 // DeleteManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) error {
 	path := d.getManifestPath(account, repoName, manifestDigest)
-	return os.Remove(path)
+	err := os.Remove(path)
+	return classifyError(err)
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (io.ReadCloser, error) {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
-	return os.Open(path)
+	reader, err := os.Open(path)
+	return reader, classifyError(err)
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
@@ -180,7 +193,8 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 // DeleteTrivyReport implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
-	return os.Remove(path)
+	err := os.Remove(path)
+	return classifyError(err)
 }
 
 // ListStorageContents implements the keppel.StorageDriver interface.

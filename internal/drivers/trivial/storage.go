@@ -80,9 +80,9 @@ func (d *StorageDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg kepp
 }
 
 var (
-	errNoSuchBlob                = errors.New("no such blob")
-	errNoSuchManifest            = errors.New("no such manifest")
-	errNoSuchTrivyReport         = errors.New("no such Trivy report")
+	errNoSuchBlob                = keppel.NotFoundInStorageError{Inner: errors.New("no such blob")}
+	errNoSuchManifest            = keppel.NotFoundInStorageError{Inner: errors.New("no such manifest")}
+	errNoSuchTrivyReport         = keppel.NotFoundInStorageError{Inner: errors.New("no such Trivy report")}
 	errAppendToBlobAfterFinalize = errors.New("AppendToBlob() was called after FinalizeBlob()")
 )
 
