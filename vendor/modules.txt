@@ -33,7 +33,7 @@ github.com/databus23/goslo.policy
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit; go 1.11
 github.com/dlmiddlecote/sqlstats
-# github.com/docker/docker v28.5.1+incompatible
+# github.com/docker/docker v28.5.2+incompatible
 ## explicit
 # github.com/go-redis/redis_rate/v10 v10.0.1
 ## explicit; go 1.19

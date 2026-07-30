@@ -51,6 +51,13 @@ type swiftDriver struct {
 	containerInfosMutex sync.RWMutex
 }
 
+func classifyError(err error) error {
+	if schwift.Is(err, http.StatusNotFound) {
+		return keppel.NotFoundInStorageError{Inner: err}
+	}
+	return err
+}
+
 func init() {
 	keppel.StorageDriverRegistry.Add(func() keppel.StorageDriver { return &swiftDriver{} })
 }
@@ -233,7 +240,8 @@ func (d *swiftDriver) AppendToBlob(ctx context.Context, account models.ReducedAc
 		hdr.SizeBytes().Set(l)
 	}
 	o := c.Object(stringy.ChunkObjectName(storageID, chunkNumber))
-	return uploadToObject(ctx, o, chunk, nil, hdr.ToOpts())
+	err = uploadToObject(ctx, o, chunk, nil, hdr.ToOpts())
+	return classifyError(err)
 }
 
 // FinalizeBlob implements the keppel.StorageDriver interface.
@@ -251,14 +259,14 @@ func (d *swiftDriver) FinalizeBlob(ctx context.Context, account models.ReducedAc
 		&schwift.TruncateOptions{DeleteSegments: false},
 	)
 	if err != nil {
-		return err
+		return classifyError(err)
 	}
 
 	for chunkNumber := uint32(1); chunkNumber <= chunkCount; chunkNumber++ {
 		co := c.Object(stringy.ChunkObjectName(storageID, chunkNumber))
 		hdr, err := co.Headers(ctx)
 		if err != nil {
-			return err
+			return classifyError(err)
 		}
 		err = lo.AddSegment(schwift.SegmentInfo{
 			Object:    co,
@@ -266,7 +274,7 @@ func (d *swiftDriver) FinalizeBlob(ctx context.Context, account models.ReducedAc
 			Etag:      hdr.Etag().Get(),
 		})
 		if err != nil {
-			return err
+			return classifyError(err)
 		}
 	}
 
@@ -309,10 +317,11 @@ func (d *swiftDriver) ReadBlob(ctx context.Context, account models.ReducedAccoun
 	o := c.Object(stringy.BlobObjectName(storageID))
 	hdr, err := o.Headers(ctx)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, classifyError(err)
 	}
+
 	reader, err := o.Download(ctx, nil).AsReadCloser()
-	return reader, hdr.SizeBytes().Get(), err
+	return reader, hdr.SizeBytes().Get(), classifyError(err)
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.
@@ -345,13 +354,13 @@ func (d *swiftDriver) DeleteBlob(ctx context.Context, account models.ReducedAcco
 		objects = append(objects, obj) // delete the blob together with its chunks
 		_, _, err = c.Account().BulkDelete(ctx, objects, nil, nil)
 		reportObjectErrorsIfAny("DeleteBlob", err)
-		return err
+		return classifyError(err)
 	}
 
 	// regular codepath: let Schwift figure out what to delete via ?multipart-manifest=get
 	err = obj.Delete(ctx, &schwift.DeleteOptions{DeleteSegments: true}, nil)
 	reportObjectErrorsIfAny("DeleteBlob", err)
-	return err
+	return classifyError(err)
 }
 
 func reportObjectErrorsIfAny(operation string, err error) {
@@ -373,7 +382,8 @@ func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAc
 		return nil, err
 	}
 	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
-	return o.Download(ctx, nil).AsByteSlice()
+	content, err := o.Download(ctx, nil).AsByteSlice()
+	return content, classifyError(err)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
@@ -393,7 +403,8 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 		return err
 	}
 	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
-	return o.Delete(ctx, nil, nil)
+	err = o.Delete(ctx, nil, nil)
+	return classifyError(err)
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
@@ -403,7 +414,8 @@ func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.Reduce
 		return nil, err
 	}
 	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
-	return o.Download(ctx, nil).AsReadCloser()
+	reader, err := o.Download(ctx, nil).AsReadCloser()
+	return reader, classifyError(err)
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
@@ -423,7 +435,8 @@ func (d *swiftDriver) DeleteTrivyReport(ctx context.Context, account models.Redu
 		return err
 	}
 	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
-	return o.Delete(ctx, nil, nil)
+	err = o.Delete(ctx, nil, nil)
+	return classifyError(err)
 }
 
 // ListStorageContents implements the keppel.StorageDriver interface.

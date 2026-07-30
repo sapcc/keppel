@@ -161,3 +161,25 @@ func GenerateStorageID() string {
 	}
 	return hex.EncodeToString(buf)
 }
+
+// NotFoundInStorageError is a generic error indicating that a StorageDriver could not find the requested entry.
+// The actual backend error is wrapped in this type.
+type NotFoundInStorageError struct {
+	Inner error
+}
+
+// Error implements the builtin/error interface.
+func (e NotFoundInStorageError) Error() string {
+	return e.Inner.Error()
+}
+
+// Is implements the interface implied by the documentation for [errors.Is].
+func (e NotFoundInStorageError) Is(target error) bool {
+	_, ok := target.(NotFoundInStorageError)
+	return ok
+}
+
+// Unwrap implements the interface implied by the documentation for package errors.
+func (e NotFoundInStorageError) Unwrap() error {
+	return e.Inner
+}
