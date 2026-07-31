@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -30,7 +30,7 @@ var findAccountForRepoIDQuery = models.AccountStore.MustPrepareSelectQueryWhere(
 // AbandonedUploadCleanupJob is a jobloop.Job. Each task finds an upload that has not
 // been updated for more than a day, and cleans it up.
 func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.TxGuardedJob[*oblast.Tx, models.Upload]{
+	return (&jobloop.TxGuardedJob[*gsql.Tx, models.Upload]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "cleanup of abandoned uploads",
 			CounterOpts: prometheus.CounterOpts{
@@ -39,7 +39,7 @@ func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jo
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(ctx context.Context, tx *oblast.Tx, _ prometheus.Labels) (models.Upload, error) {
+		DiscoverRow: func(ctx context.Context, tx *gsql.Tx, _ prometheus.Labels) (models.Upload, error) {
 			maxUpdatedAt := j.timeNow().Add(-24 * time.Hour)
 			return models.UploadStore.SelectOne(ctx, tx, abandonedUploadSearchQuery, maxUpdatedAt)
 		},
@@ -47,7 +47,7 @@ func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) deleteAbandonedUpload(ctx context.Context, tx *oblast.Tx, upload models.Upload, labels prometheus.Labels) error {
+func (j *Janitor) deleteAbandonedUpload(ctx context.Context, tx *gsql.Tx, upload models.Upload, labels prometheus.Labels) error {
 	// find corresponding account
 	account, err := findAccountForRepoIDQuery.SelectOne(ctx, tx, upload.RepositoryID)
 	if err != nil {

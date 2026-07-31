@@ -16,7 +16,7 @@ import (
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/respondwith"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -420,7 +420,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
 			// reconfigure "test1" into an external replica of tertiary
-			for _, db := range []*oblast.DB{s1.DB, s2.DB} {
+			for _, db := range []*gsql.DB{s1.DB, s2.DB} {
 				test.MustExec(t, db, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
 			}

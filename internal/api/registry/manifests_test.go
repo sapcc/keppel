@@ -21,7 +21,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
 	"go.xyrillian.de/gg/assert"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -619,7 +619,7 @@ func TestRuleForManifest(t *testing.T) {
 	})
 }
 
-func expectLabelsJSONOnManifest(t *testing.T, db *oblast.DB, manifestDigest digest.Digest, expected map[string]string) {
+func expectLabelsJSONOnManifest(t *testing.T, db *gsql.DB, manifestDigest digest.Digest, expected map[string]string) {
 	t.Helper()
 	labelsJSONStr := must.ReturnT(keppel.SelectOneValue[string](db, `SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String()))(t)
 

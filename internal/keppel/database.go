@@ -11,7 +11,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/sqlext"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 )
 
 var sqlMigrations = map[string]string{
@@ -439,17 +439,17 @@ var sqlMigrations = map[string]string{
 	`,
 }
 
-// DBInterface is implemented by both [*oblast.DB] and [*oblast.Tx].
-// We are using this interface in function signatures instead of [oblast.Handle] to allow compatibility with go-bits/sqlext methods.
+// DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].
+// We are using this interface in function signatures instead of [gsql.Handle] to allow compatibility with go-bits/sqlext methods.
 type DBInterface interface {
-	oblast.Handle
+	gsql.Handle
 	sqlext.Executor
 }
 
 var (
 	// prove documented interface implementations
-	_ DBInterface = &oblast.DB{}
-	_ DBInterface = &oblast.Tx{}
+	_ DBInterface = &gsql.DB{}
+	_ DBInterface = &gsql.Tx{}
 )
 
 // SelectOneValue executes a query that yields a single row with a single value.
@@ -483,12 +483,12 @@ func DBConfiguration() easypg.Configuration {
 
 // InitDB initializes a DB connection for productive use.
 // (Tests use the DB connection logic in test.NewSetup() instead.)
-func InitDB() *oblast.DB {
+func InitDB() *gsql.DB {
 	dbURL, dbName := getDatabaseURLFromEnvironment()
 	dbConn := must.Return(easypg.Connect(dbURL, DBConfiguration()))
 	// ensure that this process does not starve other Keppel processes for DB connections
 	dbConn.SetMaxOpenConns(16)
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector(dbName, dbConn))
-	return oblast.NewDB(dbConn)
+	return gsql.NewDB(dbConn)
 }

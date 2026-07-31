@@ -15,7 +15,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/sapcc/go-bits/sqlext"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -32,7 +32,7 @@ var createOrUpdatePeerQuery = sqlext.SimplifyWhitespace(`
 		ON CONFLICT (hostname) DO UPDATE SET use_for_pull_delegation = EXCLUDED.use_for_pull_delegation
 `)
 
-func runPeering(ctx context.Context, cfg keppel.Configuration, db *oblast.DB) {
+func runPeering(ctx context.Context, cfg keppel.Configuration, db *gsql.DB) {
 	isPeerHostName := make(map[string]bool)
 
 	var peeringCfg peeringConfig
@@ -86,7 +86,7 @@ var getNextPeerQuery = sqlext.SimplifyWhitespace(`
 	   FOR UPDATE SKIP LOCKED
 `)
 
-func tryIssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *oblast.DB) error {
+func tryIssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *gsql.DB) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err

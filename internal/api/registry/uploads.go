@@ -28,7 +28,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
@@ -716,7 +716,7 @@ var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 // Insert a Blob object in the database. This is similar to building a
 // keppel.Blob and doing tx.Insert(blob), but handles a collision where another
 // blob with the same account name and digest already exists in the database.
-func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *oblast.Tx, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.ReducedAccount) (models.Blob, error) {
+func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gsql.Tx, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.ReducedAccount) (models.Blob, error) {
 	// try to insert the blob atomically (I would like to SELECT the result
 	// directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
 	// inserted because of ON CONFLICT, so in the general case, we need another

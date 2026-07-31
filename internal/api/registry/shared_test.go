@@ -14,7 +14,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -112,7 +112,7 @@ func testWithAllReplicaTypes(t *testing.T, s1 test.Setup, action func(strategy s
 
 // To be called inside testWithReplica() if the test is specifically about
 // testing how anycast requests are redirected between peers.
-func testAnycast(t *testing.T, firstPass bool, db2 *oblast.DB, action func()) {
+func testAnycast(t *testing.T, firstPass bool, db2 *gsql.DB, action func()) {
 	t.Helper()
 
 	// the second pass of testWithReplica() has a severed network connection, so anycast is not possible
@@ -206,7 +206,7 @@ func expectManifestExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoN
 	}
 }
 
-func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *oblast.DB) {
+func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gsql.DB) {
 	t.Helper()
 	// test that no blobs were yet committed to the DB...
 	count := must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM blobs`))(t)
@@ -247,7 +247,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *oblast.DB) 
 }
 
 //nolint:unparam
-func testWithAccountIsDeleting(t *testing.T, db *oblast.DB, accountName models.AccountName, action func()) {
+func testWithAccountIsDeleting(t *testing.T, db *gsql.DB, accountName models.AccountName, action func()) {
 	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName))(t)
 	action()
 	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName))(t)

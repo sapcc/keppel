@@ -14,7 +14,7 @@ import (
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -93,7 +93,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	})
 }
 
-func getPeerFromDB(t *testing.T, db *oblast.DB) models.Peer {
+func getPeerFromDB(t *testing.T, db *gsql.DB) models.Peer {
 	t.Helper()
 	ctx := t.Context()
 	return must.ReturnT(models.PeerStore.SelectOneWhere(ctx, db, `use_for_pull_delegation`))(t)

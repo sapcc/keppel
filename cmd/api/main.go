@@ -19,7 +19,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -116,7 +116,7 @@ func initRedis() (*redis.Client, error) {
 	return redis.NewClient(opts), nil
 }
 
-func setupDBIfRequested(db *oblast.DB) error {
+func setupDBIfRequested(db *gsql.DB) error {
 	// This method performs specialized first-time setup for conformance test
 	// scenarios where we always start with a fresh empty database.
 	//
