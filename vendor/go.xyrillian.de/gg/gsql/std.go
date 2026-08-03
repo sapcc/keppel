@@ -53,6 +53,15 @@ func (db *DB) Conn(ctx context.Context) (*Conn, error) {
 	return maybe(NewConn, conn), err
 }
 
+// WithinTransaction executes an action within a database transaction.
+// The transaction will be committed if the callback returns successfully, or rolled back otherwise.
+//
+// This is equivalent to the GSQLTransact() method of the DB's [ConnectionHandle] implementation,
+// but the callback receives the concrete type [*Tx] instead of a generic [Handle].
+func (db *DB) WithinTransaction(ctx context.Context, action func(*Tx) error) error {
+	return withinTransaction(ctx, db.DB, action)
+}
+
 // Conn wraps [*sql.Conn] into a [Handle].
 //
 // Because this type has [*sql.Conn] as an embedded field,
@@ -71,6 +80,15 @@ func NewConn(db *sql.Conn) *Conn {
 func (conn *Conn) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	tx, err := conn.Conn.BeginTx(ctx, opts)
 	return maybe(NewTx, tx), err
+}
+
+// WithinTransaction executes an action within a database transaction.
+// The transaction will be committed if the callback returns successfully, or rolled back otherwise.
+//
+// This is equivalent to the GSQLTransact() method of conn's [ConnectionHandle] implementation,
+// but the callback receives the concrete type [*Tx] instead of a generic [Handle].
+func (conn *Conn) WithinTransaction(ctx context.Context, action func(*Tx) error) error {
+	return withinTransaction(ctx, conn.Conn, action)
 }
 
 // Tx wraps [*sql.Tx] into a [Handle].
@@ -191,7 +209,14 @@ func (h sqlConnectionHandle[T]) GSQLClose(ctx context.Context) error {
 
 // GSQLTransact implements the [ConnectionHandle] interface.
 func (h sqlConnectionHandle[T]) GSQLTransact(ctx context.Context, action func(tx Handle) error) error {
-	tx, err := h.Base.BeginTx(ctx, nil)
+	return withinTransaction(ctx, h.Base, func(tx *Tx) error {
+		return action(tx)
+	})
+}
+
+// withinTransaction implements the method of that name that exists on all types based on [sqlConnectionHandle].
+func withinTransaction(ctx context.Context, conn sqlConnection, action func(*Tx) error) error {
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
