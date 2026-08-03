@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -20,11 +20,11 @@ import (
 type API struct {
 	cfg keppel.Configuration
 	ad  keppel.AuthDriver
-	db  *oblast.DB
+	db  *gsql.DB
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *oblast.DB) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *gsql.DB) *API {
 	return &API{cfg, ad, db}
 }
 

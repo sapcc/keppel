@@ -24,7 +24,7 @@ import (
 	"github.com/sapcc/go-bits/mock"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -158,7 +158,7 @@ func WithoutCurrentIssuerKey(params *setupParams) {
 type Setup struct {
 	// fields that are always set
 	Config       keppel.Configuration
-	DB           *oblast.DB
+	DB           *gsql.DB
 	Clock        *mock.Clock
 	SIDGenerator *StorageIDGenerator
 	Auditor      *audittools.MockAuditor
@@ -263,7 +263,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	if params.IsSecondary {
 		dbOpts = append(dbOpts, easypg.OverrideDatabaseName(t.Name()+"_secondary"))
 	}
-	s.DB = oblast.NewDB(easypg.ConnectForTest(t, keppel.DBConfiguration(), dbOpts...))
+	s.DB = gsql.NewDB(easypg.ConnectForTest(t, keppel.DBConfiguration(), dbOpts...))
 
 	// setup anycast if requested
 	if params.WithAnycast {
@@ -380,7 +380,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 }
 
 // MustExec is a test helper function that executes a DB query and fails the test if it returns an error.
-func MustExec(t *testing.T, db *oblast.DB, query string, args ...any) {
+func MustExec(t *testing.T, db *gsql.DB, query string, args ...any) {
 	t.Helper()
 	_, err := db.Exec(query, args...)
 	must.SucceedT(t, err)

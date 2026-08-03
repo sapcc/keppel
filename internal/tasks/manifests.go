@@ -25,8 +25,8 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 	"github.com/sapcc/go-bits/syncext"
 	imageManifest "go.podman.io/image/v5/manifest"
+	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
-	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -481,7 +481,7 @@ var securityCheckSelectQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
 // CheckTrivySecurityStatusJob is a joploop.Job. Each task takes a batch of trivy security scanning info
 // from the database and processes it.
 func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.TxGuardedJob[*oblast.Tx, []models.TrivySecurityInfo]{
+	return (&jobloop.TxGuardedJob[*gsql.Tx, []models.TrivySecurityInfo]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName:    "check trivy security status",
 			ConcurrencySafe: true,
@@ -491,7 +491,7 @@ func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) 
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(ctx context.Context, tx *oblast.Tx, _ prometheus.Labels) ([]models.TrivySecurityInfo, error) {
+		DiscoverRow: func(ctx context.Context, tx *gsql.Tx, _ prometheus.Labels) ([]models.TrivySecurityInfo, error) {
 			securityInfos, err := models.TrivySecurityInfoStore.Select(ctx, tx, securityCheckSelectQuery, j.timeNow()).Collect()
 
 			// jobloop expects to receive errNoRows instead of an empty result
@@ -507,7 +507,7 @@ func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) 
 
 // processTrivySecurityInfo parallelises the CheckTrivySecurityStatusJob jobloop without requiring extra database connections.
 // It processes SecurityInfos in batches maximum the size of trivySecurityInfoBatchSize and runs the value of trivySecurityInfoThreads in parallel.
-func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *oblast.Tx, securityInfos []models.TrivySecurityInfo, labels prometheus.Labels) error {
+func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gsql.Tx, securityInfos []models.TrivySecurityInfo, labels prometheus.Labels) error {
 	// prevent deadlocks by waiting for more securityInfos in range below
 	batchSize := trivySecurityInfoBatchSize
 	lenSecurityInfo := len(securityInfos)

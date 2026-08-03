@@ -23,8 +23,8 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	imageManifest "go.podman.io/image/v5/manifest"
+	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
-	"go.xyrillian.de/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"
@@ -119,7 +119,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 	}
 	err = p.validateAndStoreManifestCommon(ctx, account, repo, manifest, NewBytesWithDigest(m.Contents), validateAndStoreManifestOpts{
 		IsBeingPushed: true,
-		ActionBeforeCommit: func(tx *oblast.Tx) error {
+		ActionBeforeCommit: func(tx *gsql.Tx) error {
 			if m.Reference.IsTag() {
 				err = upsertTag(tx, models.Tag{
 					RepositoryID: repo.ID,
@@ -190,7 +190,7 @@ func (p *Processor) ValidateExistingManifest(ctx context.Context, account models
 
 type validateAndStoreManifestOpts struct {
 	IsBeingPushed      bool // only set when the manifest is pushed, not when it is later validated
-	ActionBeforeCommit func(*oblast.Tx) error
+	ActionBeforeCommit func(*gsql.Tx) error
 }
 
 func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest, manifestBytes BytesWithDigest, opts validateAndStoreManifestOpts) error {
@@ -212,7 +212,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		manifest.SizeBytes += keppel.AtLeastZero(desc.Size)
 	}
 
-	return p.insideTransaction(ctx, func(ctx context.Context, tx *oblast.Tx) error {
+	return p.insideTransaction(ctx, func(ctx context.Context, tx *gsql.Tx) error {
 		refsInfo, err := findManifestReferencedObjects(ctx, tx, account, repo, manifestParsed)
 		if err != nil {
 			return err
@@ -344,7 +344,7 @@ type manifestRefsInfo struct {
 	SumChildSizes   uint64
 }
 
-func findManifestReferencedObjects(ctx context.Context, tx *oblast.Tx, account models.ReducedAccount, repo models.ReducedRepository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
+func findManifestReferencedObjects(ctx context.Context, tx *gsql.Tx, account models.ReducedAccount, repo models.ReducedRepository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
 	// ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[digest.Digest]bool)
 
@@ -429,7 +429,7 @@ type manifestConfigInfo struct {
 }
 
 // Returns the list of missing labels, or nil if everything is ok.
-func parseManifestConfig(ctx context.Context, tx *oblast.Tx, sd keppel.StorageDriver, account models.ReducedAccount, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
+func parseManifestConfig(ctx context.Context, tx *gsql.Tx, sd keppel.StorageDriver, account models.ReducedAccount, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
 	// is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil || configBlob.MediaType != imagespecs.MediaTypeImageConfig && configBlob.MediaType != imageManifest.DockerV2Schema2ConfigMediaType {
@@ -540,7 +540,7 @@ func upsertTag(db keppel.DBInterface, t models.Tag) error {
 	return err
 }
 
-func maintainManifestBlobRefs(tx *oblast.Tx, m models.Manifest, referencedBlobs []blobRef) error {
+func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []blobRef) error {
 	// maintain media type on blobs (we have no way of knowing the media type of a
 	// blob when it gets uploaded by itself, but manifests always include the
 	// media type of each blob referenced therein; therefore now is our only
@@ -620,7 +620,7 @@ func maintainManifestBlobRefs(tx *oblast.Tx, m models.Manifest, referencedBlobs 
 	return nil
 }
 
-func maintainManifestManifestRefs(tx *oblast.Tx, m models.Manifest, referencedManifestDigests []string) error {
+func maintainManifestManifestRefs(tx *gsql.Tx, m models.Manifest, referencedManifestDigests []string) error {
 	// find existing manifest_manifest_refs entries for this manifest
 	isExistingManifestDigestRef := make(map[string]bool)
 	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`

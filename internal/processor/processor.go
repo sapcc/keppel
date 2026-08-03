@@ -14,19 +14,19 @@ import (
 
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/sqlext"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// Processor is a higher-level interface wrapping oblast.DB and keppel.StorageDriver.
+// Processor is a higher-level interface wrapping gsql.DB and keppel.StorageDriver.
 // It abstracts DB accesses into high-level interactions and keeps DB updates in
 // lockstep with StorageDriver accesses.
 type Processor struct {
 	cfg         keppel.Configuration
-	db          *oblast.DB
+	db          *gsql.DB
 	fd          keppel.FederationDriver
 	sd          keppel.StorageDriver
 	icd         keppel.InboundCacheDriver
@@ -39,7 +39,7 @@ type Processor struct {
 }
 
 // New creates a new Processor.
-func New(cfg keppel.Configuration, db *oblast.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
+func New(cfg keppel.Configuration, db *gsql.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
 	return &Processor{cfg, db, fd, sd, icd, auditor, make(map[string]*client.RepoClient), timenow, keppel.GenerateStorageID}
 }
 
@@ -63,7 +63,7 @@ func (p *Processor) OverrideGenerateStorageID(generateStorageID func() string) *
 // NOTE: This method is not used widely at the moment because callers usually
 // have direct access to `db` and `sd`, but my plan is to convert most or all DB
 // accesses into methods on type Processor eventually.
-func (p *Processor) WithLowlevelAccess(action func(*oblast.DB, keppel.StorageDriver) error) error {
+func (p *Processor) WithLowlevelAccess(action func(*gsql.DB, keppel.StorageDriver) error) error {
 	return action(p.db, p.sd)
 }
 
@@ -71,7 +71,7 @@ func (p *Processor) WithLowlevelAccess(action func(*oblast.DB, keppel.StorageDri
 // callback returns success (i.e. a nil error), the transaction will be
 // committed.  If it returns an error or panics, the transaction will be rolled
 // back.
-func (p *Processor) insideTransaction(ctx context.Context, action func(context.Context, *oblast.Tx) error) error {
+func (p *Processor) insideTransaction(ctx context.Context, action func(context.Context, *gsql.Tx) error) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err

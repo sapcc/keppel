@@ -3,6 +3,20 @@ SPDX-FileCopyrightText: 2026 Stefan Majewsky <majewsky@gmx.net>
 SPDX-License-Identifier: Apache-2.0
 -->
 
+# v0.13.2 (2026-07-31)
+
+No changes to the previous version. After v0.13.1 also failed, I noticed that `git clone` on the primary repo fails with `Cannot obtain needed object 96727093c88e5db251c55eda31700bf67c832ce1 while processing commit 238b5820a9968cb4c775fd9cf2e7e2cfeb24c78e.`, the former being the digest of the `v0.1.0` tag object. No idea why, but a `git repack -adf` on the primary repo (i.e. the bare repo on the server) fixed that. However, the Go module proxy seems to once again have cached the fetch error, so here we go again with yet another release. Fingers crossed that this one will be picked up.
+
+# v0.13.1 (2026-07-31)
+
+No changes to the previous version. The Go module proxy refused to pick up v0.13.0 because the tag was pushed before the `main` branch was updated. Hopefully it will pick up this release.
+
+# v0.13.0 (2026-07-31)
+
+API changes:
+
+- The types `Handle`, `DB`, `Conn` and `Tx` have moved to `go.xyrillian.de/gg/gsql`.
+
 # v0.12.0 (2026-07-17)
 
 Changes:

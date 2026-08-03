@@ -12,7 +12,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -24,11 +24,11 @@ type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
 	fd         keppel.FederationDriver
-	db         *oblast.DB
+	db         *gsql.DB
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, db *oblast.DB) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, db *gsql.DB) *API {
 	return &API{cfg, ad, fd, db}
 }
 

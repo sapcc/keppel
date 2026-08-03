@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpext"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -19,7 +19,7 @@ import (
 
 // guiRedirecter is an api.API that implements the GUI redirect.
 type guiRedirecter struct {
-	db     *oblast.DB
+	db     *gsql.DB
 	urlStr string
 }
 
