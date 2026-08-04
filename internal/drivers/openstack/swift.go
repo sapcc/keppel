@@ -148,6 +148,12 @@ func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.R
 
 	// if all containers are in the same account, use that account's tempurl key
 	if d.UseServiceUserProject {
+		// we do not have the Create() below that writes the container tempurl key,
+		// so we need to explicitly make sure that the backing container exists
+		_, err := c.EnsureExists(ctx)
+		if err != nil {
+			return nil, "", err
+		}
 		return c, d.mainTempURLKey, nil
 	}
 
