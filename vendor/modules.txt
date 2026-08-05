@@ -258,7 +258,7 @@ go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
-# go.xyrillian.de/gg v1.13.0
+# go.xyrillian.de/gg v1.13.2
 ## explicit; go 1.26
 go.xyrillian.de/gg/assert
 go.xyrillian.de/gg/errext

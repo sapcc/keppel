@@ -181,10 +181,13 @@ func wipeDBIfMajorUpgrade(testdbPath string) error {
 		return fmt.Errorf("could not run `psql --version`: %w", err)
 	}
 
-	// output from `psql --version` should look like e.g. "psql (PostgreSQL) 18.4" -> we want just the version number part
+	// output from `psql --version` should look like e.g.
+	//   "psql (PostgreSQL) 18.4"                                (seen on Arch Linux)
+	//   "psql (PostgreSQL) 18.4 (Ubuntu 18.4-0ubuntu0.26.04.1)" (seen on Ubuntu)
+	// -> we want just the version number part
 	clientOutput := strings.TrimSpace(string(buf))
 	fields := strings.Fields(clientOutput)
-	if len(fields) != 3 || fields[0] != "psql" || fields[1] != "(PostgreSQL)" {
+	if len(fields) < 3 || fields[0] != "psql" || fields[1] != "(PostgreSQL)" {
 		return fmt.Errorf("unexpected output from `psql --version`: %q", clientOutput)
 	}
 	clientVersion := fields[2]

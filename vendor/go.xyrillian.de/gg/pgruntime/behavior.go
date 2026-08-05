@@ -110,7 +110,22 @@ func applyMigrations(ctx context.Context, db gsql.ConnectionHandle, migrations m
 	// apply migrations
 	for _, version := range pendingVersions {
 		err := db.GSQLTransact(ctx, func(tx gsql.Handle) error {
-			_, err := execQuery(ctx, db, migrations[version], nil)
+			// ensure that nobody else is migrating until we are done
+			var actualVersion int64
+			err := queryRow(ctx, db, `SELECT version FROM schema_migrations FOR UPDATE`, nil, []any{&actualVersion})
+			if err != nil {
+				return fmt.Errorf("could not obtain lock for schema migration: %w", err)
+			}
+
+			// ensure that nobody else migrated just before we started our transaction block
+			if version <= actualVersion {
+				return fmt.Errorf("tried to perform migration to version %d, but schema is already at version %d (multiple migrations might be running concurrently)",
+					version, actualVersion,
+				)
+			}
+
+			// perform the next migration
+			_, err = execQuery(ctx, db, migrations[version], nil)
 			if err != nil {
 				return fmt.Errorf("could not execute schema migration: %w", err)
 			}
