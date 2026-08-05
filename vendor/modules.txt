@@ -266,6 +266,7 @@ go.xyrillian.de/gg/gsql
 go.xyrillian.de/gg/internal/path
 go.xyrillian.de/gg/jsonmatch
 go.xyrillian.de/gg/option
+go.xyrillian.de/gg/pgruntime
 # go.xyrillian.de/oblast v0.13.2
 ## explicit; go 1.26
 go.xyrillian.de/oblast

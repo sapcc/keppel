@@ -49,7 +49,7 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
 	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
-	db := keppel.InitDB()
+	db := keppel.InitDB(ctx)
 	must.Succeed(setupDBIfRequested(db))
 
 	rc := must.Return(initRedis())

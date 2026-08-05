@@ -4,20 +4,24 @@
 package keppel
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/dlmiddlecote/sqlstats"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pgruntime"
+
+	// include SQL driver
+	_ "github.com/lib/pq"
 )
 
-var sqlMigrations = map[string]string{
+var sqlMigrations = map[int64]string{
 	//NOTE: Migrations 1 through 35 have been rolled up into one at 2024-02-26
 	// to better represent the current baseline of the DB schema.
-	"035_rollup.up.sql": `
+	35: `
 		CREATE TABLE accounts (
 			name                            TEXT        NOT NULL PRIMARY KEY,
 			auth_tenant_id                  TEXT        NOT NULL,
@@ -192,104 +196,43 @@ var sqlMigrations = map[string]string{
 			PRIMARY KEY (account_name, repo_name, digest)
 		);
 	`,
-	"035_rollup.down.sql": `
-		DROP TABLE unknown_manifests;
-		DROP table unknown_blobs;
-		DROP TABLE pending_blobs;
-		DROP TABLE trivy_security_info;
-		DROP TABLE tags;
-		DROP TABLE manifest_manifest_refs;
-		DROP TABLE manifest_blob_refs;
-		DROP TABLE manifest_contents;
-		DROP TABLE manifests;
-		DROP TABLE uploads;
-		DROP TABLE blob_mounts;
-		DROP TABLE blobs;
-		DROP TABLE repos;
-		DROP TABLE peers;
-		DROP TABLE quotas;
-		DROP TABLE rbac_policies;
-		DROP TABLE accounts;
-	`,
-	"036_add_accounts_rbac_policies_json.up.sql": `
+	36: `
 		ALTER TABLE accounts
 			ADD COLUMN rbac_policies_json TEXT NOT NULL DEFAULT '';
 	`,
-	"036_add_accounts_rbac_policies_json.down.sql": `
-		ALTER TABLE accounts
-			DROP COLUMN rbac_policies_json;
-	`,
-	"037_drop_rbac_policies_table.up.sql": `
+	37: `
 		DROP TABLE rbac_policies;
 	`,
-	"037_drop_rbac_policies_table.down.sql": `
-		CREATE TABLE rbac_policies (
-			account_name        TEXT    NOT NULL REFERENCES accounts ON DELETE CASCADE,
-			match_repository    TEXT    NOT NULL,
-			match_username      TEXT    NOT NULL,
-			can_anon_pull       BOOLEAN NOT NULL DEFAULT FALSE,
-			can_pull            BOOLEAN NOT NULL DEFAULT FALSE,
-			can_push            BOOLEAN NOT NULL DEFAULT FALSE,
-			can_delete          BOOLEAN NOT NULL DEFAULT FALSE,
-			match_cidr          TEXT    NOT NULL DEFAULT '0.0.0.0/0',
-			can_anon_first_pull BOOLEAN NOT NULL DEFAULT FALSE,
-			PRIMARY KEY (account_name, match_cidr, match_repository, match_username)
-		);
-	`,
-	"038_convert_validated_at_to_next_validation_at.up.sql": `
+	38: `
 		ALTER TABLE blobs
 			DROP COLUMN validated_at,
 			ADD COLUMN next_validation_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 		ALTER TABLE manifests
 			DROP COLUMN validated_at,
 			ADD COLUMN next_validation_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-	`,
-	"038_convert_validated_at_to_next_validation_at.down.sql": `
-		ALTER TABLE blobs
-			DROP COLUMN next_validation_at,
-			ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-		ALTER TABLE manifests
-			DROP COLUMN next_validation_at,
-			ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 	`,
 	// Re 039: These indices are used when selecting tasks for BlobValidationJob
 	// and ManifestValidationJob. Before we added indices here, those queries
 	// were consistently the most expensive by total execution time.
-	"039_add_indices_on_next_validation_at.up.sql": `
+	39: `
 		CREATE INDEX ON blobs (next_validation_at);
 		CREATE INDEX ON manifests (next_validation_at);
 	`,
-	"039_add_indices_on_next_validation_at.down.sql": `
-		DROP INDEX blobs_next_validation_at_idx;
-		DROP INDEX manifests_next_validation_at_idx;
-	`,
 	// Re 040: index is used by BlobMountSweepJob
-	"040_add_index_blob_mounts.up.sql": `
+	40: `
 		CREATE INDEX ON blob_mounts (can_be_deleted_at NULLS FIRST, repo_id);
 		CREATE INDEX ON manifests (validation_error_message) WHERE validation_error_message != '';
 	`,
-	"040_add_index_blob_mounts.down.sql": `
-		DROP INDEX blob_mounts_can_be_deleted_at_repo_id_idx;
-		DROP INDEX manifests_validation_error_message_idx;
-	`,
-	"041_add_accounts_is_managed.up.sql": `
+	41: `
 		ALTER TABLE accounts
 			ADD COLUMN is_managed BOOLEAN NOT NULL DEFAULT FALSE,
 			ADD COLUMN next_enforcement_at TIMESTAMPTZ DEFAULT NULL;
 	`,
-	"041_add_accounts_is_managed.down.sql": `
-		ALTER TABLE accounts
-			DROP COLUMN is_managed, next_enforcement_at;
-	`,
-	"042_add_peers_use_for_pull_delegation.up.sql": `
+	42: `
 		ALTER TABLE peers
 			ADD COLUMN use_for_pull_delegation BOOLEAN NOT NULL DEFAULT TRUE;
 	`,
-	"042_add_peers_use_for_pull_delegation.down.sql": `
-		ALTER TABLE peers
-			DROP COLUMN use_for_pull_delegation;
-	`,
-	"043_add_accounts_is_deleting.up.sql": `
+	43: `
 		ALTER TABLE accounts
 			ADD COLUMN is_deleting BOOLEAN NOT NULL DEFAULT FALSE,
 			ADD COLUMN next_deletion_attempt_at TIMESTAMPTZ DEFAULT NULL;
@@ -300,60 +243,28 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN in_maintenance,
 			DROP COLUMN metadata_json;
 	`,
-	"043_add_accounts_is_deleting.down.sql": `
-		ALTER TABLE accounts
-			ADD COLUMN in_maintenance BOOLEAN NOT NULL DEFAULT FALSE,
-			ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '';
-
-		UPDATE accounts SET in_maintenance = TRUE WHERE is_deleting;
-
-		ALTER TABLE accounts
-			DROP COLUMN is_deleting,
-			DROP COLUMN next_deletion_attempt_at;
-	`,
-	"044_bring_back_accounts_in_maintenance_as_dummy.up.sql": `
+	44: `
 		ALTER TABLE accounts
 			ADD COLUMN in_maintenance BOOLEAN NOT NULL DEFAULT FALSE;
 	`,
-	"044_bring_back_accounts_in_maintenance_as_dummy.down.sql": `
+	45: `
 		ALTER TABLE accounts
 			DROP COLUMN in_maintenance;
 	`,
-	"045_remove_accounts_in_maintenance_dummy.up.sql": `
-		ALTER TABLE accounts
-			DROP COLUMN in_maintenance;
-	`,
-	"045_remove_in_maintenance_dummy.down.sql": `
-		ALTER TABLE accounts
-			ADD COLUMN in_maintenance BOOLEAN NOT NULL DEFAULT FALSE;
-	`,
-	"046_add_manifest_subject_digest_and_artifact_type.up.sql": `
+	46: `
 		ALTER TABLE manifests
 			ADD COLUMN annotations_json TEXT NOT NULL DEFAULT '',
 			ADD COLUMN artifact_type TEXT NOT NULL DEFAULT '',
 			ADD COLUMN subject_digest TEXT NOT NULL DEFAULT '';
 	`,
-	"046_add_manifest_subject_digest_and_artifact_type.down.sql": `
-		ALTER TABLE manifests
-			DROP COLUMN annotations_json,
-			DROP COLUMN artifact_type,
-			DROP COLUMN subject_digest;
-	`,
-	"047_add_manifest_subject_digest_index.up.sql": `
+	47: `
 		CREATE INDEX ON manifests (repo_id, subject_digest) WHERE subject_digest != '';
 	`,
-	"047_add_manifest_subject_digest_index.down.sql": `
-		DROP INDEX manifests_repo_id_subject_digest_idx;
-	`,
-	"048_add_accounts_tag_policies.up.sql": `
+	48: `
 		ALTER TABLE accounts
 			ADD COLUMN tag_policies_json TEXT NOT NULL DEFAULT '[]';
 	`,
-	"048_add_accounts_tag_policies.down.sql": `
-		ALTER TABLE accounts
-			DROP COLUMN tag_policies_json;
-	`,
-	"049_stored_trivy_reports.up.sql": `
+	49: `
 		ALTER TABLE trivy_security_info
 			ADD COLUMN has_enriched_report BOOLEAN NOT NULL DEFAULT FALSE;
 		CREATE TABLE unknown_trivy_reports (
@@ -365,26 +276,14 @@ var sqlMigrations = map[string]string{
 			PRIMARY KEY (account_name, repo_name, digest, format)
 		);
 	`,
-	"049_stored_trivy_reports.down.sql": `
-		ALTER TABLE trivy_security_info
-			DROP COLUMN has_enriched_report;
-		DROP TABLE unknown_trivy_reports;
-	`,
-	"050_add_vuln_status_transition.up.sql": `
+	50: `
 		ALTER TABLE trivy_security_info
 			ADD COLUMN vuln_status_changed_at TIMESTAMPTZ DEFAULT NULL;
 	`,
-	"050_add_vuln_status_transition.down.sql": `
-		ALTER TABLE trivy_security_info
-			DROP COLUMN vuln_status_changed_at;
-	`,
-	"051_add_vuln_status_index_over_not_clean.up.sql": `
+	51: `
 		CREATE INDEX ON trivy_security_info (repo_id, digest) WHERE vuln_status <> 'Clean';
 	`,
-	"051_add_vuln_status_index_over_not_clean.down.sql": `
-		DROP INDEX trivy_security_info_repo_id_digest_idx;
-	`,
-	"052_replace_required_labels_with_cel_expression.up.sql": `
+	52: `
 		ALTER TABLE accounts ADD COLUMN rule_for_manifest TEXT NOT NULL DEFAULT '';
 
 		-- Splits the comma separated list of labels and builds a CEL conjunction using the Map Key Membership (in) operator
@@ -401,41 +300,15 @@ var sqlMigrations = map[string]string{
 
 		ALTER TABLE accounts DROP COLUMN required_labels;
 	`,
-	"052_replace_required_labels_with_cel_expression.down.sql": `
-		ALTER TABLE accounts ADD COLUMN required_labels TEXT NOT NULL DEFAULT '';
-
-		-- Parses the labels from a CEL expression and joins them as a comma separated list
-		-- I.e. 'foo' in labels && 'bar' in labels && 'baz' in labels --> 'foo,bar,baz'
-		UPDATE accounts
-		SET required_labels = (
-			SELECT string_agg(match[1], ',')
-			FROM unnest(string_to_array(rule_for_manifest, ' && ')) AS label_expr
-			CROSS JOIN LATERAL regexp_matches(label_expr, '\''([a-zA-Z_][a-zA-Z0-9_]*)\'' in labels') AS match
-		)
-		WHERE rule_for_manifest <> '';
-
-
-		ALTER TABLE accounts DROP COLUMN rule_for_manifest;
-	`,
-	"053_change_vulnerability_report_to_allow_never_scanning_again.up.sql": `
+	53: `
 		UPDATE trivy_security_info SET vuln_status = 'Pending', next_check_at = NOW() WHERE vuln_status = 'Rotten';
 		ALTER TABLE trivy_security_info
 			ALTER COLUMN next_check_at DROP NOT NULL,
 			ADD CONSTRAINT next_check_at_only_null_when_rotten CHECK ((vuln_status = 'Rotten') = (next_check_at IS NULL));
 	`,
-	"053_change_vulnerability_report_to_allow_never_scanning_again.down.sql": `
-		UPDATE trivy_security_info SET next_check_at = NOW() WHERE vuln_status = 'Rotten';
-		ALTER TABLE trivy_security_info
-			ALTER COLUMN next_check_at SET NOT NULL,
-			DROP CONSTRAINT next_check_at_only_null_when_rotten;
-	`,
-	"054_add_quotas_bytes.up.sql": `
+	54: `
 		ALTER TABLE quotas
 			ADD COLUMN bytes BIGINT NOT NULL DEFAULT -1;
-	`,
-	"054_add_quotas_bytes.down.sql": `
-		ALTER TABLE quotas
-			DROP COLUMN bytes;
 	`,
 }
 
@@ -473,22 +346,22 @@ func SelectSeveralValues[T any](db DBInterface, query string, args ...any) ([]T,
 	return result, err
 }
 
-// DBConfiguration returns the easypg.Configuration object that func InitDB() uses to initialize the DB connection.
+// DBConfiguration returns the [pgruntime.ConnectionBehavior] object that [InitDB] uses to initialize the DB connection.
 // This is exported because test.NewSetup() needs to be able to access it.
-func DBConfiguration() easypg.Configuration {
-	return easypg.Configuration{
+func DBConfiguration() pgruntime.ConnectionBehavior {
+	return pgruntime.ConnectionBehavior{
 		Migrations: sqlMigrations,
 	}
 }
 
 // InitDB initializes a DB connection for productive use.
 // (Tests use the DB connection logic in test.NewSetup() instead.)
-func InitDB() *gsql.DB {
-	dbURL, dbName := getDatabaseURLFromEnvironment()
-	dbConn := must.Return(easypg.Connect(dbURL, DBConfiguration()))
+func InitDB(ctx context.Context) *gsql.DB {
+	target := getDatabaseURLFromEnvironment()
+	dbConn := must.Return(pgruntime.StdConnector("postgres").Connect(ctx, target, DBConfiguration()))
 	// ensure that this process does not starve other Keppel processes for DB connections
 	dbConn.SetMaxOpenConns(16)
 
-	prometheus.MustRegister(sqlstats.NewStatsCollector(dbName, dbConn))
-	return gsql.NewDB(dbConn)
+	prometheus.MustRegister(sqlstats.NewStatsCollector(target.DatabaseName, dbConn))
+	return dbConn
 }
