@@ -85,6 +85,7 @@ func getDatabaseURLFromEnvironment() pgruntime.ConnectionTarget {
 		Password:          os.Getenv("KEPPEL_DB_PASSWORD"),
 		ConnectionOptions: os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"),
 		DatabaseName:      osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel"),
+		ApplicationName:   bininfo.Component(),
 	}
 }
 
