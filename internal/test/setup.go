@@ -17,7 +17,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/logg"
@@ -25,6 +24,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pgruntime"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -254,16 +254,11 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	}
 
 	// connect to DB
-	dbOpts := []easypg.TestSetupOption{
-		// manifest_manifest_refs needs a specialized cleanup strategy because of an "ON DELETE RESTRICT" constraint
-		easypg.ClearContentsWith(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`),
-		easypg.ClearTables("manifest_blob_refs", "accounts", "peers", "quotas"),
-		easypg.ResetPrimaryKeys("blobs", "repos"),
-	}
+	var dbOpts []pgruntime.TestSetupOption
 	if params.IsSecondary {
-		dbOpts = append(dbOpts, easypg.OverrideDatabaseName(t.Name()+"_secondary"))
+		dbOpts = append(dbOpts, pgruntime.OverrideDatabaseName(t.Name()+"_secondary"))
 	}
-	s.DB = gsql.NewDB(easypg.ConnectForTest(t, keppel.DBConfiguration(), dbOpts...))
+	s.DB, _ = pgruntime.StdConnector("postgres").ConnectForTest(t, keppel.DBConfiguration(), dbOpts...)
 
 	// setup anycast if requested
 	if params.WithAnycast {

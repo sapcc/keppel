@@ -18,11 +18,10 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-api-declarations/bininfo"
-	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/sapcc/go-bits/pluggable"
+	"go.xyrillian.de/gg/pgruntime"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/trivy"
@@ -78,16 +77,16 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 }
 
 // getDatabaseURLFromEnvironment reads the KEPPEL_DB_* environment variables.
-func getDatabaseURLFromEnvironment() (dbURL url.URL, dbName string) {
-	dbName = osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel")
-	return must.Return(easypg.URLFrom(easypg.URLParts{
+func getDatabaseURLFromEnvironment() pgruntime.ConnectionTarget {
+	return pgruntime.ConnectionTarget{
 		HostName:          osext.GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost"),
 		Port:              osext.GetenvOrDefault("KEPPEL_DB_PORT", "5432"),
 		UserName:          osext.GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres"),
 		Password:          os.Getenv("KEPPEL_DB_PASSWORD"),
 		ConnectionOptions: os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"),
-		DatabaseName:      dbName,
-	})), dbName
+		DatabaseName:      osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel"),
+		ApplicationName:   bininfo.Component(),
+	}
 }
 
 // ParseConfiguration obtains a keppel.Configuration instance from the

@@ -7,9 +7,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
+	"go.xyrillian.de/gg/pgruntime"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/models"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	easypg.WithTestDB(m, func() int { return m.Run() })
+	pgruntime.WithTestDB(m, m.Run)
 }
 
 func TestRepoClientBasic(t *testing.T) {
