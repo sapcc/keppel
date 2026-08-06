@@ -7,7 +7,7 @@ require (
 	github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/go-redis/redis_rate/v10 v10.0.1
-	github.com/gofrs/uuid/v5 v5.5.0
+	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/cel-go v0.30.0
 	github.com/gophercloud/gophercloud/v2 v2.13.0
@@ -22,7 +22,7 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.24.0
-	github.com/sapcc/go-bits v0.0.0-20260730170321-f6f727520601
+	github.com/sapcc/go-bits v0.0.0-20260806072527-32381c36b909
 	github.com/spf13/cobra v1.10.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.41.0
