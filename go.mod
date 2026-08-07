@@ -13,7 +13,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.13.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/klauspost/compress v1.19.1
+	github.com/klauspost/compress v1.19.2
 	github.com/lib/pq v1.12.3
 	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260730175803-fee21197eb94
 	github.com/opencontainers/go-digest v1.0.0
