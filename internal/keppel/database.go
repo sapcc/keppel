@@ -310,6 +310,10 @@ var sqlMigrations = map[int64]string{
 		ALTER TABLE quotas
 			ADD COLUMN bytes BIGINT NOT NULL DEFAULT -1;
 	`,
+	55: `
+		ALTER TABLE pending_blobs
+			ADD COLUMN last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+	`,
 }
 
 // DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].

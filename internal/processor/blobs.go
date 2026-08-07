@@ -124,6 +124,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 		Digest:       blob.Digest,
 		Reason:       models.PendingBecauseOfReplication,
 		PendingSince: p.timeNow(),
+		LastSeenAt:   p.timeNow(),
 	}
 	err := models.PendingBlobStore.Insert(ctx, p.db, &pendingBlob)
 	if err != nil {
@@ -151,12 +152,40 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 		}
 	}()
 
+	// start a heartbeat so that the janitor does not clean up this entry while it is still replicating
+	replicationCtx, cancelReplication := context.WithCancel(ctx)
+	defer cancelReplication()
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-replicationCtx.Done():
+				return
+			case <-ticker.C:
+				_, err := p.db.ExecContext(ctx,
+					`UPDATE pending_blobs SET last_seen_at = NOW() WHERE account_name = $1 AND digest = $2`,
+					account.Name, blob.Digest,
+				)
+				if err != nil {
+					if replicationCtx.Err() != nil {
+						return
+					}
+					logg.Error("failed to update heartbeat for pending blob %s in account %s, aborting replication: %s",
+						blob.Digest, account.Name, err.Error())
+					cancelReplication()
+					return
+				}
+			}
+		}
+	}()
+
 	// query upstream for the blob
-	client, err := p.getRepoClientForUpstream(ctx, account, repo)
+	client, err := p.getRepoClientForUpstream(replicationCtx, account, repo)
 	if err != nil {
 		return false, err
 	}
-	blobReadCloser, blobLengthBytes, err := client.DownloadBlob(ctx, blob.Digest)
+	blobReadCloser, blobLengthBytes, err := client.DownloadBlob(replicationCtx, blob.Digest)
 	if err != nil {
 		return false, err
 	}
@@ -172,7 +201,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 		blobReader = io.TeeReader(blobReader, w)
 	}
 
-	err = p.uploadBlobToLocal(ctx, blob, account, blobReader, blobLengthBytes)
+	err = p.uploadBlobToLocal(replicationCtx, blob, account, blobReader, blobLengthBytes)
 	if err != nil {
 		return true, err
 	}

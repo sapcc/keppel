@@ -16,6 +16,7 @@ type PendingBlob struct {
 	Digest       digest.Digest `db:"digest"`
 	Reason       PendingReason `db:"reason"`
 	PendingSince time.Time     `db:"since"`
+	LastSeenAt   time.Time     `db:"last_seen_at"`
 }
 
 // PendingBlobStore provides loading and storing of [PendingBlob] objects from the DB.
