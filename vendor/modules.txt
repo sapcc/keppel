@@ -33,8 +33,6 @@ github.com/databus23/goslo.policy
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit; go 1.11
 github.com/dlmiddlecote/sqlstats
-# github.com/docker/docker v28.5.2+incompatible
-## explicit
 # github.com/go-redis/redis_rate/v10 v10.0.1
 ## explicit; go 1.19
 github.com/go-redis/redis_rate/v10
@@ -44,15 +42,6 @@ github.com/gofrs/uuid/v5
 # github.com/golang-jwt/jwt/v5 v5.3.1
 ## explicit; go 1.21
 github.com/golang-jwt/jwt/v5
-# github.com/golang-migrate/migrate/v4 v4.19.1
-## explicit; go 1.24.0
-github.com/golang-migrate/migrate/v4
-github.com/golang-migrate/migrate/v4/database
-github.com/golang-migrate/migrate/v4/database/multistmt
-github.com/golang-migrate/migrate/v4/database/postgres
-github.com/golang-migrate/migrate/v4/internal/url
-github.com/golang-migrate/migrate/v4/source
-github.com/golang-migrate/migrate/v4/source/go_bindata
 # github.com/google/cel-go v0.30.0
 ## explicit; go 1.23.0
 github.com/google/cel-go/cel
@@ -200,7 +189,7 @@ github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20260806170240-4bbc84d224db
+# github.com/sapcc/go-bits v0.0.0-20260807113723-c69b44460685
 ## explicit; go 1.26
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
