@@ -15,6 +15,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 	"go.podman.io/image/v5/manifest"
 	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
@@ -141,6 +142,10 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 	// whatever happens, don't forget to cleanup the PendingBlob DB entry afterwards
 	// to unblock others who are waiting for this replication to come to an end
 	// (one way or the other)
+	//
+	// NOTE: This defer must be registered before the transaction defer below,
+	// so that the LIFO ordering ensures the transaction is rolled back first
+	// (releasing the FOR UPDATE lock) before the DELETE executes.
 	defer func() {
 		_, err := p.db.Exec(
 			`DELETE FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
@@ -150,6 +155,20 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 			returnErr = err
 		}
 	}()
+
+	// hold a lock on the inserted row so that the janitor does not clean it up
+	tx, err := p.db.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer sqlext.RollbackUnlessCommitted(tx)
+	_, err = tx.Exec(
+		`SELECT 1 FROM pending_blobs WHERE account_name = $1 AND digest = $2 FOR UPDATE`,
+		account.Name, blob.Digest,
+	)
+	if err != nil {
+		return false, err
+	}
 
 	// query upstream for the blob
 	client, err := p.getRepoClientForUpstream(ctx, account, repo)
