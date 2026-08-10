@@ -64,9 +64,9 @@ var (
 	objectsGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "keppel_multi_storage_driver_objects",
-			Help: "Number of objects in the old storage driver by account and type.",
+			Help: "Number of objects in the old and new storage driver by account and type.",
 		},
-		[]string{"account", "type"},
+		[]string{"account", "side", "type"},
 	)
 )
 
@@ -273,15 +273,21 @@ func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account model
 
 		return reader, sizeBytes, nil
 	case cleanupPhase:
-		err := d.oldDriver.DeleteBlob(ctx, account, storageID)
-		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
+		reader, size, err := d.newDriver.ReadBlobForValidation(ctx, account, storageID)
+		if err != nil {
 			return nil, 0, err
+		}
+
+		// delete blob only one we know it exists on the new side
+		err = d.oldDriver.DeleteBlob(ctx, account, storageID)
+		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
+			return nil, 0, errext.WithCleanup(err, "Reader.Close", reader.Close())
 		}
 		if err == nil {
 			cleanedUpCounter.With(prometheus.Labels{"type": "blobs"}).Inc()
 		}
 
-		return d.newDriver.ReadBlobForValidation(ctx, account, storageID)
+		return reader, size, err
 	case finalizePhase:
 		return d.newDriver.ReadBlobForValidation(ctx, account, storageID)
 	default:
@@ -378,7 +384,13 @@ func (d *StorageDriver) ReadManifestForValidation(ctx context.Context, account m
 		}
 		return contents, nil
 	case cleanupPhase:
-		err := d.oldDriver.DeleteManifest(ctx, account, repoName, manifestDigest)
+		manifest, err := d.newDriver.ReadManifest(ctx, account, repoName, manifestDigest)
+		if err != nil {
+			return nil, err
+		}
+
+		// delete manifest only one we know it exists on the new side
+		err = d.oldDriver.DeleteManifest(ctx, account, repoName, manifestDigest)
 		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
 			return nil, err
 		}
@@ -386,7 +398,7 @@ func (d *StorageDriver) ReadManifestForValidation(ctx context.Context, account m
 			cleanedUpCounter.With(prometheus.Labels{"type": "manifests"}).Inc()
 		}
 
-		return d.newDriver.ReadManifest(ctx, account, repoName, manifestDigest)
+		return manifest, err
 	case finalizePhase:
 		return d.newDriver.ReadManifest(ctx, account, repoName, manifestDigest)
 	default:
@@ -545,28 +557,28 @@ func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.Re
 // ListStorageContents implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, []keppel.StoredTrivyReportInfo, error) {
 	switch d.Phase {
-	case copyPhase:
-		blobs, manifests, trivyReports, err := d.oldDriver.ListStorageContents(ctx, account)
+	case copyPhase, cleanupPhase:
+		oldBlobs, oldManifests, oldTrivyReports, err := d.oldDriver.ListStorageContents(ctx, account)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		newBlobs, newManifests, newTrivyReports, err := d.newDriver.ListStorageContents(ctx, account)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 
-		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "type": "blobs"}).Set(float64(len(blobs)))
-		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "type": "manifests"}).Set(float64(len(manifests)))
-		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "type": "trivy_reports"}).Set(float64(len(trivyReports)))
+		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "side": "old", "type": "blobs"}).Set(float64(len(oldBlobs)))
+		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "side": "old", "type": "manifests"}).Set(float64(len(oldManifests)))
+		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "side": "old", "type": "trivy_reports"}).Set(float64(len(oldTrivyReports)))
+		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "side": "new", "type": "blobs"}).Set(float64(len(newBlobs)))
+		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "side": "new", "type": "manifests"}).Set(float64(len(newManifests)))
+		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "side": "new", "type": "trivy_reports"}).Set(float64(len(newTrivyReports)))
 
-		return blobs, manifests, trivyReports, nil
-	case cleanupPhase:
-		blobs, manifests, trivyReports, err := d.oldDriver.ListStorageContents(ctx, account)
-		if err != nil {
-			return nil, nil, nil, err
+		if d.Phase == copyPhase {
+			return oldBlobs, oldManifests, oldTrivyReports, nil
+		} else {
+			return newBlobs, newManifests, newTrivyReports, nil
 		}
-
-		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "type": "blobs"}).Set(float64(len(blobs)))
-		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "type": "manifests"}).Set(float64(len(manifests)))
-		objectsGauge.With(prometheus.Labels{"account": string(account.Name), "type": "trivy_reports"}).Set(float64(len(trivyReports)))
-
-		return d.newDriver.ListStorageContents(ctx, account)
 	case finalizePhase:
 		err := d.oldDriver.CleanupAccount(ctx, account)
 		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
