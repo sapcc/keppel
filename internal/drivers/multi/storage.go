@@ -279,11 +279,11 @@ func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account model
 		}
 
 		// delete blob only one we know it exists on the new side
-		err = d.oldDriver.DeleteBlob(ctx, account, storageID)
-		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
-			return nil, 0, errext.WithCleanup(err, "Reader.Close", reader.Close())
+		errOnOldSide := d.oldDriver.DeleteBlob(ctx, account, storageID)
+		if errOnOldSide != nil && !errors.Is(errOnOldSide, keppel.NotFoundInStorageError{}) {
+			return nil, 0, errext.WithCleanup(errOnOldSide, "Reader.Close", reader.Close())
 		}
-		if err == nil {
+		if errOnOldSide == nil {
 			cleanedUpCounter.With(prometheus.Labels{"type": "blobs"}).Inc()
 		}
 
@@ -390,11 +390,11 @@ func (d *StorageDriver) ReadManifestForValidation(ctx context.Context, account m
 		}
 
 		// delete manifest only one we know it exists on the new side
-		err = d.oldDriver.DeleteManifest(ctx, account, repoName, manifestDigest)
-		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
-			return nil, err
+		errOnOldSide := d.oldDriver.DeleteManifest(ctx, account, repoName, manifestDigest)
+		if errOnOldSide != nil && !errors.Is(errOnOldSide, keppel.NotFoundInStorageError{}) {
+			return nil, errOnOldSide
 		}
-		if err == nil {
+		if errOnOldSide == nil {
 			cleanedUpCounter.With(prometheus.Labels{"type": "manifests"}).Inc()
 		}
 
