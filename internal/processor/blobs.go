@@ -34,6 +34,23 @@ func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Red
 	}
 
 	readCloser, _, err := p.sd.ReadBlobForValidation(ctx, account, blob.StorageID)
+	// If we cannot find the blob and the account is a replication from somewhere else try to get it from there
+	if errors.Is(err, keppel.NotFoundInStorageError{}) && (account.ExternalPeerURL != "" || account.UpstreamPeerHostName != "") {
+		// find any repo that mounts this blob (needed by ReplicateBlob to identify the upstream repo)
+		repo, repoErr := models.ReducedRepositoryStore.SelectOneWhere(ctx, p.db,
+			`id = (SELECT repo_id FROM blob_mounts WHERE blob_id = $1)`,
+			blob.ID,
+		)
+		if repoErr != nil {
+			// if there is no blob_mount, the blob is about to be garbage-collected anyway
+			return fmt.Errorf("blob could not be found while validating and no repo mounts it: %w", repoErr)
+		}
+		_, replicateErr := p.ReplicateBlob(ctx, blob, account, repo, nil)
+		if replicateErr != nil {
+			return fmt.Errorf("blob could not be found while validating and replication failed: %w", replicateErr)
+		}
+		return nil
+	}
 	if err != nil {
 		return err
 	}

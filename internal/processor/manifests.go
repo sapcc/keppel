@@ -177,8 +177,17 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 }
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
-func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest) error {
+func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
 	manifestBytes, err := p.sd.ReadManifestForValidation(ctx, account, repo.Name, manifest.Digest)
+	// If we cannot find the manifest and the account is a replication from somewhere else try to get it from there
+	if errors.Is(err, keppel.NotFoundInStorageError{}) && (account.ExternalPeerURL != "" || account.UpstreamPeerHostName != "") {
+		var replicationErr error
+		manifest, manifestBytes, replicationErr = p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: manifest.Digest}, tagPolicies, actx)
+		if replicationErr != nil {
+			return fmt.Errorf("%w (additional error while trying to self-heal by replicating this manifest: %w)", err, replicationErr)
+		}
+		err = nil
+	}
 	if err != nil {
 		return err
 	}
