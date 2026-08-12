@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,8 +19,10 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"go.xyrillian.de/gg/gsql"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/processor"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -596,5 +599,55 @@ func TestReplicationSuccessfulFromNVCRio(t *testing.T) {
 		s1.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest",
 			httptest.WithHeaders(s1.GetTokenHeaders(t, "repository:test1/foo:pull")),
 		).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
+	})
+}
+
+func TestReplicationSelfHealingOnValidation(t *testing.T) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
+		// upload image to primary account
+		image := test.GenerateImage(test.GenerateExampleLayer(1))
+		s1.Clock.StepBy(time.Second)
+		image.MustUpload(t, s1, fooRepoRef, "first")
+
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			if !firstPass {
+				return // self-healing requires upstream to be reachable
+			}
+
+			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
+
+			// pull to trigger replication
+			s1.Clock.StepBy(time.Second)
+			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "first")
+			expectBlobExists(t, s2, tokenHeaders, "test1/foo", image.Config)
+			expectBlobExists(t, s2, tokenHeaders, "test1/foo", image.Layers[0])
+
+			// find account and repo info for the secondary
+			account := must.Return(keppel.FindReducedAccount(ctx, s2.DB, "test1"))
+			repo := must.Return(keppel.FindRepository(ctx, s2.DB, "foo", "test1"))
+
+			// create a processor for validation
+			p := processor.New(s2.Config, s2.DB, s2.SD, s2.ICD, s2.Auditor, s2.FD, s1.Clock.Now).
+				OverrideGenerateStorageID(s2.SIDGenerator.Next)
+			actx := keppel.AuditContext{
+				UserIdentity: &auth.PeerUserIdentity{PeerHostName: "self-healing-test"},
+				Request:      &http.Request{URL: &url.URL{Path: "/self-healing-test"}},
+			}
+
+			// test manifest self-healing: delete manifest from storage, then validate
+			must.Succeed(s2.SD.DeleteManifest(ctx, account, repo.Name, image.Manifest.Digest))
+			manifest := must.Return(keppel.FindManifest(ctx, s2.DB, repo.Reduced(), image.Manifest.Digest))
+			must.Succeed(p.ValidateExistingManifest(ctx, account, repo.Reduced(), &manifest, nil, actx))
+			s1.Clock.StepBy(time.Second)
+			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "first")
+
+			// test blob self-healing: delete blob from storage, then validate
+			blob := must.Return(keppel.FindBlobByRepositoryName(ctx, s2.DB, image.Layers[0].Digest, "foo", "test1"))
+			must.Succeed(s2.SD.DeleteBlob(ctx, account, blob.StorageID))
+			must.Succeed(p.ValidateExistingBlob(ctx, account, blob))
+			s1.Clock.StepBy(time.Second)
+			expectBlobExists(t, s2, tokenHeaders, "test1/foo", image.Layers[0])
+		})
 	})
 }
