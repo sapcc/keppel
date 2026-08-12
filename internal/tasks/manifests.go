@@ -101,7 +101,7 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 		if updateErr != nil {
 			err = fmt.Errorf("%w (additional error encountered while recording validation error: %w)", err, updateErr)
 		}
-		return fmt.Errorf("while validating manifest %s in repo %d: %w", manifest.Digest, manifest.RepositoryID, err)
+		return fmt.Errorf("while validating manifest %s in repo %s: %w", manifest.Digest, repo.FullName(), err)
 	}
 
 	// on success, reset error message and schedule next validation

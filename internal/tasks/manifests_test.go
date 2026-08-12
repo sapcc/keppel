@@ -164,7 +164,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	// validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
 	expectedError := fmt.Sprintf(
-		"while validating manifest %s in repo 1: manifest blob unknown to registry: %s",
+		"while validating manifest %s in repo test1/foo: manifest blob unknown to registry: %s",
 		image.Manifest.Digest, image.Config.Digest,
 	)
 	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), expectedError)
