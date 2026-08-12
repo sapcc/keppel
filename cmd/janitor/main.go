@@ -59,6 +59,7 @@ func run(cmd *cobra.Command, args []string) {
 	go janitor.ManifestSyncJob(nil).Run(ctx)
 	go janitor.BlobValidationJob(nil).Run(ctx)
 	go janitor.ManifestValidationJob(nil).Run(ctx)
+	go janitor.CleanupPendingBlobsJob(nil).Run(ctx)
 	if cfg.Trivy != nil {
 		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx)
 	}
