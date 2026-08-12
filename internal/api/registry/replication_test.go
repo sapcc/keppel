@@ -644,9 +644,17 @@ func TestReplicationSelfHealingOnValidation(t *testing.T) {
 
 			// test blob self-healing: delete blob from storage, then validate
 			blob := must.Return(keppel.FindBlobByRepositoryName(ctx, s2.DB, image.Layers[0].Digest, "foo", "test1"))
+			oldStorageID := blob.StorageID
 			must.Succeed(s2.SD.DeleteBlob(ctx, account, blob.StorageID))
 			must.Succeed(p.ValidateExistingBlob(ctx, account, blob))
-			s1.Clock.StepBy(time.Second)
+
+			// verify that the blob was re-replicated with a new storage_id
+			reloadedBlob := must.Return(keppel.FindBlobByAccountName(ctx, s2.DB, image.Layers[0].Digest, "test1"))
+			if reloadedBlob.StorageID == oldStorageID {
+				t.Error("expected blob storage_id to change after self-healing, but it remained the same")
+			}
+
+			// verify that the blob is readable from storage with the new storage_id
 			expectBlobExists(t, s2, tokenHeaders, "test1/foo", image.Layers[0])
 		})
 	})

@@ -49,7 +49,16 @@ func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Red
 		if replicateErr != nil {
 			return fmt.Errorf("blob could not be found while validating and replication failed: %w", replicateErr)
 		}
-		return nil
+
+		// ReplicateBlob() updates the DB row with a fresh storage_id; reload and proceed with validation
+		blob, err = keppel.FindBlobByAccountName(ctx, p.db, blob.Digest, account.Name)
+		if err != nil {
+			return fmt.Errorf("blob replicated, but could not reload blob from DB: %w", err)
+		}
+		readCloser, _, err = p.sd.ReadBlobForValidation(ctx, account, blob.StorageID)
+		if err != nil {
+			return fmt.Errorf("blob replicated, but could not read blob from storage: %w", err)
+		}
 	}
 	if err != nil {
 		return err
