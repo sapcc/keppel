@@ -55,7 +55,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 
 	if errors.Is(err, sql.ErrNoRows) {
 		// if the manifest does not exist there, we may have the option of replicating from upstream
-		tryReplication, rerr := mayReplicateManifest(*account, *authz, *challenge, r)
+		tryReplication, rerr := mayReplicateManifest(*account, *authz, *challenge, *repo, reference, r)
 		if rerr != nil {
 			rerr.WriteAsRegistryV2ResponseTo(w, r)
 			return
@@ -215,7 +215,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 
 // Checks whether the requesting user may replicate missing manifests in this account/repo.
 // If not, returns either false (to render a regular 404 response) or an error (to render a custom response).
-func mayReplicateManifest(account models.ReducedAccount, authz auth.Authorization, challenge auth.Challenge, r *http.Request) (bool, *keppel.RegistryV2Error) {
+func mayReplicateManifest(account models.ReducedAccount, authz auth.Authorization, challenge auth.Challenge, repo models.ReducedRepository, reference models.ManifestReference, r *http.Request) (bool, *keppel.RegistryV2Error) {
 	// check account eligibility
 	if account.UpstreamPeerHostName == "" && account.ExternalPeerURL == "" {
 		return false, nil // not a replica account of any kind
@@ -251,8 +251,8 @@ func mayReplicateManifest(account models.ReducedAccount, authz auth.Authorizatio
 
 	// when replicating from external, only authenticated users can trigger the replication
 	if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
-		if !authz.ScopeSet.AllowsAnonymousFirstPullOn(mux.Vars(r)["repository"]) {
-			rerr := keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images")
+		if !authz.ScopeSet.AllowsAnonymousFirstPullOn(repo.FullName()) {
+			rerr := keppel.ErrDenied.With(fmt.Sprintf("image %q does not exist here, and anonymous users may not replicate images", models.ImageReference{Host: r.Host, RepoName: repo.FullName(), Reference: reference}))
 			// this must be a 401 and include a challenge; clients should be able to understand that
 			// they can retry this after authenticating and expect a different result
 			return false, challenge.AddTo(rerr).WithStatus(http.StatusUnauthorized)

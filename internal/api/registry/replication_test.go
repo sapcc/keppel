@@ -282,7 +282,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 				ExpectHeader(t, "Www-Authenticate", `Bearer realm="https://registry-secondary.example.org/keppel/v1/auth",service="registry-secondary.example.org",scope="repository:test1/foo:pull"`).
 				ExpectJSON(t, http.StatusUnauthorized, test.ErrorCodeWithMessage{
 					Code:    keppel.ErrDenied,
-					Message: "image does not exist here, and anonymous users may not replicate images",
+					Message: "image \"example.com/test1/foo:first\" does not exist here, and anonymous users may not replicate images",
 				})
 
 			// ...but allowed with a non-anonymous token...
