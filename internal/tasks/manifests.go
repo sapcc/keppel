@@ -80,9 +80,13 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 	if err != nil {
 		return fmt.Errorf("cannot find repo %d for manifest %s: %w", manifest.RepositoryID, manifest.Digest, err)
 	}
-	account, err := keppel.FindReducedAccount(ctx, j.db, repo.AccountName)
+	account, err := keppel.FindAccount(ctx, j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for manifest %s/%s: %w", repo.FullName(), manifest.Digest, err)
+	}
+	tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
+	if err != nil {
+		return err
 	}
 
 	// if the validation succeeds, these fields will be committed
@@ -90,8 +94,13 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 	manifest.NextValidationAt = nextValidationAt
 	manifest.ValidationErrorMessage = ""
 
+	actx := keppel.AuditContext{
+		UserIdentity: janitorUserIdentity{TaskName: "manifest-validation"},
+		Request:      janitorDummyRequest,
+	}
+
 	// perform validation
-	err = j.processor().ValidateExistingManifest(ctx, account, repo.Reduced(), &manifest)
+	err = j.processor().ValidateExistingManifest(ctx, account.Reduced(), repo.Reduced(), &manifest, tagPolicies, actx)
 	if err != nil {
 		// on failure, log error message and schedule next validation sooner than usual
 		_, updateErr := j.db.Exec(validateManifestFinishQuery,
@@ -101,7 +110,7 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 		if updateErr != nil {
 			err = fmt.Errorf("%w (additional error encountered while recording validation error: %w)", err, updateErr)
 		}
-		return fmt.Errorf("while validating manifest %s in repo %d: %w", manifest.Digest, manifest.RepositoryID, err)
+		return fmt.Errorf("while validating manifest %s in repo %s: %w", manifest.Digest, repo.FullName(), err)
 	}
 
 	// on success, reset error message and schedule next validation
