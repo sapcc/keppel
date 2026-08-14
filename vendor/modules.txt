@@ -42,7 +42,7 @@ github.com/gofrs/uuid/v5
 # github.com/golang-jwt/jwt/v5 v5.3.1
 ## explicit; go 1.21
 github.com/golang-jwt/jwt/v5
-# github.com/google/cel-go v0.30.0
+# github.com/google/cel-go v0.31.0
 ## explicit; go 1.23.0
 github.com/google/cel-go/cel
 github.com/google/cel-go/cel/async
@@ -230,7 +230,7 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
-# go.podman.io/image/v5 v5.41.0
+# go.podman.io/image/v5 v5.41.1
 ## explicit; go 1.25.7
 go.podman.io/image/v5/docker/reference
 go.podman.io/image/v5/internal/manifest
