@@ -327,18 +327,23 @@ func TestGetTrivyReport(t *testing.T) {
 		).ExpectStatus(t, http.StatusMethodNotAllowed)
 
 		// for the scannable image, upload a dummy report to the storage in the same way that CheckTrivySecurityStatusJob would
-		buf := fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, imageManifest.Digest.String())
-		report := trivy.ReportPayload{
-			Format:   "json",
-			Contents: io.NopCloser(bytes.NewReader(buf)),
-		}
 		repo := must.ReturnT(keppel.FindRepositoryByID(ctx, s.DB, imageManifest.RepositoryID))(t)
 		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, repo.AccountName))(t)
-		must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, repo.Name, imageManifest.Digest, report))
-		test.MustExec(t, s.DB,
-			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
-			models.CleanSeverity, imageManifest.Digest.String(),
-		)
+		uploadDummyReport := func(m models.Manifest) []byte {
+			t.Helper()
+			buf := fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, m.Digest.String())
+			report := trivy.ReportPayload{
+				Format:   "json",
+				Contents: io.NopCloser(bytes.NewReader(buf)),
+			}
+			must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, repo.Name, m.Digest, report))
+			test.MustExec(t, s.DB,
+				"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
+				models.CleanSeverity, m.Digest.String(),
+			)
+			return buf
+		}
+		buf := uploadDummyReport(imageManifest)
 
 		// happy case: GET on the default format "json" returns that cached report
 		s.RespondTo(ctx, endpointFor(imageManifest.Digest), withPerms("view:tenant1,pull:tenant1")).
@@ -357,6 +362,26 @@ func TestGetTrivyReport(t *testing.T) {
 		s.RespondTo(ctx, endpointFor(imageManifest.Digest)+"?format=spdx-json", withPerms("view:tenant1,pull:tenant1")).
 			ExpectHeader(t, "Content-Type", "application/json").
 			ExpectJSON(t, http.StatusOK, expected)
+
+		// happy case: deleting a manifest also deletes its cached report from the storage
+		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
+		imageManifest2 := image2.MustUpload(t, s, repoRef, "")
+		buf2 := uploadDummyReport(imageManifest2)
+		s.ExpectTrivyReportExistsInStorage(t, imageManifest2, "json", buf2)
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/foo/_manifests/"+imageManifest2.Digest.String(),
+			withPerms("view:tenant1,delete:tenant1"),
+		).ExpectStatus(t, http.StatusNoContent)
+		s.ExpectTrivyReportMissingInStorage(t, imageManifest2, "json")
+
+		// edge case: deleting a manifest still succeeds when the DB says that a report should exist, but the report is somehow already gone
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/foo/_manifests/"+listManifest.Digest.String(),
+			withPerms("view:tenant1,delete:tenant1"),
+		).ExpectStatus(t, http.StatusNoContent) // this is only necessary to lift the manifest-manifest reference on `imageManifest`
+		must.SucceedT(t, s.SD.DeleteTrivyReport(s.Ctx, account, repo.Name, imageManifest.Digest, "json"))
+		s.ExpectTrivyReportMissingInStorage(t, imageManifest, "json")
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/foo/_manifests/"+imageManifest.Digest.String(),
+			withPerms("view:tenant1,delete:tenant1"),
+		).ExpectStatus(t, http.StatusNoContent)
 	})
 }
 

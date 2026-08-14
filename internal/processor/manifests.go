@@ -971,7 +971,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 	}
 	if securityInfo.HasEnrichedReport {
 		err = p.sd.DeleteTrivyReport(ctx, account, repo.Name, manifestDigest, "json")
-		if err != nil {
+		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
 			return err
 		}
 	}
