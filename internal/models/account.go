@@ -74,6 +74,11 @@ func (a Account) Reduced() ReducedAccount {
 	}
 }
 
+// IsReplica returns whether this account is a replica account.
+func (a Account) IsReplica() bool {
+	return a.UpstreamPeerHostName != "" || a.ExternalPeerURL != ""
+}
+
 // ReducedAccount contains just the fields from type Account that the Registry API is most interested in.
 // This type exists to avoid loading the large payload fields in type Account when we don't need to,
 // which is a significant memory optimization for the keppel-api process.
@@ -101,3 +106,8 @@ var ReducedAccountStore = oblast.MustNewStore[ReducedAccount](
 	oblast.TableNameIs("accounts"),
 	oblast.PrimaryKeyIs("name"),
 )
+
+// IsReplica returns whether this account is a replica account.
+func (a ReducedAccount) IsReplica() bool {
+	return a.UpstreamPeerHostName != "" || a.ExternalPeerURL != ""
+}

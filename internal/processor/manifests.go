@@ -178,11 +178,9 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
 func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
-	isReplicaAccount := account.ExternalPeerURL != "" || account.UpstreamPeerHostName != ""
-
 	manifestBytes, err := p.sd.ReadManifestForValidation(ctx, account, repo.Name, manifest.Digest)
 	// If we cannot find the manifest and the account is a replication from somewhere else try to get it from there
-	if errors.Is(err, keppel.NotFoundInStorageError{}) && isReplicaAccount {
+	if errors.Is(err, keppel.NotFoundInStorageError{}) && account.IsReplica() {
 		var replicationErr error
 		manifest, manifestBytes, replicationErr = p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: manifest.Digest}, tagPolicies, actx)
 		if replicationErr != nil {
@@ -199,7 +197,7 @@ func (p *Processor) ValidateExistingManifest(ctx context.Context, account models
 	)
 	// If validation fails because a manifest or blob referenced by this manifest is missing,
 	// and the account is being replicated from somewhere else, try to self-heal by re-replicating from upstream.
-	if err != nil && isReplicaAccount && isMissingReferenceError(err) {
+	if err != nil && account.IsReplica() && isMissingReferenceError(err) {
 		_, _, replicationErr := p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: manifest.Digest}, tagPolicies, actx)
 		if replicationErr != nil {
 			return fmt.Errorf("%w (additional error while trying to self-heal by replicating this manifest: %w)", err, replicationErr)
