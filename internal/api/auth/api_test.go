@@ -436,7 +436,7 @@ func BenchmarkParseRBACPoliciesField(b *testing.B) {
 		if tc.RBACPolicy == nil {
 			continue
 		}
-		buf := must.Return(json.Marshal([]keppel.RBACPolicy{*tc.RBACPolicy}))
+		buf := must.ReturnT(json.Marshal([]keppel.RBACPolicy{*tc.RBACPolicy}))(b)
 		payloads = append(payloads, buf)
 	}
 

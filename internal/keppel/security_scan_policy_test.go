@@ -19,7 +19,7 @@ import (
 func BenchmarkEnrichReportWithOneIgnore(b *testing.B) {
 	b.ReportAllocs()
 
-	reportContents := must.Return(os.ReadFile("../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"))
+	reportContents := must.ReturnT(os.ReadFile("../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"))(b)
 
 	b.ResetTimer()
 	for b.Loop() {
@@ -34,15 +34,15 @@ func BenchmarkEnrichReportWithOneIgnore(b *testing.B) {
 			Format:   "json",
 			Contents: io.NopCloser(bytes.NewReader(reportContents)),
 		}
-		_ = must.Return(policies.EnrichReport(&report, time.Now()))
-		must.Succeed(report.Contents.Close())
+		_ = must.ReturnT(policies.EnrichReport(&report, time.Now()))(b)
+		must.SucceedT(b, report.Contents.Close())
 	}
 }
 
 func BenchmarkEnrichReportExceptFixReleased(b *testing.B) {
 	b.ReportAllocs()
 
-	reportContents := must.Return(os.ReadFile("../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"))
+	reportContents := must.ReturnT(os.ReadFile("../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"))(b)
 
 	b.ResetTimer()
 	for b.Loop() {
@@ -58,7 +58,7 @@ func BenchmarkEnrichReportExceptFixReleased(b *testing.B) {
 			Format:   "json",
 			Contents: io.NopCloser(bytes.NewReader(reportContents)),
 		}
-		_ = must.Return(policies.EnrichReport(&report, time.Now()))
-		must.Succeed(report.Contents.Close())
+		_ = must.ReturnT(policies.EnrichReport(&report, time.Now()))(b)
+		must.SucceedT(b, report.Contents.Close())
 	}
 }
