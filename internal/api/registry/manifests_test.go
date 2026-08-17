@@ -680,7 +680,7 @@ func TestManifestAnnotations(t *testing.T) {
 		labelsJSONStr := must.ReturnT(keppel.SelectOneValue[string](s.DB, `SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 
 		var actual map[string]string
-		must.Succeed(json.Unmarshal([]byte(labelsJSONStr), &actual))
+		must.SucceedT(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
 		assert.Equal(t, actual, map[string]string{"abc": "def"})
 	})
 }

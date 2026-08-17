@@ -624,8 +624,8 @@ func TestReplicationSelfHealingOnValidation(t *testing.T) {
 			expectBlobExists(t, s2, tokenHeaders, "test1/foo", image.Layers[0])
 
 			// find account and repo info for the secondary
-			account := must.Return(keppel.FindReducedAccount(ctx, s2.DB, "test1"))
-			repo := must.Return(keppel.FindRepository(ctx, s2.DB, "foo", "test1"))
+			account := must.ReturnT(keppel.FindReducedAccount(ctx, s2.DB, "test1"))(t)
+			repo := must.ReturnT(keppel.FindRepository(ctx, s2.DB, "foo", "test1"))(t)
 
 			// create a processor for validation
 			p := processor.New(s2.Config, s2.DB, s2.SD, s2.ICD, s2.Auditor, s2.FD, s1.Clock.Now).
@@ -636,20 +636,20 @@ func TestReplicationSelfHealingOnValidation(t *testing.T) {
 			}
 
 			// test manifest self-healing: delete manifest from storage, then validate
-			must.Succeed(s2.SD.DeleteManifest(ctx, account, repo.Name, image.Manifest.Digest))
-			manifest := must.Return(keppel.FindManifest(ctx, s2.DB, repo.Reduced(), image.Manifest.Digest))
-			must.Succeed(p.ValidateExistingManifest(ctx, account, repo.Reduced(), &manifest, nil, actx))
+			must.SucceedT(t, s2.SD.DeleteManifest(ctx, account, repo.Name, image.Manifest.Digest))
+			manifest := must.ReturnT(keppel.FindManifest(ctx, s2.DB, repo.Reduced(), image.Manifest.Digest))(t)
+			must.SucceedT(t, p.ValidateExistingManifest(ctx, account, repo.Reduced(), &manifest, nil, actx))
 			s1.Clock.StepBy(time.Second)
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "first")
 
 			// test blob self-healing: delete blob from storage, then validate
-			blob := must.Return(keppel.FindBlobByRepositoryName(ctx, s2.DB, image.Layers[0].Digest, "foo", "test1"))
+			blob := must.ReturnT(keppel.FindBlobByRepositoryName(ctx, s2.DB, image.Layers[0].Digest, "foo", "test1"))(t)
 			oldStorageID := blob.StorageID
-			must.Succeed(s2.SD.DeleteBlob(ctx, account, blob.StorageID))
-			must.Succeed(p.ValidateExistingBlob(ctx, account, blob))
+			must.SucceedT(t, s2.SD.DeleteBlob(ctx, account, blob.StorageID))
+			must.SucceedT(t, p.ValidateExistingBlob(ctx, account, blob))
 
 			// verify that the blob was re-replicated with a new storage_id
-			reloadedBlob := must.Return(keppel.FindBlobByAccountName(ctx, s2.DB, image.Layers[0].Digest, "test1"))
+			reloadedBlob := must.ReturnT(keppel.FindBlobByAccountName(ctx, s2.DB, image.Layers[0].Digest, "test1"))(t)
 			if reloadedBlob.StorageID == oldStorageID {
 				t.Error("expected blob storage_id to change after self-healing, but it remained the same")
 			}

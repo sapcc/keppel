@@ -723,7 +723,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		// on the account, then check the resulting vuln_status on the image
 		expect := func(severity models.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
 			t.Helper()
-			policyJSON := must.Return(json.Marshal(policies))
+			policyJSON := must.ReturnT(json.Marshal(policies))(t)
 			test.MustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
 			// ensure that `SET vuln_status = ...` always shows up in the diff below
 			test.MustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, models.PendingVulnerabilityStatus)
@@ -999,7 +999,7 @@ func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
 		image.MustUpload(t, s, fooRepoRef, "latest")
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
-		must.Succeed(trivyJob.ProcessOne(s.Ctx))
+		must.SucceedT(t, trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().Ignore()
 
 		// delete a manifest
@@ -1016,7 +1016,7 @@ func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 
 		// mark manifest for sweep
 		s.Clock.StepBy(30 * time.Minute)
-		must.Succeed(sweepStorageJob.ProcessOne(s.Ctx))
+		must.SucceedT(t, sweepStorageJob.ProcessOne(s.Ctx))
 		assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
@@ -1026,7 +1026,7 @@ func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 
 		// clean up manifest for the deleted account
 		s.Clock.StepBy(12 * time.Hour)
-		must.Succeed(sweepStorageJob.ProcessOne(s.Ctx))
+		must.SucceedT(t, sweepStorageJob.ProcessOne(s.Ctx))
 		assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
