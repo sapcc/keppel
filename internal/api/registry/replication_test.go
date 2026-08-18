@@ -659,3 +659,58 @@ func TestReplicationSelfHealingOnValidation(t *testing.T) {
 		})
 	})
 }
+
+func TestReplicationSelfHealingOnValidationWithMissingReferencedManifest(t *testing.T) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
+		ctx := t.Context()
+		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
+		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
+		list := test.GenerateImageList(image1, image2)
+		s1.Clock.StepBy(time.Second)
+		image1.MustUpload(t, s1, fooRepoRef, "first")
+		image2.MustUpload(t, s1, fooRepoRef, "second")
+		list.MustUpload(t, s1, fooRepoRef, "list")
+
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			if !firstPass {
+				return
+			}
+
+			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
+
+			// pull the list to trigger replication
+			s1.Clock.StepBy(time.Second)
+			expectManifestExists(t, s2, tokenHeaders, "test1/foo", list.Manifest, "list")
+
+			// validate the manifest
+			p := processor.New(s2.Config, s2.DB, s2.SD, s2.ICD, s2.Auditor, s2.FD, s1.Clock.Now).
+				OverrideGenerateStorageID(s2.SIDGenerator.Next)
+			actx := keppel.AuditContext{
+				UserIdentity: &auth.PeerUserIdentity{PeerHostName: "self-healing-test"},
+				Request:      &http.Request{URL: &url.URL{Path: "/self-healing-test"}},
+			}
+
+			account := must.ReturnT(keppel.FindReducedAccount(ctx, s2.DB, "test1"))(t)
+			repo := must.ReturnT(keppel.FindRepository(ctx, s2.DB, "foo", "test1"))(t)
+
+			// simulate a referenced child manifest going missing
+			// (this is an unlikely scenario on its own, but is useful to cover in tests
+			// because changing an account's platform filter can legitimately cause
+			// an expected child manifest to be missing during subsequent validations)
+			test.MustExec(t, s2.DB,
+				`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND child_digest = $2`,
+				repo.ID, image1.Manifest.Digest)
+			test.MustExec(t, s2.DB,
+				`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
+				repo.ID, image1.Manifest.Digest)
+			must.SucceedT(t, s2.SD.DeleteManifest(ctx, account, repo.Name, image1.Manifest.Digest))
+
+			// Validating the manifest would now fail, if self-healing would not replicate it back
+			listManifest := must.ReturnT(keppel.FindManifest(ctx, s2.DB, repo.Reduced(), list.Manifest.Digest))(t)
+			must.SucceedT(t, p.ValidateExistingManifest(ctx, account, repo.Reduced(), &listManifest, nil, actx))
+
+			// the previously-missing child manifest must exist again
+			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image1.Manifest, "")
+		})
+	})
+}

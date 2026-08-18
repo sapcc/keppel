@@ -178,9 +178,11 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
 func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
+	isReplicaAccount := account.ExternalPeerURL != "" || account.UpstreamPeerHostName != ""
+
 	manifestBytes, err := p.sd.ReadManifestForValidation(ctx, account, repo.Name, manifest.Digest)
 	// If we cannot find the manifest and the account is a replication from somewhere else try to get it from there
-	if errors.Is(err, keppel.NotFoundInStorageError{}) && (account.ExternalPeerURL != "" || account.UpstreamPeerHostName != "") {
+	if errors.Is(err, keppel.NotFoundInStorageError{}) && isReplicaAccount {
 		var replicationErr error
 		manifest, manifestBytes, replicationErr = p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: manifest.Digest}, tagPolicies, actx)
 		if replicationErr != nil {
@@ -192,9 +194,28 @@ func (p *Processor) ValidateExistingManifest(ctx context.Context, account models
 		return err
 	}
 
-	return p.validateAndStoreManifestCommon(ctx, account, repo, manifest, NewBytesWithDigest(manifestBytes),
+	err = p.validateAndStoreManifestCommon(ctx, account, repo, manifest, NewBytesWithDigest(manifestBytes),
 		validateAndStoreManifestOpts{},
 	)
+	// If validation fails because a manifest or blob referenced by this manifest is missing,
+	// and the account is being replicated from somewhere else, try to self-heal by re-replicating from upstream.
+	if err != nil && isReplicaAccount && isMissingReferenceError(err) {
+		_, _, replicationErr := p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: manifest.Digest}, tagPolicies, actx)
+		if replicationErr != nil {
+			return fmt.Errorf("%w (additional error while trying to self-heal by replicating this manifest: %w)", err, replicationErr)
+		}
+		return nil
+	}
+	return err
+}
+
+// isMissingReferenceError returns true if the given error indicates that a manifest
+// or blob referenced by the manifest being validated is missing
+func isMissingReferenceError(err error) bool {
+	if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
+		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrManifestBlobUnknown
+	}
+	return false
 }
 
 type validateAndStoreManifestOpts struct {
