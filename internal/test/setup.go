@@ -310,7 +310,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		httpapi.WithoutLogging(),
 		// Registry API (and thus Auth API) are nearly always needed for
 		// Bytes.Upload, Image.Upload and ImageList.Upload
-		registryv2.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next),
+		httpapi.UnmuxedAPI(registryv2.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next).TryHandler()),
 		authapi.NewAPI(s.Config, ad, fd, s.DB),
 	}
 	if params.WithKeppelAPI {
