@@ -944,14 +944,14 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"match_repository": "library/.+",
 				"permissions":      []string{"anonymous_first_pull", "anonymous_pull"},
 			},
-			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
+			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for replica accounts`,
 		},
 		{
 			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"forbidden_permissions": []string{"anonymous_first_pull"},
 			},
-			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
+			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for replica accounts`,
 		},
 		{
 			RBACPolicyJSON: map[string]any{
