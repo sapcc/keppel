@@ -217,7 +217,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 // If not, returns either false (to render a regular 404 response) or an error (to render a custom response).
 func mayReplicateManifest(account models.ReducedAccount, authz auth.Authorization, challenge auth.Challenge, repo models.ReducedRepository, reference models.ManifestReference, r *http.Request) (bool, *keppel.RegistryV2Error) {
 	// check account eligibility
-	if account.UpstreamPeerHostName == "" && account.ExternalPeerURL == "" {
+	if !account.IsReplica() {
 		return false, nil // not a replica account of any kind
 	}
 	if account.IsDeleting {
