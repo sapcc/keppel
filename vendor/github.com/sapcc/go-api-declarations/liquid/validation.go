@@ -57,7 +57,9 @@ func validateServiceInfoImpl(srv ServiceInfo) (errs errorset.ErrorSet) {
 		if _, ok := srv.Categories[category]; hasCategory && !ok {
 			errs.Addf(".Resources[%q] has category %q, which is not declared in .Categories", resName, category)
 		}
-		// TODO: before removing UnitNone from internal/units, have a check here for a while that `res.Unit != units.UnitNone`
+		if res.Unit == UnitNone {
+			errs.Addf(`.Resources[%q] uses invalid unit "" (in your code, replace liquid.UnitNone with liquid.UnitPiece)`, resName)
+		}
 	}
 
 	for _, rateName := range slices.Sorted(maps.Keys(srv.Rates)) {
@@ -78,6 +80,9 @@ func validateServiceInfoImpl(srv ServiceInfo) (errs errorset.ErrorSet) {
 		}
 		if _, ok := srv.Categories[category]; hasCategory && !ok {
 			errs.Addf(".Rates[%q] has category %q, which is not declared in .Categories", rateName, category)
+		}
+		if rate.Unit == UnitNone {
+			errs.Addf(`.Rates[%q] uses invalid unit "" (in your code, replace liquid.UnitNone with liquid.UnitPiece)`, rateName)
 		}
 	}
 

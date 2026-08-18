@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// TODO: BaseUnitNone, UnitNone, EmptyFormat and NumberOnlyFormat can be removed when removing support for Limes v1 (after checking that no liquids use UnitNone anymore, see TODO in liquid/validation.go)
+// TODO: BaseUnitNone, UnitNone, EmptyFormat and NumberOnlyFormat can be removed when removing support for Limes v1
 
 // Amount describes an amount of a countable or measurable resource in terms of a base unit.
 // This type provides basic serialization and deserialization for unit or amount strings,
