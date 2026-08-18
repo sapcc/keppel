@@ -77,7 +77,7 @@ func run(cmd *cobra.Command, args []string) {
 	handler := httpapi.Compose(
 		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		auth.NewAPI(cfg, ad, fd, db),
-		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
+		httpapi.UnmuxedAPI(registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle).TryHandler()),
 		peerv1.NewAPI(cfg, ad, db),
 		&headerReflector{enableHeaderReflector}, // the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		httpapi.HealthCheckAPI{
