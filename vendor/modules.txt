@@ -157,7 +157,7 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/rabbitmq/amqp091-go v1.13.0
+# github.com/rabbitmq/amqp091-go v1.14.0
 ## explicit; go 1.20
 github.com/rabbitmq/amqp091-go
 # github.com/redis/go-redis/v9 v9.22.0
@@ -189,7 +189,7 @@ github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20260813170327-ea1a14435d35
+# github.com/sapcc/go-bits v0.0.0-20260818140528-75bdd20c7867
 ## explicit; go 1.26
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
@@ -247,7 +247,7 @@ go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
-# go.xyrillian.de/gg v1.13.3
+# go.xyrillian.de/gg v1.14.0
 ## explicit; go 1.26
 go.xyrillian.de/gg/assert
 go.xyrillian.de/gg/errext
@@ -256,6 +256,7 @@ go.xyrillian.de/gg/internal/path
 go.xyrillian.de/gg/jsonmatch
 go.xyrillian.de/gg/option
 go.xyrillian.de/gg/pgruntime
+go.xyrillian.de/gg/testcapture
 # go.xyrillian.de/oblast v0.13.2
 ## explicit; go 1.26
 go.xyrillian.de/oblast

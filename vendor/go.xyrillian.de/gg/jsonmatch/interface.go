@@ -268,6 +268,15 @@ func CaptureField[T any](target *T) any {
 	return capturedField{target}
 }
 
+// TODO: func CapturedField[T any](target *T) any
+//
+//   -> idea: in a large JSON structure, a key may be defined in one place and then used in another;
+//      CaptureField() picks it up at the declaration place and then CapturedField() with the same pointer is used at the reference site;
+//      during traversal, jsonmatch "remembers" all CaptureField() calls, and also stalls validation of CapturedField() for later,
+//      after traversal, CapturedField() instances are checked to see if they actually had the expected value
+//   -> problem: invocations of CaptureField() and CapturedField() look very similar
+//   -> idea: CaptureField() returns an object, and then we can call field.Ref() at the reference site
+
 type capturedField struct {
 	PointerToTarget any
 }
