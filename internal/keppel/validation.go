@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/sapcc/go-bits/must"
@@ -116,7 +116,7 @@ var celASTCache = must.Return(lru.New[string, *cel.Ast](128))
 var celEnv = must.Return(cel.NewEnv(
 	cel.Variable("labels", cel.MapType(cel.StringType, cel.StringType)),
 	// TODO: remove DynType and properly declare this
-	// https://pkg.go.dev/github.com/google/cel-go@v0.26.1/common/types#NewObjectType looks like a good lead but it is for Protobuf only...
+	// https://pkg.go.dev/cel.dev/cel-go@v0.26.1/common/types#NewObjectType looks like a good lead but it is for Protobuf only...
 	cel.Variable("layers", cel.ListType(
 		cel.MapType(cel.StringType, cel.DynType),
 	)),

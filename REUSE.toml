@@ -94,7 +94,7 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
-  "vendor/github.com/google/cel-go/**",
+  "vendor/cel.dev/cel-go/**",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Other"

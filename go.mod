@@ -3,14 +3,14 @@ module github.com/sapcc/keppel
 go 1.26.0
 
 require (
+	cel.dev/cel-go v0.32.0
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/google/cel-go v0.31.0
-	github.com/gophercloud/gophercloud/v2 v2.13.0
+	github.com/gophercloud/gophercloud/v2 v2.14.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/klauspost/compress v1.19.2
