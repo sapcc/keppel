@@ -51,7 +51,7 @@ func TestListTags(t *testing.T) {
 		}
 
 		// upload test image under all of them (in randomized order!)
-		rand.Shuffle(len(allTagNames), func(i, j int) {
+		rand.Shuffle(len(allTagNames), func(i, j int) { //nolint:gosec // weak RNG is irrelevant in tests
 			allTagNames[i], allTagNames[j] = allTagNames[j], allTagNames[i]
 		})
 		for _, tagName := range allTagNames {

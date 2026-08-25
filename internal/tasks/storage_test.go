@@ -324,8 +324,8 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
-			INSERT INTO unknown_trivy_reports (account_name, repo_name, digest, format, can_be_deleted_at) VALUES ('test1', 'foo', '%[4]s', 'json', %[2]d);
 			INSERT INTO unknown_trivy_reports (account_name, repo_name, digest, format, can_be_deleted_at) VALUES ('test1', 'foo', '%[3]s', 'json', %[2]d);
+			INSERT INTO unknown_trivy_reports (account_name, repo_name, digest, format, can_be_deleted_at) VALUES ('test1', 'foo', '%[4]s', 'json', %[2]d);
 		`,
 		s.Clock.Now().Add(6*time.Hour).Unix(), // next_storage_sweep_at
 		s.Clock.Now().Add(4*time.Hour).Unix(), // can_be_deleted_at
@@ -358,8 +358,8 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
-			DELETE FROM unknown_trivy_reports WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[3]s' AND format = 'json';
 			DELETE FROM unknown_trivy_reports WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s' AND format = 'json';
+			DELETE FROM unknown_trivy_reports WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[3]s' AND format = 'json';
 		`,
 		s.Clock.Now().Add(6*time.Hour).Unix(),
 		listManifest2.Digest.String(), listManifest1.Digest.String(),

@@ -449,13 +449,13 @@ func TestQuotasAPIWithBytes(t *testing.T) {
 
 	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
-			"bytes":     jsonmatch.Object{"quota": 50_000_000, "usage": 11555866},
+			"bytes":     jsonmatch.Object{"quota": 50_000_000, "usage": 11554914},
 			"manifests": jsonmatch.Object{"quota": 100, "usage": 10},
 		})
 	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
 		withPerms("viewquota:tenant1"),
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
-	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(50000000, 11555866, 100, 10))
+	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(50000000, 11554914, 100, 10))
 
 	// PUT error cases
 	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
@@ -501,7 +501,7 @@ func TestQuotasAPIWithBytes(t *testing.T) {
 			"bytes":     map[string]any{"quota": 1_000_000},
 			"manifests": map[string]any{"quota": 100},
 		}),
-	).ExpectText(t, http.StatusUnprocessableEntity, "requested bytes quota (1000000) is below usage (11555866)\n")
+	).ExpectText(t, http.StatusUnprocessableEntity, "requested bytes quota (1000000) is below usage (11554914)\n")
 	s.Auditor.ExpectEvents(t /*, nothing */)
 	s.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
 		withPerms("changequota:tenant1"),
@@ -511,6 +511,6 @@ func TestQuotasAPIWithBytes(t *testing.T) {
 				"images":   map[string]any{"quota": 100},
 			},
 		}),
-	).ExpectText(t, http.StatusUnprocessableEntity, "requested bytes quota (1000000) is below usage (11555866)\n")
+	).ExpectText(t, http.StatusUnprocessableEntity, "requested bytes quota (1000000) is below usage (11554914)\n")
 	s.Auditor.ExpectEvents(t /*, nothing */)
 }

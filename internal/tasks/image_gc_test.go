@@ -301,8 +301,8 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[1]s';
 			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[3]s';
-			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[6]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[5]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[6]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE repos SET next_gc_at = %[9]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[4]s';

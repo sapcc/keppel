@@ -289,8 +289,8 @@ func TestManifestSyncJob(t *testing.T) {
 			// the DB when the replica's last_pulled_at is after the primary's
 			if strategy == "on_first_use" {
 				trForPrimary.DBChanges().AssertEqualf(`
-						UPDATE manifests SET last_pulled_at = %[1]d WHERE repo_id = 1 AND digest = '%[2]s';
 						UPDATE manifests SET last_pulled_at = %[3]d WHERE repo_id = 1 AND digest = '%[4]s';
+						UPDATE manifests SET last_pulled_at = %[1]d WHERE repo_id = 1 AND digest = '%[2]s';
 						UPDATE tags SET last_pulled_at = %[3]d WHERE repo_id = 1 AND name = 'other';
 					`,
 					initialLastPulledAt.Unix(),
@@ -383,8 +383,8 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-					%[5]sDELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-					UPDATE manifests SET next_validation_at = %[6]d WHERE repo_id = 1 AND digest = '%[3]s';
+					%[5]sUPDATE manifests SET next_validation_at = %[6]d WHERE repo_id = 1 AND digest = '%[3]s';
+					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
@@ -611,8 +611,8 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 9 AND account_name = 'test1' AND digest = '%[16]s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE trivy_security_info SET next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[11]g GiB', next_check_at = %[10]d WHERE repo_id = 1 AND digest = '%[6]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[11]g GiB', next_check_at = %[10]d WHERE repo_id = 1 AND digest = '%[7]s';
 			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[3]s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[11]g GiB', next_check_at = %[10]d WHERE repo_id = 1 AND digest = '%[5]s';
