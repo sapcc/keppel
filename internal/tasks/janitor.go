@@ -4,7 +4,9 @@
 package tasks
 
 import (
-	"encoding/json"
+	json_v1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"math/rand"
 	"net/http"
@@ -122,16 +124,16 @@ func (uid janitorUserIdentity) UserInfo() audittools.UserInfo {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (uid janitorUserIdentity) SerializeToJSON() (payload []byte, err error) {
+func (uid janitorUserIdentity) SerializeToJSON(enc *jsontext.Encoder) error {
 	if uid.GCPolicy.IsSome() {
-		return nil, errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
+		return errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
 	}
-	return json.Marshal(uid.TaskName)
+	return enc.WriteToken(jsontext.String(uid.TaskName))
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
-func (uid janitorUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriver) error {
-	return json.Unmarshal(in, &uid.TaskName)
+func (uid janitorUserIdentity) DeserializeFromJSON(dec *jsontext.Decoder, ad keppel.AuthDriver) error {
+	return json.UnmarshalDecode(dec, &uid.TaskName)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -154,7 +156,7 @@ func (u janitorUserInfo) AsInitiator(_ cadf.Host) cadf.Resource {
 		ID:      u.TaskName,
 	}
 	if gcPolicy, ok := u.GCPolicy.Unpack(); ok {
-		gcPolicyJSON, _ := json.Marshal(gcPolicy)
+		gcPolicyJSON, _ := json_v1.Marshal(gcPolicy)
 		res.Attachments = append(res.Attachments, cadf.Attachment{
 			Name:    "gc-policy",
 			TypeURI: "mime:application/json",

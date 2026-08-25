@@ -5,7 +5,8 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/audittools"
@@ -56,13 +57,13 @@ func (uid *PeerUserIdentity) UserInfo() audittools.UserInfo {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (uid *PeerUserIdentity) SerializeToJSON() (payload []byte, err error) {
-	return json.Marshal(uid.PeerHostName)
+func (uid *PeerUserIdentity) SerializeToJSON(enc *jsontext.Encoder) error {
+	return enc.WriteToken(jsontext.String(uid.PeerHostName))
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
-func (uid *PeerUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
-	return json.Unmarshal(in, &uid.PeerHostName)
+func (uid *PeerUserIdentity) DeserializeFromJSON(dec *jsontext.Decoder, _ keppel.AuthDriver) error {
+	return json.UnmarshalDecode(dec, &uid.PeerHostName)
 }
 
 // Returns whether the given peer credentials are valid. On success, the Peer

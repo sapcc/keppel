@@ -4,7 +4,8 @@
 package auth
 
 import (
-	"fmt"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"github.com/sapcc/go-bits/audittools"
 
@@ -46,14 +47,17 @@ func (anonUserIdentity) UserInfo() audittools.UserInfo {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (anonUserIdentity) SerializeToJSON() (payload []byte, err error) {
-	return []byte("true"), nil
+func (anonUserIdentity) SerializeToJSON(enc *jsontext.Encoder) error {
+	return enc.WriteToken(jsontext.True)
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
-func (anonUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
-	if string(in) != "true" {
-		return fmt.Errorf("%q is not a valid payload for AnonymousUserIdentity", string(in))
+func (anonUserIdentity) DeserializeFromJSON(dec *jsontext.Decoder, _ keppel.AuthDriver) error {
+	// accept only the payload `true` (exactly as emitted above)
+	k := dec.PeekKind()
+	if k != jsontext.KindTrue {
+		return &json.SemanticError{JSONKind: k}
 	}
-	return nil
+	_, err := dec.ReadToken()
+	return err
 }

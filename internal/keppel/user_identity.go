@@ -4,6 +4,7 @@
 package keppel
 
 import (
+	"encoding/json/jsontext"
 	"fmt"
 
 	"github.com/sapcc/go-bits/audittools"
@@ -85,11 +86,11 @@ type UserIdentity interface {
 
 	// SerializeToJSON serializes this UserIdentity instance into JSON for
 	// inclusion in a token payload.
-	SerializeToJSON() (payload []byte, err error)
+	SerializeToJSON(enc *jsontext.Encoder) error
 	// DeserializeFromJSON deserializes the given token payload (as returned by
 	// SerializeToJSON) into the callee. This is always called on a fresh
 	// instance created by UserIdentityFactory.Instantiate().
-	DeserializeFromJSON(payload []byte, ad AuthDriver) error
+	DeserializeFromJSON(dec *jsontext.Decoder, ad AuthDriver) error
 }
 
 // UserIdentityRegistry is a pluggable.Registry for UserIdentity implementations.
@@ -97,11 +98,11 @@ var UserIdentityRegistry pluggable.Registry[UserIdentity]
 
 // DeserializeUserIdentity deserializes a UserIdentity payload. This is the
 // reverse of UserIdentity.SerializeToJSON().
-func DeserializeUserIdentity(typeID string, payload []byte, ad AuthDriver) (UserIdentity, error) {
+func DeserializeUserIdentity(typeID string, dec *jsontext.Decoder, ad AuthDriver) (UserIdentity, error) {
 	uid := UserIdentityRegistry.Instantiate(typeID)
 	if uid == nil {
 		return nil, fmt.Errorf("cannot unmarshal embedded authorization with unknown payload type %q", typeID)
 	}
-	err := uid.DeserializeFromJSON(payload, ad)
+	err := uid.DeserializeFromJSON(dec, ad)
 	return uid, err
 }
