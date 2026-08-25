@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/sapcc/go-bits/must"
