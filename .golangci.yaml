@@ -75,7 +75,8 @@ linters:
   settings:
     dupword:
       # Do not choke on SQL statements like `INSERT INTO things (foo, bar, baz) VALUES (TRUE, TRUE, TRUE)`.
-      ignore: [ "TRUE", "FALSE", "NULL" ]
+      # Also do not choke on repeated "endif" in Makefile snippets in the go-makefile-maker repo.
+      ignore: [ "TRUE", "FALSE", "NULL", "endif" ]
     errcheck:
       check-type-assertions: false
       # Report about assignment of errors to blank identifier.
@@ -166,6 +167,10 @@ linters:
       enable-all: true
     nolintlint:
       require-specific: true
+    modernize:
+      disable:
+        # embedlit is new in Go 1.27 and triggers in a ton of places. We will enable this once Go 1.27 has settled a bit. (TODO: revisit this in a few weeks)
+        - embedlit
     perfsprint:
       # modernize generates nicer fix code
       concat-loop: false

@@ -9,7 +9,7 @@ mkShell {
   nativeBuildInputs = [
     addlicense
     go-licence-detector
-    go_1_26
+    go_1_27
     golangci-lint
     gotools # goimports
     openssl
