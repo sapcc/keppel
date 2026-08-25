@@ -13,7 +13,7 @@ import (
 	"sort"
 	"time"
 
-	celTypes "github.com/google/cel-go/common/types"
+	celTypes "cel.dev/cel-go/common/types"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
