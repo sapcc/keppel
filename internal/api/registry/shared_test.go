@@ -58,7 +58,7 @@ func testWithPrimary(t testing.TB, setupOptions []test.SetupOption, action func(
 	})
 }
 
-func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(firstPass bool, s2 test.Setup)) {
+func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(firstPass bool, s2 test.Setup), extraOptions ...test.SetupOption) {
 	testAccount := models.Account{Name: "test1", AuthTenantID: authTenantID}
 	switch strategy {
 	case "on_first_use":
@@ -71,13 +71,13 @@ func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(f
 		t.Fatalf("unknown strategy: %q", strategy)
 	}
 
-	s := test.NewSetup(t,
+	s := test.NewSetup(t, append([]test.SetupOption{
 		test.IsSecondaryTo(&s1),
 		test.WithAnycast(currentlyWithAnycast),
 		test.WithAccount(testAccount),
 		test.WithQuotas,
 		test.WithPeerAPI,
-	)
+	}, extraOptions...)...)
 
 	defer func() {
 		test.MustExec(t, s1.DB, `DELETE FROM peers`)

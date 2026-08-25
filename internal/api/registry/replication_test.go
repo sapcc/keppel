@@ -514,6 +514,85 @@ func TestReplicationChainedFromExternalToInternalReplica(t *testing.T) {
 	})
 }
 
+// Like TestReplicationChainedFromExternalToInternalReplica, but with
+// "anonymous_first_pull" enabled on both the external replica (s1) and the
+// replica of that external replica (s2). We test that an anonymous user
+// pulling from s2 can now trigger replication all the way down the chain
+func TestReplicationChainedAnonymousFirstPull(t *testing.T) {
+	testWithPrimary(t, []test.SetupOption{test.WithKeppelAPI}, func(s1 test.Setup) {
+		ctx := t.Context()
+		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
+			if !firstPass {
+				return // no second pass needed
+			}
+
+			// setup registry-external as a mostly static responder
+			image := test.GenerateImage(test.GenerateExampleLayer(1))
+			externalHandler := func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					http.Error(w, r.Method+" not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				for _, blob := range append(image.Layers, image.Config) {
+					if r.URL.Path == "/v2/foo/blobs/"+blob.Digest.String() {
+						w.Header().Set("Content-Length", strconv.Itoa(len(blob.Contents)))
+						w.WriteHeader(http.StatusOK)
+						w.Write(blob.Contents)
+						return
+					}
+				}
+				if r.URL.Path == "/v2/foo/manifests/latest" {
+					w.Header().Set("Content-Type", image.Manifest.MediaType)
+					w.Header().Set("Content-Length", strconv.Itoa(len(image.Manifest.Contents)))
+					w.WriteHeader(http.StatusOK)
+					w.Write(image.Manifest.Contents)
+					return
+				}
+				http.NotFound(w, r)
+			}
+			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-external.example.org"] = http.HandlerFunc(externalHandler)
+
+			// reconfigure "test1" on primary into an external replica
+			test.MustExec(t, s1.DB, `UPDATE accounts SET external_peer_url = $2 WHERE name = $1`,
+				"test1", "registry-external.example.org")
+
+			// enable anonymous first pull on the external replica
+			s1.RespondTo(ctx, "PUT /keppel/v1/accounts/test1",
+				httptest.WithHeader("X-Test-Perms", "change:"+authTenantID),
+				httptest.WithJSONBody(map[string]any{
+					"account": map[string]any{
+						"auth_tenant_id": authTenantID,
+						"rbac_policies": []map[string]any{{
+							"match_repository": ".*",
+							"permissions":      []string{"anonymous_pull", "anonymous_first_pull"},
+						}},
+					},
+				}),
+			).ExpectStatus(t, http.StatusOK)
+
+			// enable anonymous first pull on the internal replica
+			s2.RespondTo(ctx, "PUT /keppel/v1/accounts/test1",
+				httptest.WithHeader("X-Test-Perms", "change:"+authTenantID),
+				httptest.WithJSONBody(map[string]any{
+					"account": map[string]any{
+						"auth_tenant_id": authTenantID,
+						"rbac_policies": []map[string]any{{
+							"match_repository": ".*",
+							"permissions":      []string{"anonymous_pull", "anonymous_first_pull"},
+						}},
+					},
+				}),
+			).ExpectStatus(t, http.StatusOK)
+
+			// an anonymous user pulling from s2 triggers replication both into s1 and s2
+			anonTokenHeaders := s1.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
+			expectManifestExists(t, s1, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
+			anonTokenHeaders = s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
+			expectManifestExists(t, s2, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
+		}, test.WithKeppelAPI)
+	})
+}
+
 func TestReplicationFailingFromHarbor(t *testing.T) {
 	testWithPrimary(t, []test.SetupOption{test.WithPeerAPI}, func(s1 test.Setup) {
 		ctx := t.Context()

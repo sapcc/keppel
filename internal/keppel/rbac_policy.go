@@ -123,8 +123,8 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	if refersToPerm[RBACDeletePermission] && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
 	}
-	if refersToPerm[RBACAnonymousFirstPullPermission] && strategy != FromExternalOnFirstUseStrategy {
-		return errors.New(`RBAC policy with "anonymous_first_pull" may only be for external replica accounts`)
+	if refersToPerm[RBACAnonymousFirstPullPermission] && strategy == NoReplicationStrategy {
+		return errors.New(`RBAC policy with "anonymous_first_pull" may only be for replica accounts`)
 	}
 
 	if len(r.Permissions) == 0 {
