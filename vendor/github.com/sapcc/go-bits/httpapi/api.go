@@ -20,6 +20,16 @@ type API interface {
 	AddTo(r *mux.Router)
 }
 
+// TryHandler is TODO.
+type TryHandler interface {
+	TryServeHTTP(http.ResponseWriter, *http.Request) bool
+}
+
+// UnmuxedAPI is TODO.
+func UnmuxedAPI(h TryHandler) API {
+	return pseudoAPI{tryHandler: h}
+}
+
 // HealthCheckAPI is an API with one endpoint, "GET /healthcheck", that
 // usually just prints "ok". If the application knows how to perform a more
 // elaborate healthcheck, it can provide a check function in the Check field.
@@ -56,7 +66,9 @@ func (h HealthCheckAPI) handleRequest(w http.ResponseWriter, r *http.Request) {
 // API. The AddTo() implementation is empty; Compose() will call the provided
 // configure() method instead.
 type pseudoAPI struct {
-	configure func(*middleware)
+	// exactly one field must be set
+	tryHandler TryHandler
+	configure  func(*middleware)
 }
 
 // AddTo implements the API interface.

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
@@ -27,11 +26,11 @@ var isImageConfigBlobMediaType = map[string]bool{
 }
 
 // This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
-func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	ctx := r.Context()
 
-	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
 	if account == nil {
 		return
 	}
@@ -41,7 +40,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	blobDigest, err := digest.Parse(vars["digest"])
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -166,7 +165,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
+func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request, vars map[string]string, info anycastRequestInfo) {
 	// NOTE: Rate limits are enforced by the peer that we reverse-proxy to, not by
 	// us. We couldn't enforce them anyway because we don't have this account.
 	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
@@ -177,16 +176,16 @@ func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request,
 }
 
 // This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
-func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	ctx := r.Context()
 
-	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, _, _ := a.checkAccountAccess(w, r, vars, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
 
-	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	blobDigest, err := digest.Parse(vars["digest"])
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return
