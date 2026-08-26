@@ -9,6 +9,9 @@ package openstack
 
 import (
 	"context"
+	json_v1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"net/http"
@@ -275,20 +278,32 @@ func (a *keystoneUserIdentity) UserInfo() audittools.UserInfo {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (a *keystoneUserIdentity) SerializeToJSON() (payload []byte, err error) {
+func (a *keystoneUserIdentity) SerializeToJSON(enc *jsontext.Encoder) error {
 	// We cannot serialize the entire gopherpolicy.Token, that would include the
 	// X-Auth-Token and possibly even the full token response including service
 	// catalog, and thus produce a rather massive payload. We skip the token and
 	// token response and only serialize what we need to make policy decisions and
 	// satisfy the audittools.UserInfo interface.
-	return gopherpolicy.SerializeCompactContextToJSON(a.t.Context)
+	//
+	// TODO: this function in go-bits should take *jsontext.Encoder directly
+	buf, err := gopherpolicy.SerializeCompactContextToJSON(a.t.Context)
+	if err != nil {
+		return err
+	}
+	return enc.WriteValue(jsontext.Value(buf))
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
-func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriver) (err error) {
+func (a *keystoneUserIdentity) DeserializeFromJSON(dec *jsontext.Decoder, ad keppel.AuthDriver) error {
 	d, ok := ad.(*keystoneDriver)
 	if !ok {
 		return keppel.ErrAuthDriverMismatch
+	}
+
+	var payload json_v1.RawMessage
+	err := json.UnmarshalDecode(dec, &payload)
+	if err != nil {
+		return err
 	}
 
 	a.t = &gopherpolicy.Token{
@@ -297,6 +312,7 @@ func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriv
 		ProviderClient: nil,              // cannot be reasonably serialized; see comment above
 		Err:            nil,
 	}
-	a.t.Context, err = gopherpolicy.DeserializeCompactContextFromJSON(in)
+	// TODO: this function in go-bits should take *jsontext.Decoder directly
+	a.t.Context, err = gopherpolicy.DeserializeCompactContextFromJSON(payload)
 	return err
 }

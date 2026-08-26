@@ -7,7 +7,8 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"time"
@@ -205,43 +206,67 @@ type embeddedUserIdentity struct {
 	AuthDriver keppel.AuthDriver
 }
 
-// MarshalJSON implements the json.Marshaler interface.
-func (e embeddedUserIdentity) MarshalJSON() ([]byte, error) {
-	payload, err := e.UserIdentity.SerializeToJSON()
-	if err != nil {
-		return nil, err
-	}
+// prove interface implementations
+var _ interface {
+	json.MarshalerTo
+	json.UnmarshalerFrom
+} = &embeddedUserIdentity{}
 
+// MarshalJSONTo implements the [json.MarshalerTo] interface.
+func (e embeddedUserIdentity) MarshalJSONTo(enc *jsontext.Encoder) error {
 	// The straight-forward approach would be to serialize as
 	// `{"type":"foo","payload":"something"}`, but we serialize as
 	// `{"foo":"something"}` instead to shave off a few bytes.
-	typeID := e.UserIdentity.PluginTypeID()
-	return json.Marshal(map[string]json.RawMessage{typeID: json.RawMessage(payload)})
+	err := enc.WriteToken(jsontext.BeginObject)
+	if err != nil {
+		return err
+	}
+	err = enc.WriteToken(jsontext.String(e.UserIdentity.PluginTypeID()))
+	if err != nil {
+		return err
+	}
+	err = e.UserIdentity.SerializeToJSON(enc)
+	if err != nil {
+		return err
+	}
+	return enc.WriteToken(jsontext.EndObject)
 }
 
-// UnmarshalJSON implements the json.Marshaler interface.
-func (e *embeddedUserIdentity) UnmarshalJSON(in []byte) error {
+// UnmarshalJSONFrom implements the [json.UnmarshalerFrom] interface.
+func (e *embeddedUserIdentity) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if e.AuthDriver == nil {
 		return errors.New("cannot unmarshal EmbeddedAuthorization without an AuthDriver")
 	}
 
-	m := make(map[string]json.RawMessage)
-	err := json.Unmarshal(in, &m)
+	// parse a structure of the form {"<type_id>":<payload>}
+	k := dec.PeekKind()
+	if k != jsontext.KindBeginObject {
+		return &json.SemanticError{JSONKind: k}
+	}
+	_, err := dec.ReadToken()
 	if err != nil {
 		return err
 	}
-	if len(m) != 1 {
-		return fmt.Errorf("cannot unmarshal EmbeddedAuthorization with %d components", len(m))
+
+	k = dec.PeekKind()
+	if k != jsontext.KindString {
+		return &json.SemanticError{JSONKind: k}
+	}
+	var typeID string
+	err = json.UnmarshalDecode(dec, &typeID)
+	if err != nil {
+		return err
 	}
 
-	for typeID, payload := range m {
-		e.UserIdentity, err = keppel.DeserializeUserIdentity(typeID, []byte(payload), e.AuthDriver)
-		if err != nil {
-			return fmt.Errorf("cannot unmarshal EmbeddedAuthorization of type %q: %w", typeID, err)
-		}
-		return nil
+	e.UserIdentity, err = keppel.DeserializeUserIdentity(typeID, dec, e.AuthDriver)
+	if err != nil {
+		return fmt.Errorf("cannot unmarshal EmbeddedAuthorization of type %q: %w", typeID, err)
 	}
 
-	// the loop body executes exactly once, therefore this location is unreachable
-	panic("unreachable")
+	k = dec.PeekKind()
+	if k != jsontext.KindEndObject {
+		return &json.SemanticError{JSONKind: k}
+	}
+	_, err = dec.ReadToken()
+	return err
 }

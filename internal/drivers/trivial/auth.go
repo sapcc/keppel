@@ -5,7 +5,8 @@ package trivial
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"net/http"
 
@@ -55,13 +56,13 @@ func (uid *userIdentity) UserType() keppel.UserType {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (uid *userIdentity) SerializeToJSON() (payload []byte, err error) {
-	return json.Marshal(uid.Username)
+func (uid *userIdentity) SerializeToJSON(enc *jsontext.Encoder) error {
+	return enc.WriteToken(jsontext.String(uid.Username))
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
-func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
-	return json.Unmarshal(in, &uid.Username)
+func (uid *userIdentity) DeserializeFromJSON(dec *jsontext.Decoder, _ keppel.AuthDriver) error {
+	return json.UnmarshalDecode(dec, &uid.Username)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

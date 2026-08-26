@@ -5,7 +5,8 @@ package test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"net/http"
 	"strings"
 
@@ -106,13 +107,13 @@ func (uid *userIdentity) UserInfo() audittools.UserInfo {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (uid *userIdentity) SerializeToJSON() (payload []byte, err error) {
-	return json.Marshal(uid)
+func (uid *userIdentity) SerializeToJSON(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, uid)
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
-func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
-	return json.Unmarshal(in, &uid)
+func (uid *userIdentity) DeserializeFromJSON(dec *jsontext.Decoder, _ keppel.AuthDriver) error {
+	return json.UnmarshalDecode(dec, &uid)
 }
 
 type dummyUserInfo struct{}
