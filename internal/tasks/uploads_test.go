@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/gofrs/uuid/v5"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	testUploadUUID = uuid.Must(uuid.NewV4()).String()
+	testUploadUUID = uuid.NewV4().String()
 	testStorageID  = keppel.GenerateStorageID()
 )
 

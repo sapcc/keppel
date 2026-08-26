@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"uuid"
 
-	"github.com/gofrs/uuid/v5"
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -119,10 +119,6 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 	// false to reveal the identity of the Keppel API that issued the token
 	issuer := Audience{IsAnycast: false, AccountName: a.Audience.AccountName}
 
-	uuidV4, err := uuid.NewV4()
-	if err != nil {
-		return nil, err
-	}
 	publicHost := a.Audience.Hostname(cfg)
 	access := a.ScopeSet
 	if len(access) == 0 {
@@ -130,7 +126,7 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 	}
 	token := jwt.NewWithClaims(method, tokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        uuidV4.String(),
+			ID:        uuid.NewV4().String(),
 			Audience:  jwt.ClaimStrings{publicHost},
 			Issuer:    "keppel-api@" + issuer.Hostname(cfg),
 			Subject:   a.UserIdentity.UserName(),

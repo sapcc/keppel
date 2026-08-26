@@ -8,7 +8,6 @@ require (
 	github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/go-redis/redis_rate/v10 v10.0.1
-	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gophercloud/gophercloud/v2 v2.13.0
 	github.com/gorilla/mux v1.8.1
@@ -38,6 +37,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 // indirect
 	github.com/containers/ocicrypt v1.3.2 // indirect
+	github.com/gofrs/uuid/v5 v5.5.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/itchyny/gojq v0.12.19 // indirect
 	github.com/itchyny/timefmt-go v0.1.8 // indirect

@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/gofrs/uuid/v5"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -134,13 +134,9 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// start a new upload
-	uuidV4, err := uuid.NewV4()
-	if respondWithError(w, r, err) {
-		return
-	}
 	upload := models.Upload{
 		RepositoryID: repo.ID,
-		UUID:         uuidV4.String(),
+		UUID:         uuid.NewV4().String(),
 		StorageID:    a.generateStorageID(),
 		SizeBytes:    0,
 		Digest:       "",
@@ -191,12 +187,8 @@ func (a *API) performCrossRepositoryBlobMount(ctx context.Context, account model
 	}
 
 	// the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
-	uuidV4, err := uuid.NewV4()
-	if err != nil {
-		return nil, err
-	}
 	hdr := make(http.Header)
-	hdr.Set("Blob-Upload-Session-Id", uuidV4.String())
+	hdr.Set("Blob-Upload-Session-Id", uuid.NewV4().String())
 	hdr.Set("Content-Length", "0")
 	hdr.Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(targetRepo, authz), blobDigest.String()))
 	return hdr, nil
@@ -290,11 +282,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 
 	// the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
-	uuidV4, err := uuid.NewV4()
-	if respondWithError(w, r, err) {
-		return false
-	}
-	w.Header().Set("Blob-Upload-Session-Id", uuidV4.String())
+	w.Header().Set("Blob-Upload-Session-Id", uuid.NewV4().String())
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(repo, authz), blobDigest.String()))
 	w.WriteHeader(http.StatusCreated)
