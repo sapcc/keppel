@@ -34,8 +34,7 @@ func GetProjectIDFromTokenScope(provider *gophercloud.ProviderClient) (string, e
 // UnpackError is usually a no-op, but for some Gophercloud errors, it removes
 // the outer layer that obscures the better error message hidden within.
 func UnpackError(err error) error {
-	var innerErr gophercloud.ErrUnexpectedResponseCode
-	if errors.As(err, &innerErr) {
+	if innerErr, ok := errors.AsType[gophercloud.ErrUnexpectedResponseCode](err); ok {
 		return innerErr
 	}
 	return err

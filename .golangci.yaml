@@ -105,6 +105,10 @@ linters:
           msg: github.com/howeyc/gopass is archived, use golang.org/x/term instead
         - pkg: ^github\.com/containers/image/v5
           msg: github.com/containers/image/v5 is deprecated and was replaced with go.podman.io/image/v5
+        - pkg: ^github.com/gofrs/uuid
+          msg: github.com/gofrs/uuid should be replaced with the stdlib uuid package introduced in Go 1.27
+        - pkg: ^github.com/google/uuid
+          msg: github.com/google/uuid should be replaced with the stdlib uuid package introduced in Go 1.27
     goconst:
       min-occurrences: 5
       ignore-tests: true

@@ -7,12 +7,11 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"uuid"
 
-	"github.com/gofrs/uuid/v5"
 	"github.com/sapcc/go-api-declarations/cadf"
 
 	"github.com/sapcc/go-bits/httpext"
-	"github.com/sapcc/go-bits/must"
 )
 
 // Target is implemented by types that describe the target object of an audit event.
@@ -101,5 +100,5 @@ func (p Event) ToCADF(observer cadf.Resource) cadf.Event {
 // GenerateUUID generates an UUID based on random numbers (RFC 4122).
 // Failure will result in program termination.
 func GenerateUUID() string {
-	return must.Return(uuid.NewV4()).String()
+	return uuid.NewV4().String()
 }

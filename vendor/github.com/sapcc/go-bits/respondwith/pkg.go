@@ -11,11 +11,9 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
-
-	"github.com/gofrs/uuid/v5"
+	"uuid"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/must"
 )
 
 // JSON serializes the given data into an HTTP response body
@@ -84,7 +82,7 @@ func ObfuscatedErrorText(w http.ResponseWriter, err error) bool {
 
 	message, status, hdr := analyzeError(err)
 	if status >= 500 {
-		logUUID := must.Return(uuid.NewV4()).String()
+		logUUID := uuid.NewV4().String()
 		logg.Error("%s is: %s", logUUID, message)
 		message = fmt.Sprintf("Internal Server Error (ID = %s)", logUUID)
 	}

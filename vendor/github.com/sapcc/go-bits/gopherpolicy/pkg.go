@@ -165,19 +165,20 @@ func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 		return &Token{Err: err}
 	}
 
+	pc := &gophercloud.ProviderClient{
+		IdentityBase:     v.IdentityV3.IdentityBase,
+		IdentityEndpoint: v.IdentityV3.IdentityEndpoint,
+		HTTPClient:       v.IdentityV3.HTTPClient,
+		UserAgent:        v.IdentityV3.UserAgent,
+		TokenID:          token.ID,
+	}
+	pc.EndpointLocator = func(opts gophercloud.EndpointOpts) (string, error) {
+		return openstack.V3Endpoint(context.TODO(), pc, catalog, opts)
+	}
 	return &Token{
-		Enforcer: v.Enforcer,
-		Context:  tokenData.ToContext(),
-		ProviderClient: &gophercloud.ProviderClient{
-			IdentityBase:     v.IdentityV3.IdentityBase,
-			IdentityEndpoint: v.IdentityV3.IdentityEndpoint,
-			HTTPClient:       v.IdentityV3.HTTPClient,
-			UserAgent:        v.IdentityV3.UserAgent,
-			TokenID:          token.ID,
-			EndpointLocator: func(opts gophercloud.EndpointOpts) (string, error) {
-				return openstack.V3EndpointURL(catalog, opts)
-			},
-		},
+		Enforcer:       v.Enforcer,
+		Context:        tokenData.ToContext(),
+		ProviderClient: pc,
 		serializable: serializableToken{
 			Token:          *token,
 			TokenData:      tokenData,
