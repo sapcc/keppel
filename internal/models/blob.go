@@ -39,7 +39,28 @@ type Blob struct {
 	NextValidationAt       time.Time         `db:"next_validation_at"` // see tasks.BlobValidationJob
 	ValidationErrorMessage string            `db:"validation_error_message"`
 	CanBeDeletedAt         Option[time.Time] `db:"can_be_deleted_at"` // see tasks.BlobSweepJob
-	BlocksVulnScanning     Option[bool]      `db:"blocks_vuln_scanning"`
+	// BlocksVulnScanning records the result of the blob's pre-scan check:
+	// None       = not checked yet
+	// Some(...)  = checked; the enum value describes whether (and why) the blob blocks vulnerability scanning.
+	BlocksVulnScanning Option[BlobVulnScanningBlockReason] `db:"blocks_vuln_scanning"`
+}
+
+// BlobVulnScanningBlockReason contains the reasons why a blob may block vulnerability scanning.
+// "none" indicates that the blob has been checked and does not block scanning.
+type BlobVulnScanningBlockReason string
+
+const (
+	// BlobVulnScanningNotBlocked indicates that the blob has been checked and does NOT block vulnerability scanning.
+	BlobVulnScanningNotBlocked BlobVulnScanningBlockReason = "none"
+	// BlobVulnScanningBlockedBySize indicates that the blob's uncompressed size exceeds blobUncompressedSizeTooBigGiB.
+	BlobVulnScanningBlockedBySize BlobVulnScanningBlockReason = "too-large"
+	// BlobVulnScanningBlockedByDecompressError indicates that the blob's compressed payload could not be decompressed.
+	BlobVulnScanningBlockedByDecompressError BlobVulnScanningBlockReason = "cannot-decompress"
+)
+
+// Blocks returns true when vulnerability scanning is blocked.
+func (b BlobVulnScanningBlockReason) Blocks() bool {
+	return b != BlobVulnScanningNotBlocked
 }
 
 // BlobStore provides loading and storing of [Blob] objects from the DB.

@@ -603,12 +603,12 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[12]s';
-			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 11 AND account_name = 'test1' AND digest = '%[17]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[13]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[14]s';
-			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[15]s';
-			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 9 AND account_name = 'test1' AND digest = '%[16]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 1 AND account_name = 'test1' AND digest = '%[12]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'too-large' WHERE id = 11 AND account_name = 'test1' AND digest = '%[17]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 3 AND account_name = 'test1' AND digest = '%[13]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 5 AND account_name = 'test1' AND digest = '%[14]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'too-large' WHERE id = 7 AND account_name = 'test1' AND digest = '%[15]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'too-large' WHERE id = 9 AND account_name = 'test1' AND digest = '%[16]s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE trivy_security_info SET next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[11]g GiB', next_check_at = %[10]d WHERE repo_id = 1 AND digest = '%[6]s';
@@ -676,7 +676,7 @@ func TestCheckTrivySecurityStatusWithError(t *testing.T) {
 		expectedError := fmt.Sprintf("cannot check manifest test1/foo@%s: scan error: trivy proxy did not return 200: 500 simulated error", image.Manifest.Digest)
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), expectedError)
 		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error: trivy proxy did not return 200: 500 simulated error', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[2]s';
 		`, image.Layers[0].Digest, image.Manifest.Digest)
 
@@ -715,7 +715,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
 		`, image.Layers[0].Digest, models.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 
@@ -847,7 +847,7 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = NULL, checked_at = %[3]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
 		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Unix(), image.Manifest.Digest)
 
@@ -932,8 +932,8 @@ func TestVulnerabilityStatusChanged(t *testing.T) {
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[7]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[8]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 1 AND account_name = 'test1' AND digest = '%[7]s';
+			UPDATE blobs SET blocks_vuln_scanning = 'none' WHERE id = 3 AND account_name = 'test1' AND digest = '%[8]s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[5]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE trivy_security_info SET next_check_at = %[5]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[5]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[3]s';
@@ -1067,6 +1067,60 @@ func TestCheckTrivySecurityStatusWithUnsupportedMediaTypes(t *testing.T) {
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for manifests with config media type "%[2]s"', next_check_at = %[5]d WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for manifests with config media type "%[1]s"', next_check_at = %[5]d WHERE repo_id = 1 AND digest = '%[3]s';
 		`, trivyMediaType, buildKitCacheMediaType, trivyDB.Manifest.Digest, buildkitCache.Manifest.Digest, s.Clock.Now().Add(24*time.Hour).Unix(),
+		)
+	})
+}
+
+func TestCheckTrivySecurityStatusWithWrongMediaType(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		s.Clock.StepBy(1 * time.Hour)
+
+		// generate an image whose layer contents are NOT gzip-compressed but whose
+		// media type claims gzip; this triggers gzip.ErrHeader when the security
+		// scanner tries to decompress it
+		badLayer := test.GenerateExampleLayerWithWrongGzipMediaType(1, 1)
+		badImage := test.GenerateImage(badLayer)
+		badImageManifest := badImage.MustUpload(t, s, fooRepoRef, "")
+
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+
+		s.Clock.StepBy(5 * time.Minute)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = 'cannot-decompress' WHERE id = 1 AND account_name = 'test1' AND digest = '%[2]s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported because an image layer could not be decompressed', next_check_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+		`, badImageManifest.Digest, badImage.Layers[0].Digest,
+			s.Clock.Now().Add(24*time.Hour).Unix(),
+		)
+	})
+}
+
+func TestCheckTrivySecurityStatusWithWrongZstdMediaType(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		s.Clock.StepBy(1 * time.Hour)
+
+		// generate an image whose layer contents are NOT zstd-compressed but whose
+		// media type claims zstd; this triggers zstd.ErrMagicMismatch when the
+		// security scanner tries to decompress it
+		badLayer := test.GenerateExampleLayerWithWrongZstdMediaType(1, 1)
+		badImage := test.GenerateImage(badLayer)
+		badImageManifest := badImage.MustUpload(t, s, fooRepoRef, "")
+
+		tr, _ := easypg.NewTracker(t, s.DB.DB)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+
+		s.Clock.StepBy(5 * time.Minute)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = 'cannot-decompress' WHERE id = 1 AND account_name = 'test1' AND digest = '%[2]s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported because an image layer could not be decompressed', next_check_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+		`, badImageManifest.Digest, badImage.Layers[0].Digest,
+			s.Clock.Now().Add(24*time.Hour).Unix(),
 		)
 	})
 }

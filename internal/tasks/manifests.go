@@ -4,6 +4,7 @@
 package tasks
 
 import (
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -855,27 +857,51 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 
 				compressedReader, err := compression.Reader(reader)
 				if err != nil {
-					return false, layerBlobs, fmt.Errorf("cannot create %s reader for blob %s: %w", compression, blob.Digest, err)
-				}
-				defer compressedReader.Close()
+					if errors.Is(err, gzip.ErrHeader) || errors.Is(err, zstd.ErrMagicMismatch) {
+						logg.Info("marking blob %s as blocking vulnerability scanning: cannot create %s reader: %s", blob.Digest, compression, err.Error())
+						blob.BlocksVulnScanning = Some(models.BlobVulnScanningBlockedByDecompressError)
+					} else {
+						return false, layerBlobs, fmt.Errorf("cannot create %s reader for blob %s: %w", compression, blob.Digest, err)
+					}
+				} else {
+					defer compressedReader.Close()
 
-				numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
-				if err != nil {
-					return false, layerBlobs, fmt.Errorf("cannot decompress %s blob %s: %w", compression, blob.Digest, err)
+					numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
+					if err != nil {
+						if errors.Is(err, zstd.ErrMagicMismatch) {
+							logg.Info("marking blob %s as blocking vulnerability scanning: cannot decompress %s blob: %s", blob.Digest, compression, err.Error())
+							blob.BlocksVulnScanning = Some(models.BlobVulnScanningBlockedByDecompressError)
+						} else {
+							return false, layerBlobs, fmt.Errorf("cannot decompress %s blob %s: %w", compression, blob.Digest, err)
+						}
+					}
 				}
 			}
 
-			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
-			blob.BlocksVulnScanning = Some(numberBytes >= limitBytes)
+			// If we could successfully count the bytes and at least one layer/blob is at least the limit, mark it as blocking vulnerability scanning
+			if blob.BlocksVulnScanning.IsNone() {
+				if numberBytes >= limitBytes {
+					blob.BlocksVulnScanning = Some(models.BlobVulnScanningBlockedBySize)
+				} else {
+					blob.BlocksVulnScanning = Some(models.BlobVulnScanningNotBlocked)
+				}
+			}
 			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blob.BlocksVulnScanning, blob.ID)
 			if err != nil {
 				return false, layerBlobs, err
 			}
 		}
 
-		if blob.BlocksVulnScanning == Some(true) {
+		if reason, ok := blob.BlocksVulnScanning.Unpack(); ok && reason.Blocks() {
 			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
-			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
+			switch reason {
+			case models.BlobVulnScanningBlockedBySize:
+				securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
+			case models.BlobVulnScanningBlockedByDecompressError:
+				securityInfo.Message = "vulnerability scanning is not supported because an image layer could not be decompressed"
+			default:
+				securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported (reason: %q)", reason)
+			}
 			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
 			return false, layerBlobs, nil
 		}
