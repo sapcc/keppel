@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/klauspost/compress v1.19.2
 	github.com/lib/pq v1.12.3
-	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260730175803-fee21197eb94
+	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260827170726-3ecd27b5c78d
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.24.1
