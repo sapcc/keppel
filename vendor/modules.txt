@@ -125,7 +125,7 @@ github.com/moby/moby/client/pkg/versions
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260730175803-fee21197eb94
+# github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260827170726-3ecd27b5c78d
 ## explicit; go 1.18
 github.com/opencontainers/distribution-spec/specs-go/v1
 # github.com/opencontainers/go-digest v1.0.0
