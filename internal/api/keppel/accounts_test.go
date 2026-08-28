@@ -238,7 +238,7 @@ func TestAccountsAPI(t *testing.T) {
 		})
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id) VALUES ('first', 'tenant1');
-		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json, tag_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', '[{"match_repository":"library/.*","block_overwrite":true},{"match_repository":"library/alpine","block_delete":true}]');
+		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json, tag_policies_json, anon_rbac_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', '[{"match_repository":"library/.*","block_overwrite":true},{"match_repository":"library/alpine","block_delete":true}]', '[{"r":"library/.*","p":"p"}]');
 	`)
 
 	// check editing of RBAC policies
@@ -291,6 +291,42 @@ func TestAccountsAPI(t *testing.T) {
 			},
 		},
 	)
+	tr.DBChanges().AssertEqual(`
+		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]', tag_policies_json = '[]', anon_rbac_policies_json = '[]' WHERE name = 'second';
+	`)
+
+	// check length restriction for accounts.anon_rbac_policies_json: once the payload would grow too large,
+	// the field is left empty instead and AuthZ for anonymous users needs to inspect accounts.rbac_policies_json
+	// (this protects against unbounded growth of ReducedAccount contents)
+	newRBACPoliciesJSON = []jsonmatch.Object{
+		{
+			"match_repository": "verylongverylongverylongverylong",
+			"permissions":      []string{"anonymous_pull"},
+		},
+		{
+			"match_repository": "evenlongerevenlongerevenlongerevenlonger",
+			"permissions":      []string{"anonymous_pull"},
+		},
+	}
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  newRBACPoliciesJSON,
+			},
+		}),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "second",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  newRBACPoliciesJSON,
+		},
+	})
+	tr.DBChanges().AssertEqual(`
+		UPDATE accounts SET rbac_policies_json = '[{"match_repository":"verylongverylongverylongverylong","permissions":["anonymous_pull"]},{"match_repository":"evenlongerevenlongerevenlongerevenlonger","permissions":["anonymous_pull"]}]', anon_rbac_policies_json = '' WHERE name = 'second';
+	`)
 
 	// test POST /keppel/v1/:accounts/sublease success case (error cases are in
 	// TestPutAccountErrorCases and TestGetPutAccountReplicationOnFirstUse)
@@ -299,9 +335,7 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token"),
 		})
-	tr.DBChanges().AssertEqual(`
-		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]', tag_policies_json = '[]' WHERE name = 'second';
-	`)
+	tr.DBChanges().AssertEmpty()
 }
 
 func TestAccountValidationPolicies(t *testing.T) {

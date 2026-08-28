@@ -330,6 +330,10 @@ var sqlMigrations = map[int64]string{
 		ALTER TABLE accounts
 			ADD CONSTRAINT platform_filter_sync_on_replicas CHECK ((upstream_peer_hostname = '') = (next_platform_filter_sync_at IS NULL));
 	`,
+	58: `
+		ALTER TABLE accounts
+			ADD COLUMN anon_rbac_policies_json TEXT NOT NULL DEFAULT '';
+	`,
 }
 
 // DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].
