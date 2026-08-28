@@ -111,14 +111,14 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	if (refersToPerm[RBACAnonymousPullPermission] || refersToPerm[RBACAnonymousFirstPullPermission]) && r.UserNamePattern != "" {
 		return errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
 	}
-	if refersToPerm[RBACPullPermission] && r.CidrPattern == "" && r.UserNamePattern == "" {
-		return errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
+	if refersToPerm[RBACPullPermission] && r.UserNamePattern == "" {
+		return errors.New(`RBAC policy with "pull" must have the "match_username" attribute`)
 	}
 	if grantsPerm[RBACPushPermission] && !grantsPerm[RBACPullPermission] {
 		return errors.New(`RBAC policy with "push" must also grant "pull"`)
 	}
-	if grantsPerm[RBACAnonymousFirstPullPermission] && (!grantsPerm[RBACAnonymousPullPermission] && !grantsPerm[RBACPullPermission]) {
-		return errors.New(`RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull" or "pull"`)
+	if grantsPerm[RBACAnonymousFirstPullPermission] && !grantsPerm[RBACAnonymousPullPermission] {
+		return errors.New(`RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull"`)
 	}
 	if refersToPerm[RBACDeletePermission] && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)

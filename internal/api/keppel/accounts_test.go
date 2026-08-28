@@ -511,8 +511,6 @@ func TestPutAccountRBACPolicyNormalization(t *testing.T) {
 func TestPutAccountErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	ctx := t.Context()
-	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
-	tr0.AssertEmpty()
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
@@ -872,14 +870,23 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"match_repository": "library/.+",
 				"permissions":      []string{"pull"},
 			},
-			ErrorMessage: `RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`,
+			ErrorMessage: `RBAC policy with "pull" must have the "match_username" attribute`,
 		},
 		{
 			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"forbidden_permissions": []string{"pull"},
 			},
-			ErrorMessage: `RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`,
+			ErrorMessage: `RBAC policy with "pull" must have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: map[string]any{
+				// checking for this combination specifically because we used to allow non-anonymous permissions
+				// with only a match_cidr filter, even though this does not match the spec
+				"match_cidr":  "1.2.3.4/16",
+				"permissions": []string{"pull"},
+			},
+			ErrorMessage: `RBAC policy with "pull" must have the "match_username" attribute`,
 		},
 		{
 			RBACPolicyJSON: map[string]any{
@@ -937,7 +944,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"match_repository": "library/.+",
 				"permissions":      []string{"anonymous_first_pull"},
 			},
-			ErrorMessage: `RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull" or "pull"`,
+			ErrorMessage: `RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull"`,
 		},
 		{
 			RBACPolicyJSON: map[string]any{
@@ -984,45 +991,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 				},
 			})).ExpectText(t, expectedStatus, tc.ErrorMessage+"\n")
 	}
-
-	// TODO: why is there a positive test in here?
-	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
-		withPerms("change:tenant1"),
-		httptest.WithJSONBody(map[string]any{
-			"account": map[string]any{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []map[string]any{{
-					"match_cidr":  "1.2.3.4/16",
-					"permissions": []string{"pull"},
-				}},
-			},
-		}),
-	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
-		"account": jsonmatch.Object{
-			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
-			"name":           "first",
-			"rbac_policies": []jsonmatch.Object{{
-				"match_cidr":  "1.2.0.0/16",
-				"permissions": []string{"pull"},
-			}},
-		},
-	})
-	tr.DBChanges().AssertEqual(`
-		INSERT INTO accounts (name, auth_tenant_id, rbac_policies_json) VALUES ('first', 'tenant1', '[{"match_cidr":"1.2.0.0/16","permissions":["pull"]}]');
-	`)
-	s.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
-		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
-			"account": jsonmatch.Object{
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"name":           "first",
-				"rbac_policies": []jsonmatch.Object{{
-					"match_cidr":  "1.2.0.0/16",
-					"permissions": []string{"pull"},
-				}},
-			},
-		})
 
 	// test unexpected platform filter
 	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
