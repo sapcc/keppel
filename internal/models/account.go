@@ -38,6 +38,9 @@ type Account struct {
 
 	// RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
 	RBACPoliciesJSON string `db:"rbac_policies_json"`
+	// AnonymousRBACPoliciesJSON contains a JSON string of []keppel.AnonymousRBACPolicy.
+	// If empty, AuthZ for anonymous users must fall back to the full set of RBAC policies instead.
+	AnonymousRBACPoliciesJSON string `db:"anon_rbac_policies_json"`
 	// GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
 	GCPoliciesJSON string `db:"gc_policies_json"`
 	// SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy, or the empty string.
@@ -86,6 +89,8 @@ type ReducedAccount struct {
 	Name         AccountName `db:"name"`
 	AuthTenantID string      `db:"auth_tenant_id"`
 
+	// TODO: add AnonymousRBACPoliciesJSON (when adding light-weight tokens for anonymous users)
+
 	// replication policy
 	UpstreamPeerHostName string         `db:"upstream_peer_hostname"`
 	ExternalPeerURL      string         `db:"external_peer_url"`
@@ -111,3 +116,8 @@ var ReducedAccountStore = oblast.MustNewStore[ReducedAccount](
 func (a ReducedAccount) IsReplica() bool {
 	return a.UpstreamPeerHostName != "" || a.ExternalPeerURL != ""
 }
+
+// AnonymousRBACPoliciesJSONMaxLength is the maximum length of the [Account.AnonymousRBACPoliciesJSON] field.
+// If this length is exceeded, the field will be left empty and AuthZ for anonymous users needs to inspect
+// the full set of RBAC policies. This protects [ReducedAccount] from growing beyond a reasonable size.
+const AnonymousRBACPoliciesJSONMaxLength = 64

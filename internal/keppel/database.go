@@ -314,6 +314,10 @@ var sqlMigrations = map[int64]string{
 		ALTER TABLE pending_blobs
 			ADD COLUMN last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 	`,
+	56: `
+		ALTER TABLE accounts
+			ADD COLUMN anon_rbac_policies_json TEXT NOT NULL DEFAULT '';
+	`,
 }
 
 // DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].

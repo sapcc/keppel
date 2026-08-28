@@ -158,19 +158,32 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		replicationStrategy = rp.Strategy
 	}
 
-	// validate RBAC policies
+	// validate RBAC policies, and fill AnonymousRBACPoliciesJSON with just the RBAC policies for anonymous users
 	if len(account.RBACPolicies) == 0 {
 		targetAccount.RBACPoliciesJSON = ""
+		targetAccount.AnonymousRBACPoliciesJSON = ""
 	} else {
+		anonPolicies := []keppel.AnonymousRBACPolicy{}
 		for idx, policy := range account.RBACPolicies {
-			err := policy.ValidateAndNormalize(replicationStrategy)
+			anonPolicy, err := policy.ValidateAndNormalize(replicationStrategy)
 			if err != nil {
 				return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
 			}
 			account.RBACPolicies[idx] = policy
+
+			if p, ok := anonPolicy.Unpack(); ok {
+				anonPolicies = append(anonPolicies, p)
+			}
 		}
 		buf, _ := json.Marshal(account.RBACPolicies)
 		targetAccount.RBACPoliciesJSON = string(buf)
+
+		buf, err := json.Marshal(anonPolicies)
+		if err == nil && len(buf) < models.AnonymousRBACPoliciesJSONMaxLength {
+			targetAccount.AnonymousRBACPoliciesJSON = string(buf)
+		} else {
+			targetAccount.AnonymousRBACPoliciesJSON = ""
+		}
 	}
 
 	// validate validation policy
