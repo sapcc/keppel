@@ -195,32 +195,36 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	}
 
 	// validate platform filter
-	if !originalAccountExists {
-		switch replicationStrategy {
-		case keppel.NoReplicationStrategy:
-			if account.PlatformFilter != nil {
-				return models.Account{}, keppel.AsRegistryV2Error(errors.New(`platform filter is only allowed on replica accounts`)).WithStatus(http.StatusUnprocessableEntity)
-			}
-		case keppel.FromExternalOnFirstUseStrategy:
-			targetAccount.PlatformFilter = account.PlatformFilter
-		case keppel.OnFirstUseStrategy:
-			// for internal replica accounts, the platform filter must match that of the primary account,
-			// either by specifying the same filter explicitly or omitting it
-			upstreamPlatformFilter, err := p.GetPlatformFilterFromPrimaryAccount(ctx, peer, targetAccount)
-			if err != nil {
-				return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
-			}
-
-			if account.PlatformFilter != nil && !upstreamPlatformFilter.IsEqualTo(account.PlatformFilter) {
-				jsonPlatformFilter, _ := json.Marshal(account.PlatformFilter)
-				jsonFilter, _ := json.Marshal(upstreamPlatformFilter)
-				msg := fmt.Sprintf("peer account filter needs to match primary account filter: local account %s, peer account %s ", jsonPlatformFilter, jsonFilter)
-				return models.Account{}, keppel.AsRegistryV2Error(errors.New(msg)).WithStatus(http.StatusConflict)
-			}
-			targetAccount.PlatformFilter = upstreamPlatformFilter
+	//
+	// On an existing account, an update that omits `platform_filter` reuses the existing filter, analogous to the replication policy.
+	switch replicationStrategy {
+	case keppel.NoReplicationStrategy:
+		if account.PlatformFilter != nil {
+			return models.Account{}, keppel.AsRegistryV2Error(errors.New(`platform filter is only allowed on replica accounts`)).WithStatus(http.StatusUnprocessableEntity)
 		}
-	} else if account.PlatformFilter != nil && !originalAccount.PlatformFilter.IsEqualTo(account.PlatformFilter) {
-		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`cannot change platform filter on existing account`)).WithStatus(http.StatusConflict)
+	case keppel.FromExternalOnFirstUseStrategy:
+		if account.PlatformFilter != nil || !originalAccountExists {
+			targetAccount.PlatformFilter = account.PlatformFilter
+		}
+		// else: keep originalAccount.PlatformFilter which is already in targetAccount
+	case keppel.OnFirstUseStrategy:
+		// for internal replica accounts, the platform filter must match that of the primary account,
+		// either by specifying the same filter explicitly or omitting it
+		if account.PlatformFilter == nil && originalAccountExists {
+			break
+		}
+		upstreamPlatformFilter, err := p.GetPlatformFilterFromPrimaryAccount(ctx, peer, targetAccount)
+		if err != nil {
+			return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
+		}
+
+		if account.PlatformFilter != nil && !upstreamPlatformFilter.IsEqualTo(account.PlatformFilter) {
+			jsonPlatformFilter, _ := json.Marshal(account.PlatformFilter)
+			jsonFilter, _ := json.Marshal(upstreamPlatformFilter)
+			msg := fmt.Sprintf("peer account filter needs to match primary account filter: local account %s, peer account %s ", jsonPlatformFilter, jsonFilter)
+			return models.Account{}, keppel.AsRegistryV2Error(errors.New(msg)).WithStatus(http.StatusConflict)
+		}
+		targetAccount.PlatformFilter = upstreamPlatformFilter
 	}
 
 	rerr := setCustomFields(&targetAccount)

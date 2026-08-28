@@ -17,6 +17,8 @@ import (
 	"go.xyrillian.de/gg/assert"
 	. "go.xyrillian.de/gg/option"
 
+	"github.com/sapcc/keppel/internal/drivers/basic"
+	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
 	"github.com/sapcc/keppel/internal/test"
@@ -105,6 +107,70 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 			s2.Clock.Now().Add(1*time.Hour).Unix(),
 		)
 	})
+}
+
+func TestAccountManagementPlatformFilterChange(t *testing.T) {
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
+
+	tr, tr0 := easypg.NewTracker(t, s.DB.DB)
+	tr0.Ignore()
+	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)
+
+	baseAccount := basic.Account{
+		Name:         "abcde",
+		AuthTenantID: "12345",
+		ReplicationPolicy: &keppel.ReplicationPolicy{
+			Strategy:     keppel.FromExternalOnFirstUseStrategy,
+			ExternalPeer: keppel.ReplicationExternalPeerSpec{URL: "registry-tertiary.example.org"},
+		},
+	}
+	setAccountConfig := func(platformFilter models.PlatformFilter) {
+		account := baseAccount
+		account.PlatformFilter = platformFilter
+		s.AMD.StaticConfig = &basic.AccountConfig{Accounts: []basic.Account{account}}
+	}
+
+	// create a managed replica account with an initial platform filter
+	setAccountConfig(models.PlatformFilter{
+		{OS: "linux", Architecture: "amd64"},
+	})
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
+	tr.DBChanges().AssertEqualf(`
+			INSERT INTO accounts (name, auth_tenant_id, external_peer_url, platform_filter, security_scan_policies_json, is_managed, next_enforcement_at) VALUES ('abcde', '12345', 'registry-tertiary.example.org', '[{"architecture":"amd64","os":"linux"}]', 'null', TRUE, %d);
+		`,
+		s.Clock.Now().Add(1*time.Hour).Unix())
+
+	// change the platform filter in the driver config and re-run the jobloop
+	s.Clock.StepBy(2 * time.Hour)
+	setAccountConfig(models.PlatformFilter{
+		{OS: "linux", Architecture: "amd64"},
+		{OS: "linux", Architecture: "arm64", Variant: "v8"},
+	})
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET platform_filter = '[{"architecture":"amd64","os":"linux"},{"architecture":"arm64","os":"linux","variant":"v8"}]', next_enforcement_at = %d WHERE name = 'abcde';
+		`, s.Clock.Now().Add(1*time.Hour).Unix())
+
+	// omitting the platform filter in the config preserves the existing one
+	s.Clock.StepBy(2 * time.Hour)
+	setAccountConfig(nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_enforcement_at = %d WHERE name = 'abcde';
+		`, s.Clock.Now().Add(1*time.Hour).Unix())
+
+	// an explicit empty platform filter list clears it
+	s.Clock.StepBy(2 * time.Hour)
+	setAccountConfig(models.PlatformFilter{})
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET platform_filter = '', next_enforcement_at = %d WHERE name = 'abcde';
+		`, s.Clock.Now().Add(1*time.Hour).Unix())
 }
 
 func TestAccountManagementWithComplexDeletion(t *testing.T) {
