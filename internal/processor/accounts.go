@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -22,6 +23,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/sqlext"
+	. "go.xyrillian.de/gg/option"
 )
 
 // GetPlatformFilterFromPrimaryAccount takes a replica account and queries the peer holding the primary account for that account.
@@ -262,6 +264,11 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		if err != nil {
 			msg := fmt.Errorf("cannot set up backing storage for this account: %w", err)
 			return models.Account{}, keppel.AsRegistryV2Error(msg).WithStatus(http.StatusConflict)
+		}
+
+		// for replica accounts the DB enforces that a next_platform_filter_sync_at is set
+		if targetAccount.UpstreamPeerHostName != "" {
+			targetAccount.NextPlatformFilterSyncAt = Some(p.timeNow().Add(1 * time.Hour))
 		}
 
 		tx, err := p.db.Begin()

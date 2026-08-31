@@ -50,6 +50,7 @@ type Account struct {
 	NextEnforcementAt            Option[time.Time] `db:"next_enforcement_at"`             // see tasks.CreateManagedAccountsJob
 	NextStorageSweepedAt         Option[time.Time] `db:"next_storage_sweep_at"`           // see tasks.StorageSweepJob
 	NextFederationAnnouncementAt Option[time.Time] `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
+	NextPlatformFilterSyncAt     Option[time.Time] `db:"next_platform_filter_sync_at"`    // see tasks.AccountPlatformFilterSyncJob
 }
 
 // AccountStore provides loading and storing of [Account] objects from the DB.

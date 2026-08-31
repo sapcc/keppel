@@ -424,7 +424,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 
 			// reconfigure "test1" into an external replica of tertiary
 			for _, db := range []*gsql.DB{s1.DB, s2.DB} {
-				test.MustExec(t, db, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
+				test.MustExec(t, db, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2, next_platform_filter_sync_at = NULL WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
 			}
 

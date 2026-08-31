@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/opencontainers/go-digest"
@@ -24,6 +25,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"go.xyrillian.de/gg/gsql"
+	. "go.xyrillian.de/gg/option"
 	"go.xyrillian.de/gg/pgruntime"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -336,6 +338,10 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	// setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
 	for i, account := range params.Accounts {
+		// replica accounts need next_platform_filter_sync_at set on insert
+		if params.Accounts[i].UpstreamPeerHostName != "" && !params.Accounts[i].NextPlatformFilterSyncAt.IsSome() {
+			params.Accounts[i].NextPlatformFilterSyncAt = Some(s.Clock.Now().Add(1 * time.Hour))
+		}
 		must.SucceedT(t, models.AccountStore.Insert(ctx, s.DB, &params.Accounts[i]))
 		must.SucceedT(t, fd.RecordExistingAccount(s.Ctx, account.Reduced(), s.Clock.Now()))
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {

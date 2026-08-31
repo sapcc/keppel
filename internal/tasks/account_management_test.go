@@ -102,7 +102,7 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 
 		// check that the replica was created
 		tr.DBChanges().AssertEqualf(`
-				INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, security_scan_policies_json, is_managed, next_enforcement_at) VALUES ('managed', 'managedauthtenant', 'registry.example.org', 'null', TRUE, %[1]d);
+				INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, security_scan_policies_json, is_managed, next_enforcement_at, next_platform_filter_sync_at) VALUES ('managed', 'managedauthtenant', 'registry.example.org', 'null', TRUE, %[1]d, %[1]d);
 			`,
 			s2.Clock.Now().Add(1*time.Hour).Unix(),
 		)

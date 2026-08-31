@@ -1,4 +1,4 @@
-INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, platform_filter) VALUES ('test1', 'test1authtenant', 'registry.example.org', '[{"os":"linux","architecture":"amd64"}]');
+INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, platform_filter, next_platform_filter_sync_at) VALUES ('test1', 'test1authtenant', 'registry.example.org', '[{"os":"linux","architecture":"amd64"}]', 3601);
 
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 1);
