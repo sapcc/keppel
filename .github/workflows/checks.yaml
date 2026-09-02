@@ -31,11 +31,11 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           check-latest: true
-          go-version: 1.27.0
+          go-version: 1.27.1
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.13.1
+          version: v2.13.2
       - name: Delete pre-installed shellcheck
         run: sudo rm -f "$(which shellcheck)"
       - name: Run shellcheck
@@ -43,7 +43,7 @@ jobs:
       - name: Dependency Licenses Review
         run: make check-dependency-licenses
       - name: Check for spelling errors
-        uses: crate-ci/typos@8a48f81b6c64dcfea44b3633223084c4be58ac5f # v1
+        uses: crate-ci/typos@d43b6c087ac471e2ea7b8af622ff15f05c0c365b # v1
         env:
           CLICOLOR: "1"
       - name: Check if source code files have license header

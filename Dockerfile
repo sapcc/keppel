@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
 # SPDX-License-Identifier: Apache-2.0
 
-ARG IMAGE=golang:1.27.0-alpine3.24
+ARG IMAGE=golang:1.27.1-alpine3.24
 
 FROM $IMAGE AS builder
 
