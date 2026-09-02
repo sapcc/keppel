@@ -53,13 +53,13 @@ Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] format.
 - `quota:show` enables read access to a project's quotas and usage statistics.
 - `quota:edit` enables write access to a project's quotas.
 
-All policy rules can use the object attribute `%(target.project.id)s`.
+All policy rules can use the object attribute `%(target.project.id)s`, except for `account:list`.
 See also: [List of available API attributes](https://github.com/sapcc/go-bits/blob/53eeb20fde03c3d0a35e76cf9c9a06b63a415e6b/gopherpolicy/pkg.go#L151-L164)
 
 ### Keystone service catalog
 
 - The top-level path of the Keppel API (e.g. `https://keppel.example.com/`) should be entered in the service catalog as service type `keppel`.
-- If integration with [Limes][limes] is desired, the `/liquid/` subpath of the Keppel API (e.g. `https://keppel.example.com/liquid/`) can be entered in the service catalog as service type `liquid-keppel`.
+- If integration with [Limes][limes] is desired, the `/liquid/` subpath of the LIQUID API (e.g. `https://liquid-keppel.example.com/liquid/`) can be entered in the service catalog as service type `liquid-keppel`.
 
 [limes]: https://github.com/sapcc/limes
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html
