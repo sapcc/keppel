@@ -44,7 +44,6 @@ The following environment variables may be supplied:
 Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] format. An example can be seen at
 [`docs/example-policy.json`](../example-policy.json). The following rules are expected:
 
-- `account:list` is required for any non-anonymous access to the API.
 - `account:show` enables read access to repository and tag listings.
 - `account:pull` allows to `docker pull` images.
 - `account:push` allows to `docker push` images.
@@ -53,7 +52,7 @@ Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] format.
 - `quota:show` enables read access to a project's quotas and usage statistics.
 - `quota:edit` enables write access to a project's quotas.
 
-All policy rules can use the object attribute `%(target.project.id)s`, except for `account:list`.
+All policy rules can use the object attribute `%(target.project.id)s`.
 See also: [List of available API attributes](https://github.com/sapcc/go-bits/blob/53eeb20fde03c3d0a35e76cf9c9a06b63a415e6b/gopherpolicy/pkg.go#L151-L164)
 
 ### Keystone service catalog

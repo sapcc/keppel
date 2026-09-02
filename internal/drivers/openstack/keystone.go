@@ -194,16 +194,7 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
 	}
 
-	a := newKeystoneUserIdentity(t, d.IsRelevantRole)
-	if !a.t.Check("account:list") {
-		// The intention of this branch is that `GET /keppel/v1/accounts` does not
-		// perform any explicit AuthZ checks before loading all accounts from the DB.
-		// (`account:show` is checked per account, and so cannot happen until after the DB load.)
-		//
-		// This early 403 response ensures that users without relevant roles cannot cause unnecessary DB load.
-		return nil, keppel.ErrDenied.With("").WithStatus(http.StatusForbidden)
-	}
-	return a, nil
+	return newKeystoneUserIdentity(t, d.IsRelevantRole), nil
 }
 
 type keystoneUserIdentity struct {
