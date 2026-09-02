@@ -55,7 +55,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// load full accounts
-	accounts, err := models.AccountStore.SelectWhere(ctx, a.db, `name = ANY($1)`, pq.Array(accountNamesFiltered)).Collect()
+	accounts, err := models.AccountStore.SelectWhere(ctx, a.db, `name = ANY($1) ORDER BY name`, pq.Array(accountNamesFiltered)).Collect()
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
