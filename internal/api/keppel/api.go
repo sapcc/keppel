@@ -116,12 +116,12 @@ func accountScopeFromRequest(r *http.Request, perm keppel.Permission) auth.Scope
 	})
 }
 
-func accountScopes(perm keppel.Permission, accounts ...models.Account) auth.ScopeSet {
-	scopes := make([]auth.Scope, len(accounts))
-	for idx, account := range accounts {
+func accountScopes(perm keppel.Permission, names ...models.AccountName) auth.ScopeSet {
+	scopes := make([]auth.Scope, len(names))
+	for idx, name := range names {
 		scopes[idx] = auth.Scope{
 			ResourceType: "keppel_account",
-			ResourceName: string(account.Name),
+			ResourceName: string(name),
 			Actions:      []string{string(perm)},
 		}
 	}

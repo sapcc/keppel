@@ -44,7 +44,6 @@ The following environment variables may be supplied:
 Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] format. An example can be seen at
 [`docs/example-policy.json`](../example-policy.json). The following rules are expected:
 
-- `account:list` is required for any non-anonymous access to the API.
 - `account:show` enables read access to repository and tag listings.
 - `account:pull` allows to `docker pull` images.
 - `account:push` allows to `docker push` images.
@@ -59,7 +58,7 @@ See also: [List of available API attributes](https://github.com/sapcc/go-bits/bl
 ### Keystone service catalog
 
 - The top-level path of the Keppel API (e.g. `https://keppel.example.com/`) should be entered in the service catalog as service type `keppel`.
-- If integration with [Limes][limes] is desired, the `/liquid/` subpath of the Keppel API (e.g. `https://keppel.example.com/liquid/`) can be entered in the service catalog as service type `liquid-keppel`.
+- If integration with [Limes][limes] is desired, the `/liquid/` subpath of the LIQUID API (e.g. `https://liquid-keppel.example.com/liquid/`) can be entered in the service catalog as service type `liquid-keppel`.
 
 [limes]: https://github.com/sapcc/limes
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html

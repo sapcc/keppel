@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
@@ -27,11 +28,14 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
 	ctx := r.Context()
 
-	accounts, err := models.AccountStore.Select(ctx, a.db, `SELECT * FROM accounts ORDER BY name`).Collect()
+	// load just account names at first (we do not load full accounts here because we have not done AuthZ yet,
+	// so only loading names limits the risk of amplification attacks from unauthorized requests)
+	accountNames, err := keppel.SelectSeveralValues[models.AccountName](a.db,
+		`SELECT name FROM accounts ORDER BY name`)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	scopes := accountScopes(keppel.CanViewAccount, accounts...)
+	scopes := accountScopes(keppel.CanViewAccount, accountNames...)
 
 	authz := a.authenticateRequest(w, r, scopes)
 	if authz == nil {
@@ -43,20 +47,27 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// restrict accounts to those visible in the current scope
-	var accountsFiltered []models.Account
-	for idx, account := range accounts {
+	var accountNamesFiltered []models.AccountName
+	for idx, accountName := range accountNames {
 		if authz.ScopeSet.Contains(scopes[idx]) {
-			accountsFiltered = append(accountsFiltered, account)
+			accountNamesFiltered = append(accountNamesFiltered, accountName)
 		}
 	}
+
+	// load full accounts
+	accounts, err := models.AccountStore.SelectWhere(ctx, a.db, `name = ANY($1) ORDER BY name`, pq.Array(accountNamesFiltered)).Collect()
+	if respondwith.ObfuscatedErrorText(w, err) {
+		return
+	}
+
 	// ensure that this serializes as a list, not as null
-	if len(accountsFiltered) == 0 {
-		accountsFiltered = []models.Account{}
+	if len(accounts) == 0 {
+		accounts = []models.Account{}
 	}
 
 	// render accounts to JSON
-	accountsRendered := make([]keppel.Account, len(accountsFiltered))
-	for idx, account := range accountsFiltered {
+	accountsRendered := make([]keppel.Account, len(accounts))
+	for idx, account := range accounts {
 		accountsRendered[idx], err = keppel.RenderAccount(account)
 		if respondwith.ObfuscatedErrorText(w, err) {
 			return

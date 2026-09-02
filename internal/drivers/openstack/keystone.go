@@ -194,13 +194,7 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
 	}
 
-	// t.Context.Request = mux.Vars(r) //not used at the moment
-
-	a := newKeystoneUserIdentity(t, d.IsRelevantRole)
-	if !a.t.Check("account:list") {
-		return nil, keppel.ErrDenied.With("").WithStatus(http.StatusForbidden)
-	}
-	return a, nil
+	return newKeystoneUserIdentity(t, d.IsRelevantRole), nil
 }
 
 type keystoneUserIdentity struct {
