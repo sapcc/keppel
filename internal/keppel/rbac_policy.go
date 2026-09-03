@@ -5,12 +5,15 @@ package keppel
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/sapcc/go-bits/regexpext"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -64,18 +67,23 @@ func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
 	return true
 }
 
-// ValidateAndNormalize performs some normalizations and returns an error if
-// this policy is invalid.
-func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
+// ValidateAndNormalize performs some normalizations and returns an error if this policy is invalid.
+// On success, if the policy governs access for anonymous users, the respective [AnonymousRBACPolicy] is returned.
+// Otherwise, if the policy governs access for authenticated users, [None] is returned.
+//
+// [None]: https://pkg.go.dev/go.xyrillian.de/gg/option#None
+func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) (Option[AnonymousRBACPolicy], error) {
+	var none Option[AnonymousRBACPolicy] // for use in error returns
+
 	if r.CidrPattern != "" {
 		_, network, err := net.ParseCIDR(r.CidrPattern)
 		if err != nil {
 			// err.Error() sadly does not contain any useful information why the cidr is invalid
-			return fmt.Errorf("%q is not a valid CIDR", r.CidrPattern)
+			return none, fmt.Errorf("%q is not a valid CIDR", r.CidrPattern)
 		}
 		r.CidrPattern = network.String()
 		if network.String() == "0.0.0.0/0" {
-			return errors.New("0.0.0.0/0 cannot be used as CIDR because it matches everything")
+			return none, errors.New("0.0.0.0/0 cannot be used as CIDR because it matches everything")
 		}
 	}
 
@@ -84,7 +92,7 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	refersToPerm := make(map[RBACPermission]bool) // set of permissions named in either `r.Permissions` or `r.NegativePermissions`
 	for _, perm := range r.Permissions {
 		if !isRBACPermission[perm] {
-			return fmt.Errorf("%q is not a valid RBAC policy permission", perm)
+			return none, fmt.Errorf("%q is not a valid RBAC policy permission", perm)
 		}
 		grantsPerm[perm] = true
 		forbidsPerm[perm] = false
@@ -92,10 +100,10 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	}
 	for _, perm := range r.ForbiddenPermissions {
 		if !isRBACPermission[perm] {
-			return fmt.Errorf("%q is not a valid RBAC policy permission", perm)
+			return none, fmt.Errorf("%q is not a valid RBAC policy permission", perm)
 		}
 		if grantsPerm[perm] {
-			return fmt.Errorf("%q cannot be granted and forbidden by the same RBAC policy", perm)
+			return none, fmt.Errorf("%q cannot be granted and forbidden by the same RBAC policy", perm)
 		}
 		grantsPerm[perm] = false
 		forbidsPerm[perm] = true
@@ -103,28 +111,28 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	}
 
 	if len(r.Permissions) == 0 && len(r.ForbiddenPermissions) == 0 {
-		return errors.New(`RBAC policy must grant at least one permission`)
+		return none, errors.New(`RBAC policy must grant at least one permission`)
 	}
 	if r.CidrPattern == "" && r.UserNamePattern == "" && r.RepositoryPattern == "" {
-		return errors.New(`RBAC policy must have at least one "match_..." attribute`)
+		return none, errors.New(`RBAC policy must have at least one "match_..." attribute`)
 	}
 	if (refersToPerm[RBACAnonymousPullPermission] || refersToPerm[RBACAnonymousFirstPullPermission]) && r.UserNamePattern != "" {
-		return errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
+		return none, errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
 	}
 	if refersToPerm[RBACPullPermission] && r.UserNamePattern == "" {
-		return errors.New(`RBAC policy with "pull" must have the "match_username" attribute`)
+		return none, errors.New(`RBAC policy with "pull" must have the "match_username" attribute`)
 	}
 	if grantsPerm[RBACPushPermission] && !grantsPerm[RBACPullPermission] {
-		return errors.New(`RBAC policy with "push" must also grant "pull"`)
+		return none, errors.New(`RBAC policy with "push" must also grant "pull"`)
 	}
 	if grantsPerm[RBACAnonymousFirstPullPermission] && !grantsPerm[RBACAnonymousPullPermission] {
-		return errors.New(`RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull"`)
+		return none, errors.New(`RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull"`)
 	}
 	if refersToPerm[RBACDeletePermission] && r.UserNamePattern == "" {
-		return errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
+		return none, errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
 	}
 	if refersToPerm[RBACAnonymousFirstPullPermission] && strategy == NoReplicationStrategy {
-		return errors.New(`RBAC policy with "anonymous_first_pull" may only be for replica accounts`)
+		return none, errors.New(`RBAC policy with "anonymous_first_pull" may only be for replica accounts`)
 	}
 
 	if len(r.Permissions) == 0 {
@@ -132,7 +140,18 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 		r.Permissions = []RBACPermission{}
 	}
 
-	return nil
+	if r.UserNamePattern == "" {
+		return Some(AnonymousRBACPolicy{
+			cidrPattern:       r.CidrPattern,
+			repositoryPattern: string(r.RepositoryPattern),
+			grantsPull:        grantsPerm[RBACAnonymousPullPermission],
+			forbidsPull:       forbidsPerm[RBACAnonymousPullPermission],
+			grantsFirstPull:   grantsPerm[RBACAnonymousFirstPullPermission],
+			forbidsFirstPull:  forbidsPerm[RBACAnonymousFirstPullPermission],
+		}), nil
+	} else {
+		return None[AnonymousRBACPolicy](), nil
+	}
 }
 
 // ParseRBACPolicies parses the RBAC policies for the given account.
@@ -151,4 +170,79 @@ func ParseRBACPoliciesField(buf []byte) ([]RBACPolicy, error) {
 	var policies []RBACPolicy
 	err := json.Unmarshal(buf, &policies)
 	return policies, err
+}
+
+// AnonymousRBACPolicy is a trimmed-down version of [RBACPolicy] that only covers access control for anonymous users:
+//
+//   - Policies matching on user name cannot be converted into this format.
+//   - Policies granting permissions other than [RBACAnonymousPullPermission] and [RBACAnonymousFirstPullPermission] cannot be converted into this format.
+//
+// When serialized into JSON, this type yields an extremely compact encoding.
+// Anonymous RBAC policies are meant for reading from the DB even during extremely hot paths,
+// if doing so can avoid issuing tokens with cryptographic signatures and incurring the performance penalty of verifying these signatures.
+type AnonymousRBACPolicy struct {
+	cidrPattern       string
+	repositoryPattern string
+	grantsPull        bool
+	grantsFirstPull   bool
+	forbidsPull       bool
+	forbidsFirstPull  bool
+}
+
+// serializedAnonymousRBACPolicy defines how [AnonymousRBACPolicy] gets serialized as JSON.
+type serializedAnonymousRBACPolicy struct {
+	CidrPattern       string `json:"c,omitempty"`
+	RepositoryPattern string `json:"r,omitempty"`
+	Permissions       string `json:"p"`
+}
+
+// MarshalJSONTo implements the [json.MarshalerTo] interface.
+func (a AnonymousRBACPolicy) MarshalJSONTo(enc *jsontext.Encoder) error {
+	var perms []string
+	if a.grantsPull {
+		perms = append(perms, "p")
+	}
+	if a.forbidsPull {
+		perms = append(perms, "!p")
+	}
+	if a.grantsFirstPull {
+		perms = append(perms, "f")
+	}
+	if a.forbidsFirstPull {
+		perms = append(perms, "!f")
+	}
+	return json.MarshalEncode(enc, serializedAnonymousRBACPolicy{
+		CidrPattern:       a.cidrPattern,
+		RepositoryPattern: a.repositoryPattern,
+		Permissions:       strings.Join(perms, ","),
+	})
+}
+
+// UnmarshalJSONFrom implements the [json.UnmarshalerForm] interface.
+func (a *AnonymousRBACPolicy) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var s serializedAnonymousRBACPolicy
+	err := json.UnmarshalDecode(dec, &s)
+	if err != nil {
+		return err
+	}
+
+	*a = AnonymousRBACPolicy{
+		cidrPattern:       s.CidrPattern,
+		repositoryPattern: s.RepositoryPattern,
+	}
+	for perm := range strings.SplitSeq(s.Permissions, ",") {
+		switch perm {
+		case "p":
+			a.grantsPull = true
+		case "!p":
+			a.forbidsPull = true
+		case "f":
+			a.grantsFirstPull = true
+		case "!f":
+			a.forbidsFirstPull = true
+		default:
+			return &json.SemanticError{Err: fmt.Errorf("invalid permission code: %q", perm)}
+		}
+	}
+	return nil
 }
