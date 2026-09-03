@@ -99,6 +99,30 @@ func GenerateExampleGzipCompressedLayerSize(seed, sizeMiB int64) Bytes {
 	return newBytesWithMediaType(byteBuffer.Bytes(), manifest.DockerV2Schema2LayerMediaType)
 }
 
+// GenerateExampleLayerWithWrongGzipMediaType generates a blob whose contents are
+// NOT gzip-compressed but whose media type advertises them as gzip. This is used
+// to simulate malformed layers that produce gzip.ErrHeader when the vulnerability
+// scanner tries to decompress them.
+func GenerateExampleLayerWithWrongGzipMediaType(seed, sizeMiB int64) Bytes {
+	r := rand.New(rand.NewSource(seed)) //nolint:gosec // random data from hardcoded seed to generate data for tests
+	buf := make([]byte, sizeMiB<<20)
+	r.Read(buf)
+
+	return newBytesWithMediaType(buf, manifest.DockerV2Schema2LayerMediaType)
+}
+
+// GenerateExampleLayerWithWrongZstdMediaType generates a blob whose contents are
+// NOT zstd-compressed but whose media type advertises them as zstd. This is used
+// to simulate malformed layers that produce zstd.ErrMagicMismatch when the
+// vulnerability scanner tries to decompress them.
+func GenerateExampleLayerWithWrongZstdMediaType(seed, sizeMiB int64) Bytes {
+	r := rand.New(rand.NewSource(seed)) //nolint:gosec // random data from hardcoded seed to generate data for tests
+	buf := make([]byte, sizeMiB<<20)
+	r.Read(buf)
+
+	return newBytesWithMediaType(buf, manifest.DockerV2SchemaLayerMediaTypeZstd)
+}
+
 // GenerateExampleZstdCompressedLayerSize generates a blob of a configurable size that can be used like an image
 // layer when constructing image manifests for unit tests.
 // The contents are generated deterministically from the given seed.
