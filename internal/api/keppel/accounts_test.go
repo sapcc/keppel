@@ -992,7 +992,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			})).ExpectText(t, expectedStatus, tc.ErrorMessage+"\n")
 	}
 
-	// test unexpected platform filter
+	// test unexpected platform filter: adding a filter to a primary account is not allowed
 	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
@@ -1003,7 +1003,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 					"architecture": "amd64",
 				}},
 			},
-		})).ExpectText(t, http.StatusConflict, "cannot change platform filter on existing account\n")
+		})).ExpectText(t, http.StatusUnprocessableEntity, "platform filter is only allowed on replica accounts\n")
 
 	// test unexpected platform filter on new primary account
 	s.RespondTo(ctx, "PUT /keppel/v1/accounts/third",
@@ -1450,7 +1450,54 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 	}).ExpectText(t, http.StatusConflict, "cannot change replication policy on existing account\n")
 
-	// PUT on existing account with different platform filter is not allowed
+	// PUT on existing account with a different platform filter is allowed
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "registry.example.com",
+				"username": "foo",
+				"password": "bar",
+			},
+		},
+		"platform_filter": []map[string]any{{
+			"os":           "linux",
+			"architecture": "amd64",
+		}, {
+			"os":           "linux",
+			"architecture": "aarch64",
+		}, {
+			"os":           "darwin",
+			"architecture": "aarch64",
+		}},
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"replication": jsonmatch.Object{
+				"strategy": "from_external_on_first_use",
+				"upstream": jsonmatch.Object{
+					"url":      "registry.example.com",
+					"username": "foo",
+				},
+			},
+			"platform_filter": []map[string]any{{
+				"os":           "linux",
+				"architecture": "amd64",
+			}, {
+				"os":           "linux",
+				"architecture": "aarch64",
+			}, {
+				"os":           "darwin",
+				"architecture": "aarch64",
+			}},
+		},
+	})
+
+	// Clearing the filter by providing an explicit empty list
 	putFirstAccount(map[string]any{
 		"auth_tenant_id": "tenant1",
 		"replication": map[string]any{
@@ -1462,7 +1509,21 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			},
 		},
 		"platform_filter": []map[string]any{},
-	}).ExpectText(t, http.StatusConflict, "cannot change platform filter on existing account\n")
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"replication": jsonmatch.Object{
+				"strategy": "from_external_on_first_use",
+				"upstream": jsonmatch.Object{
+					"url":      "registry.example.com",
+					"username": "foo",
+				},
+			},
+		},
+	})
 }
 
 func TestDeleteAccount(t *testing.T) {

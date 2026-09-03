@@ -10,6 +10,7 @@ import (
 
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -51,6 +52,59 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	expectAccountsAnnouncedJustNow(t, s, account2.Reduced())
 	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
+}
+
+func TestAccountPlatformFilterSync(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		_, s1 := setup(t)
+		j2, s2 := setupReplica(t, s1, "on_first_use")
+		ctx := t.Context()
+
+		s2.Clock.StepBy(1 * time.Hour)
+
+		syncJob := j2.AccountPlatformFilterSyncJob(s2.Registry)
+
+		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), nil)
+		account := must.ReturnT(keppel.FindAccount(ctx, s2.DB, "test1"))(t)
+		assert.Equal(t, account.PlatformFilter, nil)
+		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), sql.ErrNoRows)
+
+		// set up another replica account
+		s2.Clock.StepBy(65 * time.Minute)
+		account2 := models.Account{
+			Name:                     "test2",
+			AuthTenantID:             "test2authtenant",
+			UpstreamPeerHostName:     "registry.example.org",
+			NextPlatformFilterSyncAt: Some(s2.Clock.Now().Add(1 * time.Hour)),
+		}
+		must.SucceedT(t, models.AccountStore.Insert(ctx, s2.DB, &account2))
+		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &models.Account{
+			Name:         "test2",
+			AuthTenantID: "test2authtenant",
+		}))
+		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), nil)
+		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), sql.ErrNoRows)
+
+		// change the primary's platform filter for test1
+		s2.Clock.StepBy(65 * time.Minute)
+		newFilter := models.PlatformFilter{
+			{OS: "linux", Architecture: "amd64"},
+			{OS: "linux", Architecture: "arm64", Variant: "v8"},
+		}
+		primary1 := must.ReturnT(keppel.FindAccount(ctx, s1.DB, "test1"))(t)
+		primary1.PlatformFilter = newFilter
+		must.SucceedT(t, models.AccountStore.Update(ctx, s1.DB, primary1))
+
+		// do another full round of syncs
+		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), nil)
+		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), nil)
+		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), sql.ErrNoRows)
+
+		account = must.ReturnT(keppel.FindAccount(ctx, s2.DB, "test1"))(t)
+		assert.Equal(t, account.PlatformFilter, newFilter)
+		account = must.ReturnT(keppel.FindAccount(ctx, s2.DB, "test2"))(t)
+		assert.Equal(t, account.PlatformFilter, nil)
+	})
 }
 
 func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...models.ReducedAccount) {

@@ -323,6 +323,13 @@ var sqlMigrations = map[int64]string{
 				ELSE NULL
 			END;
 	`,
+	57: `
+		ALTER TABLE accounts
+			ADD COLUMN next_platform_filter_sync_at TIMESTAMPTZ DEFAULT NULL;
+		UPDATE accounts SET next_platform_filter_sync_at = NOW() WHERE upstream_peer_hostname != '';
+		ALTER TABLE accounts
+			ADD CONSTRAINT platform_filter_sync_on_replicas CHECK ((upstream_peer_hostname = '') = (next_platform_filter_sync_at IS NULL));
+	`,
 }
 
 // DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].

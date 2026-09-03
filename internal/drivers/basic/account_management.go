@@ -22,6 +22,10 @@ type AccountManagementDriver struct {
 	ConfigPath            string   `json:"config_path"`
 	ProtectedAccountNames []string `json:"protected_accounts"`
 
+	// StaticConfig, if non-nil, is used by the driver instead of reading from ConfigPath.
+	// This is intended for test mocking.
+	StaticConfig *AccountConfig `json:"-"`
+
 	// state
 	config AccountConfig
 	lock   sync.RWMutex
@@ -56,6 +60,10 @@ func (a *AccountManagementDriver) PluginTypeID() string { return "basic" }
 
 // Init implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) Init() error {
+	if a.StaticConfig != nil {
+		a.setConfig(*a.StaticConfig)
+		return nil
+	}
 	if a.ConfigPath == "" {
 		return errors.New("missing required field: params.config_path")
 	}
@@ -94,9 +102,13 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountNam
 
 // ManagedAccountNames implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) ManagedAccountNames() ([]models.AccountName, error) {
-	err := a.LoadConfig()
-	if err != nil {
-		return nil, err
+	if a.StaticConfig != nil {
+		a.setConfig(*a.StaticConfig)
+	} else {
+		err := a.LoadConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	a.lock.RLock()
@@ -127,9 +139,12 @@ func (a *AccountManagementDriver) LoadConfig() error {
 		return err
 	}
 
+	a.setConfig(config)
+	return nil
+}
+
+func (a *AccountManagementDriver) setConfig(config AccountConfig) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.config = config
-
-	return nil
 }
