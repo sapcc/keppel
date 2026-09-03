@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/httpapi"
 
@@ -71,8 +70,8 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", imgspecv1.MediaTypeImageIndex)
 	_ = json.NewEncoder(w).Encode(imgspecv1.Index{ //nolint: errcheck // can't fail
-		Versioned: specs.Versioned{SchemaVersion: 2},
-		MediaType: imgspecv1.MediaTypeImageIndex,
-		Manifests: manifests,
+		SchemaVersion: 2,
+		MediaType:     imgspecv1.MediaTypeImageIndex,
+		Manifests:     manifests,
 	})
 }

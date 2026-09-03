@@ -125,15 +125,13 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 		access = nil
 	}
 	token := jwt.NewWithClaims(method, tokenClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        uuid.NewV4().String(),
-			Audience:  jwt.ClaimStrings{publicHost},
-			Issuer:    "keppel-api@" + issuer.Hostname(cfg),
-			Subject:   a.UserIdentity.UserName(),
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			NotBefore: jwt.NewNumericDate(now.Add(-1 * time.Second)), // set slightly in the past to account for clock skew between token issuer and user
-			IssuedAt:  jwt.NewNumericDate(now),
-		},
+		ID:        uuid.NewV4().String(),
+		Audience:  jwt.ClaimStrings{publicHost},
+		Issuer:    "keppel-api@" + issuer.Hostname(cfg),
+		Subject:   a.UserIdentity.UserName(),
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
+		NotBefore: jwt.NewNumericDate(now.Add(-1 * time.Second)), // set slightly in the past to account for clock skew between token issuer and user
+		IssuedAt:  jwt.NewNumericDate(now),
 		// access permissions granted to this token
 		Access:   access,
 		Embedded: embeddedUserIdentity{UserIdentity: a.UserIdentity},

@@ -34,11 +34,9 @@ func TestConfigureAccount(t *testing.T) {
 		AuthTenantID: "12345",
 		GCPolicies: []keppel.GCPolicy{
 			{
-				Action: "protect",
-				PolicyMatchRule: keppel.PolicyMatchRule{
-					NegativeRepositoryRx: "archive/.*",
-					RepositoryRx:         ".*/database",
-				},
+				Action:               "protect",
+				NegativeRepositoryRx: "archive/.*",
+				RepositoryRx:         ".*/database",
 				TimeConstraint: &keppel.GCTimeConstraint{
 					FieldName: "pushed_at",
 					MaxAge:    keppel.Duration(6 * time.Hour),
@@ -47,9 +45,7 @@ func TestConfigureAccount(t *testing.T) {
 			{
 				Action:       "delete",
 				OnlyUntagged: true,
-				PolicyMatchRule: keppel.PolicyMatchRule{
-					RepositoryRx: ".*",
-				},
+				RepositoryRx: ".*",
 			},
 		},
 		RBACPolicies: []keppel.RBACPolicy{

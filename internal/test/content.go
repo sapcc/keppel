@@ -15,7 +15,6 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
@@ -406,17 +405,15 @@ func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 	}
 
 	ociManifest := manifest.OCI1{
-		Manifest: imgspecv1.Manifest{
-			Versioned: specs.Versioned{SchemaVersion: 2},
-			MediaType: imgspecv1.MediaTypeImageManifest,
-			Config: imgspecv1.Descriptor{
-				MediaType: ociArgs.ConfigMediaType,
-				Size:      int64(len(configBytes)),
-				Digest:    digest.FromBytes(configBytes),
-			},
-			Layers:      layerDescs,
-			Annotations: ociArgs.Annotations,
+		SchemaVersion: 2,
+		MediaType:     imgspecv1.MediaTypeImageManifest,
+		Config: imgspecv1.Descriptor{
+			MediaType: ociArgs.ConfigMediaType,
+			Size:      int64(len(configBytes)),
+			Digest:    digest.FromBytes(configBytes),
 		},
+		Layers:      layerDescs,
+		Annotations: ociArgs.Annotations,
 	}
 
 	if ociArgs.SubjectDigest != "" {

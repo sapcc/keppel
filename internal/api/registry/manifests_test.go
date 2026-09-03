@@ -58,17 +58,13 @@ func TestImageManifestLifecycle(t *testing.T) {
 			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.TagPolicy{
 					{
-						PolicyMatchRule: keppel.PolicyMatchRule{
-							RepositoryRx: "foo",
-						},
+						RepositoryRx:   "foo",
 						BlockOverwrite: true,
 					},
 					{
-						PolicyMatchRule: keppel.PolicyMatchRule{
-							RepositoryRx: "foo",
-							TagRx:        "dangerous.*",
-						},
-						BlockPush: true,
+						RepositoryRx: "foo",
+						TagRx:        "dangerous.*",
+						BlockPush:    true,
 					},
 				}),
 			)
@@ -342,10 +338,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 			// DELETE failure case: tag is protected by tag policy
 			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.TagPolicy{{
-					PolicyMatchRule: keppel.PolicyMatchRule{
-						RepositoryRx: "foo",
-					},
-					BlockDelete: true,
+					RepositoryRx: "foo",
+					BlockDelete:  true,
 				}}),
 			)
 
