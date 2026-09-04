@@ -83,9 +83,6 @@ typos:
     fo: fo # part of regex fo+
     DELET: DELET # wrongly detected
 
-variables:
-  GOEXPERIMENT: jsonv2
-
 verbatim: |
   # This is for manual testing.
   run-api: build/keppel
