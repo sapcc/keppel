@@ -26,7 +26,7 @@ cel.dev/cel-go/parser/gen
 # cel.dev/expr v0.25.1
 ## explicit; go 1.23.0
 cel.dev/expr
-# github.com/alicebob/miniredis/v2 v2.38.0
+# github.com/alicebob/miniredis/v2 v2.39.0
 ## explicit; go 1.17
 github.com/alicebob/miniredis/v2
 github.com/alicebob/miniredis/v2/fpconv
@@ -97,8 +97,8 @@ github.com/itchyny/timefmt-go
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 ## explicit
 github.com/jpillora/longestcommon
-# github.com/klauspost/compress v1.19.2
-## explicit; go 1.24
+# github.com/klauspost/compress v1.20.0
+## explicit; go 1.25
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0

@@ -4,7 +4,7 @@ go 1.27
 
 require (
 	cel.dev/cel-go v0.32.0
-	github.com/alicebob/miniredis/v2 v2.38.0
+	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/go-redis/redis_rate/v10 v10.0.1
@@ -12,7 +12,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.14.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/klauspost/compress v1.19.2
+	github.com/klauspost/compress v1.20.0
 	github.com/lib/pq v1.12.3
 	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260827170726-3ecd27b5c78d
 	github.com/opencontainers/go-digest v1.0.0
