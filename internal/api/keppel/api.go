@@ -17,6 +17,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"go.xyrillian.de/gg/gsql"
 
@@ -52,7 +53,8 @@ func (a *API) OverrideTimeNow(timeNow func() time.Time) *API {
 }
 
 // AddTo implements the api.API interface.
-func (a *API) AddTo(r *mux.Router) {
+func (a *API) AddTo(c *httpapi.Composer) {
+	r := c.Router()
 	r.Methods("GET").Path("/keppel/v1").HandlerFunc(a.handleGetAPIInfo)
 
 	//NOTE: Keppel account names are severely restricted because we used to

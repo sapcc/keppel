@@ -10,7 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 
@@ -35,10 +34,8 @@ func NewTrivyDouble() *TrivyDouble {
 }
 
 // AddTo implements the api.API interface.
-func (t *TrivyDouble) AddTo(r *mux.Router) {
-	r.Methods("GET").
-		Path("/trivy").
-		HandlerFunc(t.mockRunTrivy)
+func (t *TrivyDouble) AddTo(c *httpapi.Composer) {
+	c.Router().Methods("GET").Path("/trivy").HandlerFunc(t.mockRunTrivy)
 }
 
 func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {

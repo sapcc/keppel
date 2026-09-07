@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/httpapi"
 )
 
 // guiRedirecter is an api.API that implements the GET /debug/reflect-headers endpoint.
@@ -18,9 +18,9 @@ type headerReflector struct {
 }
 
 // AddTo implements the api.API interface.
-func (hr *headerReflector) AddTo(r *mux.Router) {
+func (hr *headerReflector) AddTo(c *httpapi.Composer) {
 	if hr.Enabled {
-		r.Methods("GET").Path("/debug/reflect-headers").HandlerFunc(reflectHeaders)
+		c.Router().Methods("GET").Path("/debug/reflect-headers").HandlerFunc(reflectHeaders)
 	}
 }
 

@@ -17,7 +17,18 @@ import (
 // "Without..." are available that apply to the entire http.Handler returned by
 // Compose(), instead of just adding endpoints to it.
 type API interface {
-	AddTo(r *mux.Router)
+	AddTo(c *Composer)
+}
+
+// Composer is the argument type given to the AddTo() method of [API].
+// API implementations can use the methods on this type to register their endpoints.
+type Composer struct {
+	r *mux.Router
+}
+
+// Router returns a [mux.Router] where APIs can register endpoints.
+func (c *Composer) Router() *mux.Router {
+	return c.r
 }
 
 // HealthCheckAPI is an API with one endpoint, "GET /healthcheck", that
@@ -31,8 +42,8 @@ type HealthCheckAPI struct {
 }
 
 // AddTo implements the API interface.
-func (h HealthCheckAPI) AddTo(r *mux.Router) {
-	r.Methods("GET", "HEAD").Path("/healthcheck").HandlerFunc(h.handleRequest)
+func (h HealthCheckAPI) AddTo(c *Composer) {
+	c.Router().Methods("GET", "HEAD").Path("/healthcheck").HandlerFunc(h.handleRequest)
 }
 
 func (h HealthCheckAPI) handleRequest(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +71,7 @@ type pseudoAPI struct {
 }
 
 // AddTo implements the API interface.
-func (p pseudoAPI) AddTo(r *mux.Router) {
+func (p pseudoAPI) AddTo(c *Composer) {
 	// no-op, see above
 }
 
