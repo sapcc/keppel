@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
@@ -104,7 +103,8 @@ type mockPeerReceivingPassword struct {
 }
 
 // AddTo implements the api.API interface.
-func (p *mockPeerReceivingPassword) AddTo(r *mux.Router) {
+func (p *mockPeerReceivingPassword) AddTo(c *httpapi.Composer) {
+	r := c.Router()
 	r.Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(p.handleReceivePassword)
 }
 

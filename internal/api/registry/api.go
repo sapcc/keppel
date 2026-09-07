@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
@@ -58,7 +57,8 @@ func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
 }
 
 // AddTo implements the api.API interface.
-func (a *API) AddTo(r *mux.Router) {
+func (a *API) AddTo(c *httpapi.Composer) {
+	r := c.Router()
 	// NOTE 1: This uses gg/pathrouter instead of gorilla/mux for the actual path matching
 	//         to improve performance esp. for important endpoints like GetManifest and GetBlob.
 	// NOTE 2: Most HEAD handlers are deleted to match the endpoint list from

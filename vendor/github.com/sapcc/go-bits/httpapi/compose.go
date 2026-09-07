@@ -16,6 +16,7 @@ func Compose(apis ...API) http.Handler {
 	autoConfigureMetricsIfNecessary()
 
 	r := mux.NewRouter()
+	c := &Composer{r}
 	m := middleware{inner: r}
 
 	// Automatically identify the endpoint for go-bits metrics using EndpointNamer,
@@ -36,7 +37,7 @@ func Compose(apis ...API) http.Handler {
 		case pseudoAPI:
 			a.configure(&m)
 		default:
-			a.AddTo(r)
+			a.AddTo(c)
 		}
 	}
 

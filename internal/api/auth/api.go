@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
@@ -33,7 +32,8 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.Federation
 }
 
 // AddTo implements the api.API interface.
-func (a *API) AddTo(r *mux.Router) {
+func (a *API) AddTo(c *httpapi.Composer) {
+	r := c.Router()
 	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(a.handleGetAuth)
 	r.Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(a.handlePostPeering)
 }
