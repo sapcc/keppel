@@ -18,7 +18,6 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/trivy"
 
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpapi/pprofapi"
@@ -82,8 +81,8 @@ func NewAPI(dbMirrorPrefix, token, trivyURL string) *API {
 }
 
 // AddTo implements the api.API interface.
-func (a *API) AddTo(r *mux.Router) {
-	r.Methods("GET").Path("/trivy").HandlerFunc(a.proxyToTrivy)
+func (a *API) AddTo(c *httpapi.Composer) {
+	c.Router().Methods("GET").Path("/trivy").HandlerFunc(a.proxyToTrivy)
 }
 
 func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {

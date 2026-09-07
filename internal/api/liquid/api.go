@@ -43,7 +43,8 @@ func NewLiquidAPI(cfg keppel.Configuration, ad keppel.AuthDriver, sd keppel.Stor
 }
 
 // AddTo implements the LiquidAPI interface.
-func (a *API) AddTo(r *mux.Router) {
+func (a *API) AddTo(c *httpapi.Composer) {
+	r := c.Router()
 	// Besides the native Keppel API, this handler also implements LIQUID.
 	// Ref: <https://pkg.go.dev/github.com/sapcc/go-api-declarations/liquid>
 	r.Methods("GET").Path("/liquid/v1/info").HandlerFunc(a.handleLiquidGetInfo)

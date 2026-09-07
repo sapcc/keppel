@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/httpapi"
 	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -29,7 +29,8 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *gsql.DB) *API {
 }
 
 // AddTo implements the api.API interface.
-func (a *API) AddTo(r *mux.Router) {
+func (a *API) AddTo(c *httpapi.Composer) {
+	r := c.Router()
 	// All endpoints shall be grouped into /peer/v1/. For the "delegated pull"
 	// subset of endpoints, the end of the path reflects the request that we make
 	// to upstream, so there is an additional /v2/ in there in reference to the

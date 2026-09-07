@@ -31,12 +31,12 @@ type API struct {
 }
 
 // AddTo implements the httpapi.API interface.
-func (a API) AddTo(r *mux.Router) {
+func (a API) AddTo(c *httpapi.Composer) {
 	if a.IsAuthorized == nil {
 		panic("API.AddTo() called with IsAuthorized == nil!")
 	}
 
-	r.Methods("GET").Path("/debug/pprof/{operation}").HandlerFunc(a.handler)
+	c.Router().Methods("GET").Path("/debug/pprof/{operation}").HandlerFunc(a.handler)
 }
 
 func (a API) handler(w http.ResponseWriter, r *http.Request) {

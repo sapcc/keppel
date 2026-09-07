@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"go.xyrillian.de/gg/gsql"
 
@@ -24,13 +25,13 @@ type guiRedirecter struct {
 }
 
 // AddTo implements the api.API interface.
-func (g *guiRedirecter) AddTo(r *mux.Router) {
+func (g *guiRedirecter) AddTo(c *httpapi.Composer) {
 	// check if this feature is enabled
 	if g.urlStr == "" {
 		return
 	}
 
-	r.Methods("GET").Path("/{account:[a-z0-9][a-z0-9-]{0,47}}/{repository:.+}").HandlerFunc(g.tryRedirectToGUI)
+	c.Router().Methods("GET").Path("/{account:[a-z0-9][a-z0-9-]{0,47}}/{repository:.+}").HandlerFunc(g.tryRedirectToGUI)
 }
 
 func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request) {
