@@ -15,13 +15,13 @@ import (
 func Compose(apis ...API) http.Handler {
 	autoConfigureMetricsIfNecessary()
 
-	r := mux.NewRouter()
-	c := &Composer{r}
-	m := middleware{inner: r}
+	c := &Composer{}
+	c.router = mux.NewRouter()
+	c.handler = c.router
 
 	// Automatically identify the endpoint for go-bits metrics using EndpointNamer,
 	// called here inside the gorilla/mux chain where route context is available.
-	r.Use(func(next http.Handler) http.Handler {
+	WithGlobalMiddleware(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if EndpointNamer != nil {
 				if name, ok := EndpointNamer(r).Unpack(); ok {
@@ -30,19 +30,17 @@ func Compose(apis ...API) http.Handler {
 			}
 			next.ServeHTTP(w, r)
 		})
-	})
+	}).AddTo(c)
 
 	for _, a := range apis {
-		switch a := a.(type) {
-		case pseudoAPI:
-			a.configure(&m)
-		default:
-			a.AddTo(c)
-		}
+		a.AddTo(c)
 	}
 
-	h := http.Handler(m)
-	return h
+	return http.Handler(middleware{
+		tryHandlers: c.tryHandlers,
+		inner:       c.handler,
+		skipAllLogs: c.skipAllLogs,
+	})
 }
 
 type oobKey string

@@ -20,15 +20,28 @@ type API interface {
 	AddTo(c *Composer)
 }
 
+// TryHandler is TODO.
+type TryHandler interface {
+	TryServeHTTP(http.ResponseWriter, *http.Request) bool
+}
+
 // Composer is the argument type given to the AddTo() method of [API].
 // API implementations can use the methods on this type to register their endpoints.
 type Composer struct {
-	r *mux.Router
+	router      *mux.Router
+	handler     http.Handler
+	tryHandlers []TryHandler
+	skipAllLogs bool
 }
 
 // Router returns a [mux.Router] where APIs can register endpoints.
 func (c *Composer) Router() *mux.Router {
-	return c.r
+	return c.router
+}
+
+// AddTryHandler is TODO.
+func (c *Composer) AddTryHandler(h TryHandler) {
+	c.tryHandlers = append(c.tryHandlers, h)
 }
 
 // HealthCheckAPI is an API with one endpoint, "GET /healthcheck", that
@@ -67,12 +80,12 @@ func (h HealthCheckAPI) handleRequest(w http.ResponseWriter, r *http.Request) {
 // API. The AddTo() implementation is empty; Compose() will call the provided
 // configure() method instead.
 type pseudoAPI struct {
-	configure func(*middleware)
+	configure func(*Composer)
 }
 
 // AddTo implements the API interface.
 func (p pseudoAPI) AddTo(c *Composer) {
-	// no-op, see above
+	p.configure(c)
 }
 
 // WithoutLogging can be given as an argument to Compose() to disable request
@@ -81,8 +94,8 @@ func (p pseudoAPI) AddTo(c *Composer) {
 // This modifier is intended for use during unit tests.
 func WithoutLogging() API {
 	return pseudoAPI{
-		configure: func(m *middleware) {
-			m.skipAllLogs = true
+		configure: func(c *Composer) {
+			c.skipAllLogs = true
 		},
 	}
 }
@@ -94,8 +107,8 @@ func WithoutLogging() API {
 // in one specific API implementation.
 func WithGlobalMiddleware(globalMiddleware func(http.Handler) http.Handler) API {
 	return pseudoAPI{
-		configure: func(m *middleware) {
-			m.inner = globalMiddleware(m.inner)
+		configure: func(c *Composer) {
+			c.handler = globalMiddleware(c.handler)
 		},
 	}
 }

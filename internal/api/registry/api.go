@@ -58,12 +58,11 @@ func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
-	r := c.Router()
 	// NOTE 1: This uses gg/pathrouter instead of gorilla/mux for the actual path matching
 	//         to improve performance esp. for important endpoints like GetManifest and GetBlob.
 	// NOTE 2: Most HEAD handlers are deleted to match the endpoint list from
 	//         <https://github.com/opencontainers/distribution-spec/blob/main/spec.md#endpoints>.
-	r.PathPrefix("/v2/").Handler(pr.Element("v2", pr.Choice(
+	c.AddTryHandler(pr.Element("v2", pr.Choice(
 		pr.Element("/", pr.Handlers(pr.ByMethod{
 			http.MethodGet:  a.handleToplevel,
 			http.MethodHead: nil,

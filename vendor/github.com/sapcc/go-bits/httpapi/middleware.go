@@ -33,6 +33,8 @@ var EndpointNamer func(r *http.Request) Option[string] = func(r *http.Request) O
 
 // A http.Handler middleware that adds all the special behavior for this package.
 type middleware struct {
+	// TODO FIXME: global middlewares do not cover the tryHandlers (acceptable for this PoC, but needs to be fixed for the proper changeset)
+	tryHandlers []TryHandler
 	inner       http.Handler
 	skipAllLogs bool
 }
@@ -63,7 +65,16 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writer := responseWriter{original: w}
 
 	// forward request to actual handler
-	m.inner.ServeHTTP(&writer, r)
+	handled := false
+	for _, th := range m.tryHandlers {
+		if th.TryServeHTTP(&writer, r) {
+			handled = true
+			break
+		}
+	}
+	if !handled {
+		m.inner.ServeHTTP(&writer, r)
+	}
 	duration := time.Since(startedAt)
 
 	// emit metrics
