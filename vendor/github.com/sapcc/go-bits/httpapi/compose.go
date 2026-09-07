@@ -15,33 +15,51 @@ import (
 func Compose(apis ...API) http.Handler {
 	autoConfigureMetricsIfNecessary()
 
-	r := mux.NewRouter()
-	m := middleware{inner: r}
+	c := composition{
+		mainRouter: mux.NewRouter(),
+	}
+	var m middleware
 
 	// Automatically identify the endpoint for go-bits metrics using EndpointNamer,
 	// called here inside the gorilla/mux chain where route context is available.
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if EndpointNamer != nil {
-				if name, ok := EndpointNamer(r).Unpack(); ok {
-					IdentifyEndpoint(r, name)
-				}
+	m.inner = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if EndpointNamer != nil {
+			if name, ok := EndpointNamer(r).Unpack(); ok {
+				IdentifyEndpoint(r, name)
 			}
-			next.ServeHTTP(w, r)
-		})
+		}
+		c.ServeHTTP(w, r)
 	})
 
 	for _, a := range apis {
 		switch a := a.(type) {
 		case pseudoAPI:
-			a.configure(&m)
+			if a.tryHandler != nil {
+				c.tryHandlers = append(c.tryHandlers, a.tryHandler)
+			} else {
+				a.configure(&m)
+			}
 		default:
-			a.AddTo(r)
+			a.AddTo(c.mainRouter)
 		}
 	}
 
 	h := http.Handler(m)
 	return h
+}
+
+type composition struct {
+	tryHandlers []TryHandler
+	mainRouter  *mux.Router
+}
+
+func (c composition) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	for _, h := range c.tryHandlers {
+		if h.TryServeHTTP(w, r) {
+			return
+		}
+	}
+	c.mainRouter.ServeHTTP(w, r)
 }
 
 type oobKey string
