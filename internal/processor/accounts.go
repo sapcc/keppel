@@ -162,8 +162,8 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 	// validate RBAC policies, and fill AnonymousRBACPoliciesJSON with just the RBAC policies for anonymous users
 	if len(account.RBACPolicies) == 0 {
-		targetAccount.RBACPoliciesJSON = ""
-		targetAccount.AnonymousRBACPoliciesJSON = ""
+		targetAccount.RBACPoliciesJSON = "" // TODO: change default to "[]" for consistency with all other foo_policies_json fields
+		targetAccount.AnonymousRBACPoliciesJSON = "[]"
 	} else {
 		anonPolicies := []keppel.AnonymousRBACPolicy{}
 		for idx, policy := range account.RBACPolicies {
@@ -184,7 +184,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		if err == nil && len(buf) <= models.AnonymousRBACPoliciesJSONMaxLength {
 			targetAccount.AnonymousRBACPoliciesJSON = string(buf)
 		} else {
-			targetAccount.AnonymousRBACPoliciesJSON = ""
+			targetAccount.AnonymousRBACPoliciesJSON = "[]"
 		}
 	}
 

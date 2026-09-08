@@ -91,7 +91,8 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 		// The setup already includes an account "test1" set up on both ends, but we
 		// want to test the setup of a managed replica account, so we will use a
 		// fresh account called "managed" instead.
-		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
+		managedAccount := models.ApplyDefaultsToAccount(models.Account{Name: "managed", AuthTenantID: "managedauthtenant"})
+		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &managedAccount))
 		s1.FD.NextSubleaseTokenSecretToIssue = "thisisasecret"
 		s2.FD.ValidSubleaseTokenSecrets["managed"] = "thisisasecret"
 

@@ -37,7 +37,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 
 	// setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
-	account2 := models.Account{Name: "test2", AuthTenantID: "test2authtenant"}
+	account2 := models.ApplyDefaultsToAccount(models.Account{Name: "test2", AuthTenantID: "test2authtenant"})
 	must.SucceedT(t, models.AccountStore.Insert(ctx, s.DB, &account2))
 	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
 	expectAccountsAnnouncedJustNow(t, s, account2.Reduced())
@@ -71,17 +71,18 @@ func TestAccountPlatformFilterSync(t *testing.T) {
 
 		// set up another replica account
 		s2.Clock.StepBy(65 * time.Minute)
-		account2 := models.Account{
+		account2 := models.ApplyDefaultsToAccount(models.Account{
 			Name:                     "test2",
 			AuthTenantID:             "test2authtenant",
 			UpstreamPeerHostName:     "registry.example.org",
 			NextPlatformFilterSyncAt: Some(s2.Clock.Now().Add(1 * time.Hour)),
-		}
+		})
 		must.SucceedT(t, models.AccountStore.Insert(ctx, s2.DB, &account2))
-		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &models.Account{
+		account2 = models.ApplyDefaultsToAccount(models.Account{
 			Name:         "test2",
 			AuthTenantID: "test2authtenant",
-		}))
+		})
+		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &account2))
 		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), nil)
 		assert.ErrEqual(t, syncJob.ProcessOne(s2.Ctx), sql.ErrNoRows)
 

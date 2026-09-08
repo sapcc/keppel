@@ -332,7 +332,9 @@ var sqlMigrations = map[int64]string{
 	`,
 	58: `
 		ALTER TABLE accounts
-			ADD COLUMN anon_rbac_policies_json TEXT NOT NULL DEFAULT '';
+			ADD COLUMN anon_rbac_policies_json TEXT NOT NULL DEFAULT '[]';
+		ALTER TABLE accounts
+			ADD CONSTRAINT anon_rbac_policies_not_empty CHECK (anon_rbac_policies_json != '');
 	`,
 }
 

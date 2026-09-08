@@ -123,17 +123,8 @@ func WithRateLimitEngine(rle *keppel.RateLimitEngine) SetupOption {
 // WithAccount is a SetupOption that adds the given keppel.Account to the DB during NewSetup().
 func WithAccount(account models.Account) SetupOption {
 	return func(params *setupParams) {
-		// some field have default values that's not the zero value
-		if account.GCPoliciesJSON == "" {
-			account.GCPoliciesJSON = "[]"
-		}
-		if account.SecurityScanPoliciesJSON == "" {
-			account.SecurityScanPoliciesJSON = "[]"
-		}
-		if account.TagPoliciesJSON == "" {
-			account.TagPoliciesJSON = "[]"
-		}
-		params.Accounts = append(params.Accounts, account)
+		// some field have default values that are not the zero value
+		params.Accounts = append(params.Accounts, models.ApplyDefaultsToAccount(account))
 	}
 }
 

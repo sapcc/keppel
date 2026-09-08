@@ -39,7 +39,7 @@ type Account struct {
 	// RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
 	RBACPoliciesJSON string `db:"rbac_policies_json"`
 	// AnonymousRBACPoliciesJSON contains a JSON string of []keppel.AnonymousRBACPolicy.
-	// If empty, AuthZ for anonymous users must fall back to the full set of RBAC policies instead.
+	// If the list is empty, AuthZ for anonymous users must fall back to the full set of RBAC policies instead.
 	AnonymousRBACPoliciesJSON string `db:"anon_rbac_policies_json"`
 	// GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
 	GCPoliciesJSON string `db:"gc_policies_json"`
@@ -81,6 +81,24 @@ func (a Account) Reduced() ReducedAccount {
 // IsReplica returns whether this account is a replica account.
 func (a Account) IsReplica() bool {
 	return a.UpstreamPeerHostName != "" || a.ExternalPeerURL != ""
+}
+
+// ApplyDefaultsToAccount fills default values for various fields of type Account
+// in order to simplify writing down struct literals in tests.
+func ApplyDefaultsToAccount(a Account) Account {
+	if a.GCPoliciesJSON == "" {
+		a.GCPoliciesJSON = "[]"
+	}
+	if a.SecurityScanPoliciesJSON == "" {
+		a.SecurityScanPoliciesJSON = "[]"
+	}
+	if a.TagPoliciesJSON == "" {
+		a.TagPoliciesJSON = "[]"
+	}
+	if a.AnonymousRBACPoliciesJSON == "" {
+		a.AnonymousRBACPoliciesJSON = "[]"
+	}
+	return a
 }
 
 // ReducedAccount contains just the fields from type Account that the Registry API is most interested in.

@@ -324,8 +324,9 @@ func TestAccountsAPI(t *testing.T) {
 			"rbac_policies":  newRBACPoliciesJSON,
 		},
 	})
+	// in the diff below, it is noteworthy that accounts.anon_rbac_policies_json remains at its previous value of "[]"
 	tr.DBChanges().AssertEqual(`
-		UPDATE accounts SET rbac_policies_json = '[{"match_repository":"verylongverylongverylongverylong","permissions":["anonymous_pull"]},{"match_repository":"evenlongerevenlongerevenlongerevenlonger","permissions":["anonymous_pull"]}]', anon_rbac_policies_json = '' WHERE name = 'second';
+		UPDATE accounts SET rbac_policies_json = '[{"match_repository":"verylongverylongverylongverylong","permissions":["anonymous_pull"]},{"match_repository":"evenlongerevenlongerevenlongerevenlonger","permissions":["anonymous_pull"]}]' WHERE name = 'second';
 	`)
 
 	// test POST /keppel/v1/:accounts/sublease success case (error cases are in
