@@ -336,6 +336,19 @@ var sqlMigrations = map[int64]string{
 		ALTER TABLE accounts
 			ADD CONSTRAINT anon_rbac_policies_not_empty CHECK (anon_rbac_policies_json != '');
 	`,
+	59: `
+		ALTER TABLE accounts
+			ALTER COLUMN rbac_policies_json SET DEFAULT '[]';
+		UPDATE accounts SET rbac_policies_json = '[]' WHERE rbac_policies_json = '';
+		UPDATE accounts SET gc_policies_json = '[]' WHERE gc_policies_json = '';
+		UPDATE accounts SET tag_policies_json = '[]' WHERE tag_policies_json = '';
+		UPDATE accounts SET security_scan_policies_json = '[]' WHERE security_scan_policies_json = '';
+		ALTER TABLE accounts
+			ADD CONSTRAINT rbac_policies_not_empty CHECK (rbac_policies_json != ''),
+			ADD CONSTRAINT gc_policies_not_empty CHECK (gc_policies_json != ''),
+			ADD CONSTRAINT tag_policies_not_empty CHECK (tag_policies_json != ''),
+			ADD CONSTRAINT security_scan_policies_not_empty CHECK (security_scan_policies_json != '');
+	`,
 }
 
 // DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].

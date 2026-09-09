@@ -318,7 +318,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			s.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String()).
 				Expect(containsManifest(t, image.Manifest))
 
-			test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
+			test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "[]")
 
 			// DELETE failure case: no delete permission
 			s.RespondTo(ctx, "DELETE /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),

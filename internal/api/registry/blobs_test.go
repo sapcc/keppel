@@ -133,7 +133,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		s.RespondTo(ctx, "GET /v2/test1/foo/blobs/"+blob.Digest.String()).
 			ExpectBody(t, http.StatusOK, blob.Contents)
 
-		test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
+		test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "[]")
 	})
 }
 
