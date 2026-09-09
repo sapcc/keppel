@@ -37,7 +37,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	)
 	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests").
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": []jsonmatch.Object{}})
-	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
+	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "[]")
 
 	// test bearer token auth: obtain a bearer token on the Auth API while
 	// authenticating with Keppel API Auth, then use the bearer token on the

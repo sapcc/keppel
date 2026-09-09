@@ -578,7 +578,7 @@ func TestIssueToken(t *testing.T) {
 			ctx := t.Context()
 
 			// setup RBAC policies for test
-			rbacPoliciesJSONStr := ""
+			rbacPoliciesJSONStr := "[]"
 			if c.RBACPolicy != nil {
 				buf := must.ReturnT(json.Marshal([]keppel.RBACPolicy{*c.RBACPolicy}))(t)
 				rbacPoliciesJSONStr = string(buf)

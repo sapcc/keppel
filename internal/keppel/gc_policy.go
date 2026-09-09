@@ -182,7 +182,7 @@ func (g GCPolicy) Validate() error {
 
 // ParseGCPolicies parses the GC policies for the given account.
 func ParseGCPolicies(account models.Account) ([]GCPolicy, error) {
-	if account.GCPoliciesJSON == "" || account.GCPoliciesJSON == "[]" {
+	if account.GCPoliciesJSON == "[]" {
 		return nil, nil
 	}
 	var policies []GCPolicy

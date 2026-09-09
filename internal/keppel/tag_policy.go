@@ -17,7 +17,7 @@ type TagPolicy struct {
 
 // ParseTagPolicies parses the Tag policies for the given account.
 func ParseTagPolicies(tagPoliciesJSON string) ([]TagPolicy, error) {
-	if tagPoliciesJSON == "" || tagPoliciesJSON == "[]" {
+	if tagPoliciesJSON == "[]" {
 		return nil, nil
 	}
 	var policies []TagPolicy

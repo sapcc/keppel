@@ -36,13 +36,16 @@ type Account struct {
 	// IsManaged indicates if the account was created by AccountManagementDriver
 	IsManaged bool `db:"is_managed"`
 
-	// RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
+	// RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy.
 	RBACPoliciesJSON string `db:"rbac_policies_json"`
-	// GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
+	// AnonymousRBACPoliciesJSON contains a JSON string of []keppel.AnonymousRBACPolicy.
+	// If the list is empty, AuthZ for anonymous users must fall back to the full set of RBAC policies instead.
+	AnonymousRBACPoliciesJSON string `db:"anon_rbac_policies_json"`
+	// GCPoliciesJSON contains a JSON string of []keppel.GCPolicy.
 	GCPoliciesJSON string `db:"gc_policies_json"`
-	// SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy, or the empty string.
+	// SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy.
 	SecurityScanPoliciesJSON string `db:"security_scan_policies_json"`
-	// TagPoliciesJSON contains a JSON string of []keppel.TagPolicy, or the empty string.
+	// TagPoliciesJSON contains a JSON string of []keppel.TagPolicy.
 	TagPoliciesJSON string `db:"tag_policies_json"`
 
 	NextBlobSweepedAt            Option[time.Time] `db:"next_blob_sweep_at"`              // see tasks.BlobSweepJob
@@ -80,12 +83,35 @@ func (a Account) IsReplica() bool {
 	return a.UpstreamPeerHostName != "" || a.ExternalPeerURL != ""
 }
 
+// ApplyDefaultsToAccount fills default values for various fields of type Account
+// in order to simplify writing down struct literals in tests.
+func ApplyDefaultsToAccount(a Account) Account {
+	if a.RBACPoliciesJSON == "" {
+		a.RBACPoliciesJSON = "[]"
+	}
+	if a.GCPoliciesJSON == "" {
+		a.GCPoliciesJSON = "[]"
+	}
+	if a.SecurityScanPoliciesJSON == "" {
+		a.SecurityScanPoliciesJSON = "[]"
+	}
+	if a.TagPoliciesJSON == "" {
+		a.TagPoliciesJSON = "[]"
+	}
+	if a.AnonymousRBACPoliciesJSON == "" {
+		a.AnonymousRBACPoliciesJSON = "[]"
+	}
+	return a
+}
+
 // ReducedAccount contains just the fields from type Account that the Registry API is most interested in.
 // This type exists to avoid loading the large payload fields in type Account when we don't need to,
 // which is a significant memory optimization for the keppel-api process.
 type ReducedAccount struct {
 	Name         AccountName `db:"name"`
 	AuthTenantID string      `db:"auth_tenant_id"`
+
+	// TODO: add AnonymousRBACPoliciesJSON (when adding light-weight tokens for anonymous users)
 
 	// replication policy
 	UpstreamPeerHostName string         `db:"upstream_peer_hostname"`
@@ -112,3 +138,9 @@ var ReducedAccountStore = oblast.MustNewStore[ReducedAccount](
 func (a ReducedAccount) IsReplica() bool {
 	return a.UpstreamPeerHostName != "" || a.ExternalPeerURL != ""
 }
+
+// AnonymousRBACPoliciesJSONMaxLength is the maximum length of the [Account.AnonymousRBACPoliciesJSON] field.
+// If this length is exceeded, the field will be left empty (only holding an empty array)
+// and AuthZ for anonymous users needs to inspect the full set of RBAC policies.
+// This protects [ReducedAccount] from growing beyond a reasonable size.
+const AnonymousRBACPoliciesJSONMaxLength = 64

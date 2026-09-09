@@ -48,7 +48,7 @@ func TestAccountManagementBasic(t *testing.T) {
 	// since we are enforcing that account, no error is returned
 	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
-			INSERT INTO accounts (name, auth_tenant_id, external_peer_url, gc_policies_json, security_scan_policies_json, rbac_policies_json, is_managed, next_enforcement_at, rule_for_manifest) VALUES ('abcde', '12345', 'registry-tertiary.example.org', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":6,"unit":"h"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":".*","match_vulnerability_id":".*","except_fix_released":true,"action":{"assessment":"risk accepted: vulnerabilities without an available fix are not actionable","ignore":true}}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', TRUE, %d, '''important-label'' in labels && ''some-label'' in labels');
+			INSERT INTO accounts (name, auth_tenant_id, external_peer_url, gc_policies_json, security_scan_policies_json, rbac_policies_json, is_managed, next_enforcement_at, rule_for_manifest, anon_rbac_policies_json) VALUES ('abcde', '12345', 'registry-tertiary.example.org', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":6,"unit":"h"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":".*","match_vulnerability_id":".*","except_fix_released":true,"action":{"assessment":"risk accepted: vulnerabilities without an available fix are not actionable","ignore":true}}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', TRUE, %d, '''important-label'' in labels && ''some-label'' in labels', '[{"r":"library/.*","p":"p"}]');
 		`,
 		s.Clock.Now().Add(1*time.Hour).Unix())
 
@@ -91,7 +91,8 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 		// The setup already includes an account "test1" set up on both ends, but we
 		// want to test the setup of a managed replica account, so we will use a
 		// fresh account called "managed" instead.
-		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
+		managedAccount := models.ApplyDefaultsToAccount(models.Account{Name: "managed", AuthTenantID: "managedauthtenant"})
+		must.SucceedT(t, models.AccountStore.Insert(ctx, s1.DB, &managedAccount))
 		s1.FD.NextSubleaseTokenSecretToIssue = "thisisasecret"
 		s2.FD.ValidSubleaseTokenSecrets["managed"] = "thisisasecret"
 
