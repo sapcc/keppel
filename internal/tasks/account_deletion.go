@@ -267,7 +267,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	// before committing the transaction, confirm account deletion with the
 	// storage driver and the federation driver
 	err = j.sd.CleanupAccount(ctx, accountReduced)
-	if err != nil {
+	if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
 		return fmt.Errorf("while cleaning up storage for account: %w", err)
 	}
 	err = j.fd.ForfeitAccountName(ctx, accountReduced)
