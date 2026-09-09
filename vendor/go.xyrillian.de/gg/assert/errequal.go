@@ -84,15 +84,15 @@ func errEqual(t TestingTB, actual error, expected any) error {
 		} else if errors.Is(actual, expected) {
 			return nil
 		} else {
-			return fmt.Errorf("expected %s, but got %q", formatErrorMessage(expected), actual.Error())
+			return fmt.Errorf("expected %s, but got %s", formatErrorMessage(expected), formatString(actual.Error()))
 		}
 	case string:
 		if actual == nil {
-			return fmt.Errorf("expected %q, but got no error", expected)
+			return fmt.Errorf("expected %s, but got no error", formatString(expected))
 		} else if actual.Error() == expected {
 			return nil
 		} else {
-			return fmt.Errorf("expected %q, but got %s", expected, formatErrorMessage(actual))
+			return fmt.Errorf("expected %s, but got %s", formatString(expected), formatErrorMessage(actual))
 		}
 	case *regexp.Regexp:
 		if actual == nil {
@@ -111,6 +111,6 @@ func formatErrorMessage(err error) string {
 	if _, ok := err.(missingError); ok { //nolint:errorlint // this error is never wrapped, so errors.Is() is unnecessary
 		return err.Error()
 	} else {
-		return fmt.Sprintf("%q", err.Error())
+		return formatString(err.Error())
 	}
 }

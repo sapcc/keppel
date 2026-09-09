@@ -58,8 +58,8 @@ func (db *DB) Conn(ctx context.Context) (*Conn, error) {
 //
 // This is equivalent to the GSQLTransact() method of the DB's [ConnectionHandle] implementation,
 // but the callback receives the concrete type [*Tx] instead of a generic [Handle].
-func (db *DB) WithinTransaction(ctx context.Context, action func(*Tx) error) error {
-	return withinTransaction(ctx, db.DB, action)
+func (db *DB) WithinTransaction(ctx context.Context, opts *sql.TxOptions, action func(*Tx) error) error {
+	return withinTransaction(ctx, db.DB, opts, action)
 }
 
 // Conn wraps [*sql.Conn] into a [Handle].
@@ -87,8 +87,8 @@ func (conn *Conn) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error)
 //
 // This is equivalent to the GSQLTransact() method of conn's [ConnectionHandle] implementation,
 // but the callback receives the concrete type [*Tx] instead of a generic [Handle].
-func (conn *Conn) WithinTransaction(ctx context.Context, action func(*Tx) error) error {
-	return withinTransaction(ctx, conn.Conn, action)
+func (conn *Conn) WithinTransaction(ctx context.Context, opts *sql.TxOptions, action func(*Tx) error) error {
+	return withinTransaction(ctx, conn.Conn, opts, action)
 }
 
 // Tx wraps [*sql.Tx] into a [Handle].
@@ -209,14 +209,14 @@ func (h sqlConnectionHandle[T]) GSQLClose(ctx context.Context) error {
 
 // GSQLTransact implements the [ConnectionHandle] interface.
 func (h sqlConnectionHandle[T]) GSQLTransact(ctx context.Context, action func(tx Handle) error) error {
-	return withinTransaction(ctx, h.Base, func(tx *Tx) error {
+	return withinTransaction(ctx, h.Base, nil, func(tx *Tx) error {
 		return action(tx)
 	})
 }
 
 // withinTransaction implements the method of that name that exists on all types based on [sqlConnectionHandle].
-func withinTransaction(ctx context.Context, conn sqlConnection, action func(*Tx) error) error {
-	tx, err := conn.BeginTx(ctx, nil)
+func withinTransaction(ctx context.Context, conn sqlConnection, opts *sql.TxOptions, action func(*Tx) error) error {
+	tx, err := conn.BeginTx(ctx, opts)
 	if err != nil {
 		return err
 	}
