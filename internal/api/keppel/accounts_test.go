@@ -292,11 +292,11 @@ func TestAccountsAPI(t *testing.T) {
 	// (this protects against unbounded growth of ReducedAccount contents)
 	newRBACPoliciesJSON = []jsonmatch.Object{
 		{
-			"match_repository": "verylongverylongverylongverylong",
+			"match_repository": "verylongverylongverylongverylongverylongverylong",
 			"permissions":      []string{"anonymous_pull"},
 		},
 		{
-			"match_repository": "evenlongerevenlongerevenlongerevenlonger",
+			"match_repository": "evenlongerevenlongerevenlongerevenlongerevenlongerevenlonger",
 			"permissions":      []string{"anonymous_pull"},
 		},
 	}
@@ -317,7 +317,7 @@ func TestAccountsAPI(t *testing.T) {
 	})
 	// in the diff below, it is noteworthy that accounts.anon_rbac_policies_json remains at its previous value of "[]"
 	tr.DBChanges().AssertEqual(`
-		UPDATE accounts SET rbac_policies_json = '[{"match_repository":"verylongverylongverylongverylong","permissions":["anonymous_pull"]},{"match_repository":"evenlongerevenlongerevenlongerevenlonger","permissions":["anonymous_pull"]}]' WHERE name = 'second';
+		UPDATE accounts SET rbac_policies_json = '[{"match_repository":"verylongverylongverylongverylongverylongverylong","permissions":["anonymous_pull"]},{"match_repository":"evenlongerevenlongerevenlongerevenlongerevenlongerevenlonger","permissions":["anonymous_pull"]}]' WHERE name = 'second';
 	`)
 
 	// test POST /keppel/v1/:accounts/sublease success case (error cases are in

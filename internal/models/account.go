@@ -143,4 +143,4 @@ func (a ReducedAccount) IsReplica() bool {
 // If this length is exceeded, the field will be left empty (only holding an empty array)
 // and AuthZ for anonymous users needs to inspect the full set of RBAC policies.
 // This protects [ReducedAccount] from growing beyond a reasonable size.
-const AnonymousRBACPoliciesJSONMaxLength = 64
+const AnonymousRBACPoliciesJSONMaxLength = 128
