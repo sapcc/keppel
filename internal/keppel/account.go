@@ -18,7 +18,6 @@ type Account struct {
 	TagPolicies       []TagPolicy           `json:"tag_policies,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
 	PlatformFilter    models.PlatformFilter `json:"platform_filter,omitempty"`
-	Metadata          *map[string]string    `json:"metadata"`
 
 	// NOTE: When changing fields, please also adjust type Account in `internal/drivers/basic` as necessary.
 }

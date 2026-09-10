@@ -54,7 +54,6 @@ func TestAccountsAPI(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
 				"rbac_policies":  []jsonmatch.Object{},
 			},
 		})
@@ -83,7 +82,6 @@ func TestAccountsAPI(t *testing.T) {
 			"accounts": []jsonmatch.Object{{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
 				"rbac_policies":  []jsonmatch.Object{},
 			}},
 		})
@@ -92,7 +90,6 @@ func TestAccountsAPI(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
 				"rbac_policies":  []jsonmatch.Object{},
 			},
 		})
@@ -162,7 +159,6 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"gc_policies":    gcPoliciesJSON,
-				"metadata":       nil,
 				"rbac_policies":  rbacPoliciesJSON,
 				"tag_policies":   tagPoliciesJSON,
 			},
@@ -212,14 +208,12 @@ func TestAccountsAPI(t *testing.T) {
 				{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"metadata":       nil,
 					"rbac_policies":  []jsonmatch.Object{},
 				},
 				{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
 					"gc_policies":    gcPoliciesJSON,
-					"metadata":       nil,
 					"rbac_policies":  rbacPoliciesJSON,
 					"tag_policies":   tagPoliciesJSON,
 				},
@@ -231,7 +225,6 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"gc_policies":    gcPoliciesJSON,
-				"metadata":       nil,
 				"rbac_policies":  rbacPoliciesJSON,
 				"tag_policies":   tagPoliciesJSON,
 			},
@@ -269,7 +262,6 @@ func TestAccountsAPI(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "second",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  newRBACPoliciesJSON,
 		},
 	})
@@ -320,7 +312,6 @@ func TestAccountsAPI(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "second",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  newRBACPoliciesJSON,
 		},
 	})
@@ -360,7 +351,6 @@ func TestAccountValidationPolicies(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 		},
 	})
@@ -404,7 +394,6 @@ func TestAccountValidationPolicies(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"validation": jsonmatch.Object{
 				"rule_for_manifest": "'foo' in labels && 'bar' in labels",
@@ -424,7 +413,6 @@ func TestAccountValidationPolicies(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 		},
 	})
@@ -440,7 +428,6 @@ func TestAccountValidationPolicies(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"validation": jsonmatch.Object{
 				"rule_for_manifest": "'baz' in labels && 'qux' in labels",
@@ -461,7 +448,6 @@ func TestAccountValidationPolicies(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"validation": jsonmatch.Object{
 				"rule_for_manifest": "'quux' in labels",
@@ -482,7 +468,6 @@ func TestAccountValidationPolicies(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 		},
 	})
@@ -533,7 +518,6 @@ func TestPutAccountRBACPolicyNormalization(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies": []jsonmatch.Object{{
 				"match_username":        "mallory",
 				"permissions":           []string{}, // ...to this
@@ -559,7 +543,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 		},
 	})
@@ -1081,15 +1064,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"metadata":       map[string]string{"foo": "bar"},
-			},
-		})).ExpectText(t, http.StatusUnprocessableEntity, "malformed attribute \"account.metadata\" in request body does no longer exist\n")
-
-	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
-		withPerms("change:tenant1"),
-		httptest.WithJSONBody(map[string]any{
-			"account": map[string]any{
-				"auth_tenant_id": "tenant1",
 				"name":           "first", // setting the name to its existing value is pointless, but allowed
 			},
 		})).ExpectStatus(t, http.StatusOK)
@@ -1132,7 +1106,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
 				"rbac_policies":  []jsonmatch.Object{},
 			},
 		})
@@ -1190,7 +1163,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
 				"rbac_policies":  []jsonmatch.Object{},
 				"replication": jsonmatch.Object{
 					"strategy": "on_first_use",
@@ -1212,7 +1184,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
 				"rbac_policies":  []jsonmatch.Object{},
 				"replication": jsonmatch.Object{
 					"strategy": "on_first_use",
@@ -1237,7 +1208,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":           "second",
 				"auth_tenant_id": "tenant2",
-				"metadata":       nil,
 				"rbac_policies":  []jsonmatch.Object{},
 			},
 		})
@@ -1336,7 +1306,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"replication": jsonmatch.Object{
 				"strategy": "from_external_on_first_use",
@@ -1356,7 +1325,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"replication": jsonmatch.Object{
 				"strategy": "from_external_on_first_use",
@@ -1383,7 +1351,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"replication": jsonmatch.Object{
 				"strategy": "from_external_on_first_use",
@@ -1415,7 +1382,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"replication": jsonmatch.Object{
 				"strategy": "from_external_on_first_use",
@@ -1468,7 +1434,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "second",
 			"auth_tenant_id": "tenant2",
-			"metadata":       nil,
 			"rbac_policies":  []map[string]any{},
 		},
 	})
@@ -1510,7 +1475,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"replication": jsonmatch.Object{
 				"strategy": "from_external_on_first_use",
@@ -1548,7 +1512,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		"account": jsonmatch.Object{
 			"name":           "first",
 			"auth_tenant_id": "tenant1",
-			"metadata":       nil,
 			"rbac_policies":  []jsonmatch.Object{},
 			"replication": jsonmatch.Object{
 				"strategy": "from_external_on_first_use",
@@ -1679,7 +1642,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 				"account": jsonmatch.Object{
 					"name":           name,
 					"auth_tenant_id": "tenant1",
-					"metadata":       nil,
 					"rbac_policies":  []jsonmatch.Object{},
 					"replication": jsonmatch.Object{
 						"strategy": "from_external_on_first_use",
@@ -1710,7 +1672,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":            "first",
 				"auth_tenant_id":  "tenant1",
-				"metadata":        nil,
 				"platform_filter": testPlatformFilter,
 				"rbac_policies":   []jsonmatch.Object{},
 				"replication": jsonmatch.Object{
@@ -1727,7 +1688,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"metadata":       nil,
 					"platform_filter": []map[string]any{{
 						"os":           "linux",
 						"architecture": "amd64",
@@ -1742,7 +1702,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			"account": jsonmatch.Object{
 				"name":            "second",
 				"auth_tenant_id":  "tenant1",
-				"metadata":        nil,
 				"platform_filter": testPlatformFilter,
 				"rbac_policies":   []jsonmatch.Object{},
 				"replication": jsonmatch.Object{
