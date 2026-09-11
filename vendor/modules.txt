@@ -255,7 +255,7 @@ go.xyrillian.de/gg/jsonmatch
 go.xyrillian.de/gg/option
 go.xyrillian.de/gg/pgruntime
 go.xyrillian.de/gg/testcapture
-# go.xyrillian.de/oblast v0.13.2
+# go.xyrillian.de/oblast v0.14.0
 ## explicit; go 1.26
 go.xyrillian.de/oblast
 # go.xyrillian.de/schwift/v2 v2.2.1
