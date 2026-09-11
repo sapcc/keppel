@@ -7,6 +7,9 @@ package oblast
 // It is most commonly used with the result of [Store.Select] or [Store.SelectWhere], to build a lookup table for or partition of the retrieved records.
 type RuntimeIndex[R any, K comparable] func(R) K
 
+// TODO: rename Index() to Of(), IndexFrom() to From(), Partition() to PartitionOf() (in practice, instances of RuntimeIndex are often named e.g. ObjectByIDIndex, and then ObjectByIDIndex.IndexFrom() stutters) -> naming might need some workshopping
+// TODO: make Index() and Partition() take an iter.Seq[], or alternatively add additional methods that do
+
 // NewRuntimeIndex casts a function into type [RuntimeIndex].
 //
 // In practice, this is more compact than writing the cast directly

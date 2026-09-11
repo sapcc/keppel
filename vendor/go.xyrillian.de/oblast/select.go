@@ -117,6 +117,8 @@ func (s Store[R]) SelectOne(ctx context.Context, db gsql.Handle, query string, a
 }
 
 // SelectOneOrNone is like SelectOne, but returns [None] instead of [sql.ErrNoRows].
+//
+// [None]: https://pkg.go.dev/go.xyrillian.de/gg/option#None
 func (s Store[R]) SelectOneOrNone(ctx context.Context, db gsql.Handle, query string, args ...any) (Option[R], error) {
 	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
 	//       Any expression that does not depend on type R should be factored out into a reusable function.
@@ -139,6 +141,8 @@ func (s Store[R]) SelectOneWhere(ctx context.Context, db gsql.Handle, partialQue
 }
 
 // SelectOneOrNoneWhere is like SelectOneWhere, but returns [None] instead of [sql.ErrNoRows].
+//
+// [None]: https://pkg.go.dev/go.xyrillian.de/gg/option#None
 func (s Store[R]) SelectOneOrNoneWhere(ctx context.Context, db gsql.Handle, partialQuery string, args ...any) (Option[R], error) {
 	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
 	//       Any expression that does not depend on type R should be factored out into a reusable function.
@@ -235,6 +239,8 @@ func (q PreparedSelectQuery[R]) SelectOne(ctx context.Context, db gsql.Handle, a
 }
 
 // SelectOneOrNone is like SelectOne, but returns [None] instead of [sql.ErrNoRows].
+//
+// [None]: https://pkg.go.dev/go.xyrillian.de/gg/option#None
 func (q PreparedSelectQuery[R]) SelectOneOrNone(ctx context.Context, db gsql.Handle, args ...any) (Option[R], error) {
 	return noRowsToNone(q.SelectOne(ctx, db, args...))
 }
