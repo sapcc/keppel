@@ -109,7 +109,7 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 // blob shall be replicated when it is first pulled.
 func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, layerInfo manifest.LayerInfo, accountName models.AccountName) (models.Blob, error) {
 	var blob models.Blob
-	err := p.insideTransaction(ctx, func(ctx context.Context, tx *gsql.Tx) error {
+	err := p.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
 		var err error
 		blob, err = keppel.FindBlobByAccountName(ctx, tx, layerInfo.Digest, accountName)
 		if !errors.Is(err, sql.ErrNoRows) { // either success or unexpected error

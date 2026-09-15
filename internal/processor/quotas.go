@@ -13,7 +13,7 @@ import (
 
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -118,62 +118,64 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 		return nil, ImpossibleQuotaError{Message: msg}
 	}
 
-	// check usage
-	tx, err := p.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-
-	manifestCount, err := keppel.GetManifestUsage(tx, quotas)
-	if err != nil {
-		return nil, err
-	}
-	if reqManifests.Quota < manifestCount {
-		msg := fmt.Sprintf("requested manifest quota (%d) is below usage (%d)", reqManifests.Quota, manifestCount)
-		return nil, ImpossibleQuotaError{Message: msg}
-	}
-
-	var bytesCount uint64
-	reqBytes, ok := req.Bytes.Unpack()
-	if p.cfg.TrackBytesQuota && !ok {
-		msg := "bytes quota is enabled, but request does not contain bytes quota"
-		return nil, ImpossibleQuotaError{Message: msg}
-	}
-	if !p.cfg.TrackBytesQuota && ok {
-		msg := "bytes quota is not enabled, but request contains bytes quota"
-		return nil, ImpossibleQuotaError{Message: msg}
-	}
-
-	if p.cfg.TrackBytesQuota {
-		bytesCount, err = p.sd.UsedBytes(ctx, authTenantID)
+	var (
+		auditEvent Option[audittools.Event]
+		qr         QuotaResponse
+	)
+	err = p.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
+		// check usage
+		manifestCount, err := keppel.GetManifestUsage(tx, quotas)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if reqBytes.Quota != -1 && reqBytes.Quota < int64(bytesCount) { //nolint:gosec // quota is admin controlled
-			msg := fmt.Sprintf("requested bytes quota (%d) is below usage (%d)", reqBytes.Quota, bytesCount)
-			return nil, ImpossibleQuotaError{Message: msg}
+		if reqManifests.Quota < manifestCount {
+			msg := fmt.Sprintf("requested manifest quota (%d) is below usage (%d)", reqManifests.Quota, manifestCount)
+			return ImpossibleQuotaError{Message: msg}
 		}
-	}
 
-	if quotas.ManifestCount != reqManifests.Quota || (p.cfg.TrackBytesQuota && quotas.Bytes != reqBytes.Quota) {
-		// apply quotas if necessary
-		quotas.ManifestCount = reqManifests.Quota
+		var bytesCount uint64
+		reqBytes, ok := req.Bytes.Unpack()
+		if p.cfg.TrackBytesQuota && !ok {
+			msg := "bytes quota is enabled, but request does not contain bytes quota"
+			return ImpossibleQuotaError{Message: msg}
+		}
+		if !p.cfg.TrackBytesQuota && ok {
+			msg := "bytes quota is not enabled, but request contains bytes quota"
+			return ImpossibleQuotaError{Message: msg}
+		}
+
 		if p.cfg.TrackBytesQuota {
-			quotas.Bytes = reqBytes.Quota
-		}
-		err := models.QuotasStore.Upsert(ctx, tx, &quotas)
-		if err != nil {
-			return nil, err
-		}
-		err = tx.Commit()
-		if err != nil {
-			return nil, err
+			bytesCount, err = p.sd.UsedBytes(ctx, authTenantID)
+			if err != nil {
+				return err
+			}
+			if reqBytes.Quota != -1 && reqBytes.Quota < int64(bytesCount) { //nolint:gosec // quota is admin controlled
+				msg := fmt.Sprintf("requested bytes quota (%d) is below usage (%d)", reqBytes.Quota, bytesCount)
+				return ImpossibleQuotaError{Message: msg}
+			}
 		}
 
-		// record audit event when quotas have changed
-		if userInfo != nil {
-			p.auditor.Record(audittools.Event{
+		// prepare response while we have the usage data at hand
+		qr = QuotaResponse{
+			Manifests: SingleQuotaResponseUInt{
+				Quota: reqManifests.Quota,
+				Usage: manifestCount,
+			},
+		}
+		if p.cfg.TrackBytesQuota {
+			qr.Bytes = Some(SingleQuotaResponseInt{
+				Quota: reqBytes.Quota,
+				Usage: bytesCount,
+			})
+		}
+
+		// apply quotas if necessary
+		if quotas.ManifestCount != reqManifests.Quota || (p.cfg.TrackBytesQuota && quotas.Bytes != reqBytes.Quota) {
+			quotas.ManifestCount = reqManifests.Quota
+			if p.cfg.TrackBytesQuota {
+				quotas.Bytes = reqBytes.Quota
+			}
+			auditEvent = Some(audittools.Event{
 				Time:       time.Now(),
 				Request:    r,
 				User:       userInfo,
@@ -181,22 +183,19 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 				Action:     cadf.UpdateAction,
 				Target:     AuditQuotas{QuotasBefore: quotasBefore, QuotasAfter: quotas},
 			})
+			return models.QuotasStore.Upsert(ctx, tx, &quotas)
+		} else {
+			return nil
 		}
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	qr := &QuotaResponse{
-		Manifests: SingleQuotaResponseUInt{
-			Quota: reqManifests.Quota,
-			Usage: manifestCount,
-		},
+	// record audit event when quotas have changed
+	if event, ok := auditEvent.Unpack(); ok && userInfo != nil {
+		p.auditor.Record(event)
 	}
 
-	if p.cfg.TrackBytesQuota {
-		qr.Bytes = Some(SingleQuotaResponseInt{
-			Quota: reqBytes.Quota,
-			Usage: bytesCount,
-		})
-	}
-
-	return qr, nil
+	return &qr, nil
 }

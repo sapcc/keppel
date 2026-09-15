@@ -240,7 +240,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		manifest.SizeBytes += keppel.AtLeastZero(desc.Size)
 	}
 
-	return p.insideTransaction(ctx, func(ctx context.Context, tx *gsql.Tx) error {
+	return p.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
 		refsInfo, err := findManifestReferencedObjects(ctx, tx, account, repo, manifestParsed)
 		if err != nil {
 			return err
