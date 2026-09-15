@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/gsql"
+	. "go.xyrillian.de/gg/option"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -28,8 +29,10 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		s := test.NewSetup(t)
 
 		// setup a peer
-		must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB, &models.Peer{HostName: "peer.example.org", UseForPullDelegation: true}))
-		must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB, &models.Peer{HostName: "peer.invalid.", UseForPullDelegation: false}))
+		must.SucceedT(t, models.PeerStore.Insert(ctx, s.DB,
+			&models.Peer{HostName: "peer.example.org", UseForPullDelegation: true},
+			&models.Peer{HostName: "peer.invalid.", UseForPullDelegation: false, LastPeeredAt: Some(time.Now())},
+		))
 
 		// setup a mock for the peer that just swallows any password that we give to it
 		mockPeer := mockPeerReceivingPassword{}
@@ -37,16 +40,12 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 
 		var issuedPasswords []string
 		for range []int{0, 1, 2, 3, 4} {
+			// mark peer as stale, so IssueNewPasswordForNextPeer() will touch it
+			_ = must.ReturnT(s.DB.Exec(`UPDATE peers SET last_peered_at = $1 WHERE use_for_pull_delegation`, time.Now().Add(-1*time.Hour)))(t)
+
 			// test successful issuance of password
 			timeBeforeIssue := time.Now()
-			tx, err := s.DB.Begin()
-			if err != nil {
-				t.Error(err.Error())
-			}
-			err = IssueNewPasswordForPeer(ctx, s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
-			if err != nil {
-				t.Error(err.Error())
-			}
+			must.SucceedT(t, IssueNewPasswordForNextPeer(ctx, s.Config, s.DB))
 			for idx, previousPassword := range issuedPasswords {
 				if mockPeer.Password == previousPassword {
 					t.Errorf("expected IssueNewPasswordForPeer to issue a fresh password, but peer still has password #%d", idx+1)
@@ -76,13 +75,15 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 			}
 		}
 
+		// mark peer as stale, so IssueNewPasswordForNextPeer() will touch it
+		_ = must.ReturnT(s.DB.Exec(`UPDATE peers SET last_peered_at = $1 WHERE use_for_pull_delegation`, time.Now().Add(-1*time.Hour)))(t)
+
 		// test failing issuance of password
 		tt.Handlers["peer.example.org"] = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		})
 		peerBeforeFailedIssue := getPeerFromDB(t, s.DB)
-		tx := must.ReturnT(s.DB.Begin())(t)
-		err := IssueNewPasswordForPeer(s.Ctx, s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
+		err := IssueNewPasswordForNextPeer(s.Ctx, s.Config, s.DB)
 		if err == nil {
 			t.Error("expected IssueNewPasswordForPeer to fail, but got err = nil")
 		}

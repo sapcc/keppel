@@ -7,15 +7,18 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/errext"
 	"go.xyrillian.de/gg/gsql"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -23,47 +26,63 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// IssueNewPasswordForPeer issues a new replication password for the given peer.
+// WARNING: This must be run in a transaction, or else `FOR UPDATE SKIP LOCKED`
+// will not work as expected.
+var getNextPeerQuery = sqlext.SimplifyWhitespace(`
+	SELECT * FROM peers
+	 WHERE last_peered_at < $1 OR last_peered_at IS NULL
+	 ORDER BY COALESCE(last_peered_at, TO_TIMESTAMP(-1)) ASC LIMIT 1
+	   FOR UPDATE SKIP LOCKED
+`)
+
+// IssueNewPasswordForNextPeer issues a new replication password for a peer that needs one.
 //
-// The `tx` argument can be given if the caller already has a transaction open
-// for this operation. This is useful because it is the caller's responsibility
-// to lock the database row for the peer to prevent concurrent issuances for the
-// same peer by different keppel-api instances.
-func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *gsql.DB, tx *gsql.Tx, peer models.Peer) (resultErr error) {
-	newPasswordBytes := make([]byte, 20)
-	_, err := rand.Read(newPasswordBytes)
-	if err != nil {
-		return err
-	}
-	newPassword := hex.EncodeToString(newPasswordBytes)
+// If no peer needs to have a new password issued right now, returns nil without doing anything.
+func IssueNewPasswordForNextPeer(ctx context.Context, cfg keppel.Configuration, db *gsql.DB) (resultErr error) {
+	var (
+		peer        models.Peer
+		newPassword string
+	)
+	err := db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
+		// select next peer that needs a new password, if any
+		var err error
+		peer, err = models.PeerStore.SelectOne(ctx, tx, getNextPeerQuery, time.Now().Add(-10*time.Minute))
+		if err != nil {
+			return err
+		}
 
-	// NOTE: We acknowledge that it's usually not good practice to hash passwords with SHA-256.
-	// In fact, we used to use BCrypt here, but we replaced it because it consumed 80% of the CPU time on our API processes, just for checking peer credentials!
-	//
-	// We find the choice of SHA-2 acceptable here because the peer passwords have:
-	// a) extremely high entropy compared to passwords used by human users (20 bytes = 160 bits)
-	// b) extremely short lifetime (10 minutes per renewal, and effectively 20 minutes total because we accept the previous password, too)
-	//
-	// Even if an attacker could run, say, 1 terahash per second, for SHA-256, they would take >1e+28 years to get through 160 bits of entropy.
-	newPasswordHashed := digest.SHA256.FromString(newPassword).String()
+		newPasswordBytes := make([]byte, 20)
+		_, err = rand.Read(newPasswordBytes)
+		if err != nil {
+			return err
+		}
+		newPassword = hex.EncodeToString(newPasswordBytes)
 
-	// update password in our own DB - we need to do this first because, as soon
-	// as we send the HTTP request, the peer could come back to us at any time to
-	// verify the password
-	_, err = tx.Exec(`
+		// NOTE: We acknowledge that it's usually not good practice to hash passwords with SHA-256.
+		// In fact, we used to use BCrypt here, but we replaced it because it consumed 80% of the CPU time on our API processes, just for checking peer credentials!
+		//
+		// We find the choice of SHA-2 acceptable here because the peer passwords have:
+		// a) extremely high entropy compared to passwords used by human users (20 bytes = 160 bits)
+		// b) extremely short lifetime (10 minutes per renewal, and effectively 20 minutes total because we accept the previous password, too)
+		//
+		// Even if an attacker could run, say, 1 terahash per second, for SHA-256, they would take >1e+28 years to get through 160 bits of entropy.
+		newPasswordHashed := digest.SHA256.FromString(newPassword).String()
+
+		// update password in our own DB - we need to do this first because, as soon
+		// as we send the HTTP request, the peer could come back to us at any time to
+		// verify the password
+		_, err = tx.Exec(`
 		UPDATE peers SET
 			their_current_password_hash = $1,
 			their_previous_password_hash = their_current_password_hash,
 			last_peered_at = NOW()
 		WHERE hostname = $2
 	`, newPasswordHashed, peer.HostName)
-	if err == nil {
-		err = tx.Commit()
-	} else {
-		errRollback := tx.Rollback()
-		if errRollback != nil {
-			logg.Error("unexpected error during SQL ROLLBACK: " + errRollback.Error())
-		}
+		return err
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		// nothing to do
+		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("error while issuing new password for peer: %w", err)
@@ -85,9 +104,7 @@ func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *
 			WHERE hostname = $4
 		`, peer.TheirCurrentPasswordHash, peer.TheirPreviousPasswordHash,
 			peer.LastPeeredAt, peer.HostName)
-		if err != nil {
-			resultErr = fmt.Errorf("%s (additional error encountered while attempting to rollback the new peer password in our DB: %s)", resultErr.Error(), err.Error())
-		}
+		resultErr = errext.WithCleanup(resultErr, "peer password rollback", err)
 	}()
 
 	// send new credentials to peer
