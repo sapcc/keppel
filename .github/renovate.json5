@@ -24,6 +24,15 @@
   ],
   "packageRules": [
     {
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "matchSourceUrls": [
+        "https://github.com/**/*"
+      ],
+      "changelogUrl": "{{sourceUrl}}/compare/{{currentDigest}}..{{newDigest}}"
+    },
+    {
       "matchPackageNames": [
         "/.*/"
       ],
