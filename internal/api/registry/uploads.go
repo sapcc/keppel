@@ -261,22 +261,14 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 
 	// record blob in DB
-	tx, err := a.db.Begin()
-	if respondWithError(w, r, err) {
-		return false
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-
-	blobPushedAt := a.timeNow()
-	blob, err := a.createOrUpdateBlobObject(ctx, tx, sizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
-	if respondWithError(w, r, err) {
-		return false
-	}
-	err = keppel.MountBlobIntoRepo(tx, blob, repo)
-	if respondWithError(w, r, err) {
-		return false
-	}
-	err = tx.Commit()
+	err = a.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
+		blobPushedAt := a.timeNow()
+		blob, err := a.createOrUpdateBlobObject(ctx, tx, sizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
+		if err != nil {
+			return err
+		}
+		return keppel.MountBlobIntoRepo(tx, blob, repo)
+	})
 	if respondWithError(w, r, err) {
 		return false
 	}
@@ -304,24 +296,21 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// prepare the database transaction for deleting this upload
-	tx, err := a.db.Begin()
-	if respondWithError(w, r, err) {
-		return
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-	err = models.UploadStore.Delete(ctx, tx, upload)
-	if respondWithError(w, r, err) {
-		return
-	}
-
-	// perform the deletion in the storage backend, then make the DB change durable
-	if upload.NumChunks > 0 {
-		err = a.sd.AbortBlobUpload(ctx, *account, upload.StorageID, upload.NumChunks)
-		if respondWithError(w, r, err) {
-			return
+	err := a.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
+		err := models.UploadStore.Delete(ctx, tx, upload)
+		if err != nil {
+			return err
 		}
-	}
-	err = tx.Commit()
+
+		// perform the deletion in the storage backend, then make the DB change durable
+		if upload.NumChunks > 0 {
+			err := a.sd.AbortBlobUpload(ctx, *account, upload.StorageID, upload.NumChunks)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -672,27 +661,20 @@ func (a *API) createBlobFromUpload(ctx context.Context, account models.ReducedAc
 	}
 
 	// prepare database changes
-	tx, err := a.db.Begin()
-	if err != nil {
-		return models.Blob{}, err
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
+	err = a.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
+		err := models.UploadStore.Delete(ctx, tx, upload)
+		if err != nil {
+			return err
+		}
 
-	err = models.UploadStore.Delete(ctx, tx, upload)
-	if err != nil {
-		return models.Blob{}, err
-	}
-
-	blobPushedAt := a.timeNow()
-	blob, err = a.createOrUpdateBlobObject(ctx, tx, upload.SizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
-	if err != nil {
-		return models.Blob{}, err
-	}
-	err = keppel.MountBlobIntoRepo(tx, blob, repo)
-	if err != nil {
-		return models.Blob{}, err
-	}
-	return blob, tx.Commit()
+		blobPushedAt := a.timeNow()
+		blob, err = a.createOrUpdateBlobObject(ctx, tx, upload.SizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
+		if err != nil {
+			return err
+		}
+		return keppel.MountBlobIntoRepo(tx, blob, repo)
+	})
+	return blob, err
 }
 
 var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`

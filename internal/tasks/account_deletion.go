@@ -15,6 +15,7 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -254,26 +255,22 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	// end of section that should be kept in sync with tasks/storage.go:sweepStorage
 
 	// start deleting the account in a transaction
-	tx, err := j.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-	err = models.AccountStore.Delete(ctx, tx, account)
-	if err != nil {
-		return err
-	}
+	return j.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
+		err = models.AccountStore.Delete(ctx, tx, account)
+		if err != nil {
+			return err
+		}
 
-	// before committing the transaction, confirm account deletion with the
-	// storage driver and the federation driver
-	err = j.sd.CleanupAccount(ctx, accountReduced)
-	if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
-		return fmt.Errorf("while cleaning up storage for account: %w", err)
-	}
-	err = j.fd.ForfeitAccountName(ctx, accountReduced)
-	if err != nil {
-		return fmt.Errorf("while cleaning up name claim for account: %w", err)
-	}
-
-	return tx.Commit()
+		// before committing the transaction, confirm account deletion with the
+		// storage driver and the federation driver
+		err = j.sd.CleanupAccount(ctx, accountReduced)
+		if err != nil && !errors.Is(err, keppel.NotFoundInStorageError{}) {
+			return fmt.Errorf("while cleaning up storage for account: %w", err)
+		}
+		err = j.fd.ForfeitAccountName(ctx, accountReduced)
+		if err != nil {
+			return fmt.Errorf("while cleaning up name claim for account: %w", err)
+		}
+		return nil
+	})
 }

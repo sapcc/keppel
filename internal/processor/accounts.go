@@ -22,7 +22,6 @@ import (
 
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/sqlext"
 	. "go.xyrillian.de/gg/option"
 )
 
@@ -284,19 +283,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			targetAccount.NextPlatformFilterSyncAt = Some(p.timeNow().Add(1 * time.Hour))
 		}
 
-		tx, err := p.db.Begin()
-		if err != nil {
-			return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
-		}
-		defer sqlext.RollbackUnlessCommitted(tx)
-
-		err = models.AccountStore.Insert(ctx, tx, &targetAccount)
-		if err != nil {
-			return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
-		}
-
-		// commit the changes
-		err = tx.Commit()
+		err = models.AccountStore.Insert(ctx, p.db, &targetAccount)
 		if err != nil {
 			return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 		}

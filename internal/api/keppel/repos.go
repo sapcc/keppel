@@ -5,6 +5,7 @@ package keppelv1
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -230,61 +232,51 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := a.db.Begin()
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
+	err = a.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
+		// abort early if any tag is protected
+		tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
+		if err != nil {
+			return err
+		}
 
-	// abort early if any tag is protected
-	tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return
-	}
+		tagsByManifestDigest := make(map[digest.Digest][]string)
+		err = models.TagStore.SelectWhere(ctx, a.db, `repo_id = $1`, repo.ID).Foreach(func(tag models.Tag) error {
+			tagsByManifestDigest[tag.Digest] = append(tagsByManifestDigest[tag.Digest], tag.Name)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
 
-	tagsByManifestDigest := make(map[digest.Digest][]string)
-	err = models.TagStore.SelectWhere(ctx, a.db, `repo_id = $1`, repo.ID).Foreach(func(tag models.Tag) error {
-		tagsByManifestDigest[tag.Digest] = append(tagsByManifestDigest[tag.Digest], tag.Name)
-		return nil
-	})
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return
-	}
-
-	for _, tagPolicy := range tagPolicies {
-		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) {
-			for manifestDigest, manifestTags := range tagsByManifestDigest {
-				if tagPolicy.MatchesTags(manifestTags) {
-					err := processor.DeleteManifestBlockedByTagPolicyError{Digest: manifestDigest, Policy: tagPolicy}
-					http.Error(w, err.Error(), http.StatusConflict)
-					return
+		for _, tagPolicy := range tagPolicies {
+			if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) {
+				for manifestDigest, manifestTags := range tagsByManifestDigest {
+					if tagPolicy.MatchesTags(manifestTags) {
+						err := processor.DeleteManifestBlockedByTagPolicyError{Digest: manifestDigest, Policy: tagPolicy}
+						return respondwith.CustomStatus(http.StatusConflict, err)
+					}
 				}
 			}
 		}
-	}
 
-	uploadCount, err := keppel.SelectOneValue[uint64](tx, `SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return
-	}
-	if uploadCount > 0 {
-		msg := "cannot delete repository while blobs in it are being uploaded"
-		http.Error(w, msg, http.StatusConflict)
-		return
-	}
-	// ^ NOTE: It's not a problem if there are blob_mounts in this repo. When the
-	// repo is deleted, its blob mounts will be deleted as well, and the janitor
-	// will then clean up any blobs without any remaining mounts.
+		uploadCount, err := keppel.SelectOneValue[uint64](tx, `SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
+		if err != nil {
+			return err
+		}
+		if uploadCount > 0 {
+			return respondwith.CustomStatus(http.StatusConflict, errors.New("cannot delete repository while blobs in it are being uploaded"))
+		}
+		// ^ NOTE: It's not a problem if there are blob_mounts in this repo. When the
+		// repo is deleted, its blob mounts will be deleted as well, and the janitor
+		// will then clean up any blobs without any remaining mounts.
 
-	err = a.deleteAllManifestsInRepository(r, authz, repo, account.Reduced(), tagPolicies)
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return
-	}
+		err = a.deleteAllManifestsInRepository(r, authz, repo, account.Reduced(), tagPolicies)
+		if err != nil {
+			return err
+		}
 
-	err = models.RepositoryStore.Delete(ctx, tx, repo)
-	if err == nil {
-		err = tx.Commit()
-	}
+		return models.RepositoryStore.Delete(ctx, tx, repo)
+	})
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

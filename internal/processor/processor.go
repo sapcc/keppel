@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/client"
@@ -65,24 +64,6 @@ func (p *Processor) OverrideGenerateStorageID(generateStorageID func() string) *
 // accesses into methods on type Processor eventually.
 func (p *Processor) WithLowlevelAccess(action func(*gsql.DB, keppel.StorageDriver) error) error {
 	return action(p.db, p.sd)
-}
-
-// Executes the action callback within a database transaction.  If the action
-// callback returns success (i.e. a nil error), the transaction will be
-// committed.  If it returns an error or panics, the transaction will be rolled
-// back.
-func (p *Processor) insideTransaction(ctx context.Context, action func(context.Context, *gsql.Tx) error) error {
-	tx, err := p.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-
-	err = action(ctx, tx)
-	if err != nil {
-		return err
-	}
-	return tx.Commit()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
