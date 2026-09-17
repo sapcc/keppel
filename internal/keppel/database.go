@@ -26,6 +26,35 @@ var sqlMigrations = map[int64]string{
 	//NOTE: Migrations 1 through 59 have been rolled up into one at 2026-09-17
 	// to better represent the current baseline of the DB schema.
 	59: sqlBaseline,
+	60: `
+		ALTER TABLE manifest_blob_refs
+			DROP CONSTRAINT manifest_blob_refs_blob_id_repo_id_fkey;
+		ALTER TABLE blob_mounts
+			DROP CONSTRAINT blob_mounts_blob_id_repo_id_key,
+			ADD PRIMARY KEY (blob_id, repo_id);
+		ALTER TABLE manifest_blob_refs
+			ADD FOREIGN KEY (blob_id, repo_id) REFERENCES blob_mounts (blob_id, repo_id) ON DELETE RESTRICT;
+	`,
+	61: `
+		ALTER TABLE manifest_contents
+			DROP CONSTRAINT manifest_contents_repo_id_digest_key,
+			ADD PRIMARY KEY (repo_id, digest);
+	`,
+	62: `
+		ALTER TABLE manifest_blob_refs
+			DROP CONSTRAINT manifest_blob_refs_repo_id_digest_blob_id_key,
+			ADD PRIMARY KEY (repo_id, digest, blob_id);
+	`,
+	63: `
+		ALTER TABLE manifest_manifest_refs
+			DROP CONSTRAINT manifest_manifest_refs_repo_id_parent_digest_child_digest_key,
+			ADD PRIMARY KEY (repo_id, parent_digest, child_digest);
+	`,
+	64: `
+		ALTER TABLE trivy_security_info
+			DROP CONSTRAINT trivy_security_info_repo_id_digest_key,
+			ADD PRIMARY KEY (repo_id, digest);
+	`,
 }
 
 // DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].
