@@ -3,6 +3,28 @@ SPDX-FileCopyrightText: 2026 Stefan Majewsky <majewsky@gmx.net>
 SPDX-License-Identifier: Apache-2.0
 -->
 
+# v0.17.0 (2026-09-17)
+
+API changes:
+
+- Everything except `type RuntimeIndex` becomes a synonym for the identical types in the new package `go.xyrillian.de/gg/oblast` within `gg@v1.16.0`.
+
+# v0.16.0 (2026-09-15)
+
+API changes:
+
+- Add `oblast.{TupleSelect,TupleSelectOne,TupleSelectOneOrNone}` to help with selecting rows containing joined or aggregated columns.
+
+Changes:
+
+- Fix plan caching not considering the ReadOnly field correctly.
+
+# v0.15.0 (2026-09-15)
+
+API changes:
+
+- Add `oblast.{Select,SelectOne,SelectOneOrNone}` to help with selecting rows containing exactly one value.
+
 # v0.14.0 (2026-09-07)
 
 API changes:

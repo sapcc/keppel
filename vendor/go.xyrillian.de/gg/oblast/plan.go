@@ -34,14 +34,17 @@ func collectPlanOptions(popts []PlanOption) planOpts {
 type planCacheKey struct {
 	Type                  reflect.Type
 	Dialect               string
+	ReadOnly              bool
 	StructTagKey          string
 	TableName             string
 	PrimaryKeyColumnNames string
 }
 
 var (
-	generatedPlans      = make(map[planCacheKey]plan)
-	generatedPlansMutex sync.RWMutex
+	generatedPlans           = make(map[planCacheKey]plan)
+	generatedPlansMutex      sync.RWMutex
+	generatedTuplePlans      = make(map[reflect.Type]plan)
+	generatedTuplePlansMutex sync.Mutex
 )
 
 // getOrBuildPlan is like [buildPlan], but caches generated plans and tries to reuse cached plans.
@@ -49,6 +52,7 @@ func getOrBuildPlan(t reflect.Type, dialect Dialect, opts planOpts) (plan, error
 	key := planCacheKey{
 		Type:                  t,
 		Dialect:               dialect.String(),
+		ReadOnly:              opts.ReadOnly,
 		StructTagKey:          opts.StructTagKey,
 		TableName:             opts.TableName,
 		PrimaryKeyColumnNames: strings.Join(opts.PrimaryKeyColumnNames, "\000"),
@@ -71,17 +75,39 @@ func getOrBuildPlan(t reflect.Type, dialect Dialect, opts planOpts) (plan, error
 	return p, nil
 }
 
+// getOrBuildTuplePlan is like [getOrBuildPlan], but generates the plans used by TupleSelect() et al
+func getOrBuildTuplePlan(t reflect.Type) plan {
+	generatedTuplePlansMutex.Lock()
+	defer generatedTuplePlansMutex.Unlock()
+
+	p, ok := generatedTuplePlans[t]
+	if !ok {
+		indexes := make([][]int, t.NumField())
+		for idx := range indexes {
+			indexes[idx] = []int{idx}
+		}
+		p = plan{
+			TypeName:      t.Name(),
+			StaticIndexes: indexes,
+		}
+		generatedTuplePlans[t] = p
+	}
+	return p
+}
+
 // plan holds all information that we can derive from reflecting on a given type.
 // The queries held within are only valid within the context of a given SQL dialect.
 type plan struct {
 	TypeName              string   // for use in error messages
 	TableName             string   // from info.TableNameIs marker (if any)
-	AllColumnNames        []string // in order of struct fields
+	AllColumnNames        []string // in order of struct fields (not set for TupleSelect() plans)
 	PrimaryKeyColumnNames []string // from info.PrimaryKeyIs marker (if any)
 	AutoColumnNames       []string // subset of AllColumnNames where field has `,auto` marker
 
-	// Field index (i.e. argument for reflect.Value.FieldByIndex()) for each column name.
+	// Field index (i.e. argument for reflect.Value.FieldByIndex()) for each column name. Not set for TupleSelect() plans.
 	IndexByColumnName map[string][]int
+	// Select indexes for TupleSelect() plans. Always of the form [[0], [1], [2], ..., [N]]. Not set for regular plans.
+	StaticIndexes [][]int
 	// Pointer-typed fields that need to be initialized before scanning into this type.
 	TransparentPointerStructFields []fieldInfo
 
