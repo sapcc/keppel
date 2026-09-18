@@ -12,12 +12,6 @@ static-check: FORCE
 	@printf "\e[1;36m>> reuse lint\e[0m\n"
 	@if ! reuse lint -q; then reuse lint; fi
 
-benchmark-orm: FORCE
-	@cd benchmark && go test -bench BenchmarkORM -benchmem .
-
-benchmark-postgres: FORCE
-	@cd benchmark && go test -bench BenchmarkPostgres -benchmem .
-
 GO_COVERPKGS := $(shell go list ./... | grep -vw testhelpers | tr '\n' , | sed 's/,$$//')
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 

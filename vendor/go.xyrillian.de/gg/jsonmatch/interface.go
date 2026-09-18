@@ -276,6 +276,11 @@ func CaptureField[T any](target *T) any {
 //      after traversal, CapturedField() instances are checked to see if they actually had the expected value
 //   -> problem: invocations of CaptureField() and CapturedField() look very similar
 //   -> idea: CaptureField() returns an object, and then we can call field.Ref() at the reference site
+//   -> new idea: just allow multiple CaptureField() with the same pointer, first instance found during traversal writes the value, additional instances complain if not matching
+
+// TODO: a cousin of type Object (maybe "type AbridgedObject"?) where only some fields are specified and all others are implied as Irrelevant()
+//
+//   -> usecase: PUT an object as setup and capture only the ID while ignoring everything else because that's not the point of the test
 
 type capturedField struct {
 	PointerToTarget any
