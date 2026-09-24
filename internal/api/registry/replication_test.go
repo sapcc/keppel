@@ -556,6 +556,9 @@ func TestReplicationChainedAnonymousFirstPull(t *testing.T) {
 			test.MustExec(t, s1.DB, `UPDATE accounts SET external_peer_url = $2 WHERE name = $1`,
 				"test1", "registry-external.example.org")
 
+			tr1, _ := easypg.NewTracker(t, s1.DB.DB)
+			tr2, _ := easypg.NewTracker(t, s2.DB.DB)
+
 			// enable anonymous first pull on the external replica
 			s1.RespondTo(ctx, "PUT /keppel/v1/accounts/test1",
 				httptest.WithHeader("X-Test-Perms", "change:"+authTenantID),
@@ -585,10 +588,62 @@ func TestReplicationChainedAnonymousFirstPull(t *testing.T) {
 			).ExpectStatus(t, http.StatusOK)
 
 			// an anonymous user pulling from s2 triggers replication both into s1 and s2
-			anonTokenHeaders := s1.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
-			expectManifestExists(t, s1, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
-			anonTokenHeaders = s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
+			anonTokenHeaders := s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
 			expectManifestExists(t, s2, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
+
+			// verify s1 was populated as a side-effect of the s2 pull (i.e. the chain fired)
+			tr1.DBChanges().AssertEqualf(`
+				UPDATE accounts SET rbac_policies_json = '[{"match_repository":".*","permissions":["anonymous_pull","anonymous_first_pull"]}]', anon_rbac_policies_json = '[{"r":".*","p":"p,f"}]' WHERE name = 'test1';
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 1);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (1, 'test1', '%[1]s', %[2]d, '%[11]s', 0, '%[3]s', 604800);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (2, 'test1', '%[4]s', %[5]d, '', 0, '%[6]s', 0);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 1);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 2);
+				INSERT INTO manifest_contents (repo_id, digest, content) VALUES (1, '%[7]s', '%[8]s');
+				INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (1, '%[7]s', '%[9]s', %[10]d, 0, 86400);
+				INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
+				INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'latest', '%[7]s', 0);
+				INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, '%[7]s', 'Pending', '', 0);
+			`,
+				image.Config.Digest, len(image.Config.Contents), image.Config.MediaType,
+				image.Layers[0].Digest, len(image.Layers[0].Contents), image.Layers[0].MediaType,
+				image.Manifest.Digest, string(image.Manifest.Contents),
+				image.Manifest.MediaType, len(image.Manifest.Contents)+len(image.Config.Contents)+len(image.Layers[0].Contents),
+				s1.SIDGenerator.Peek(1),
+			)
+			// s2 was also populated by the same anon pull
+			tr2.DBChanges().AssertEqualf(`
+				UPDATE accounts SET rbac_policies_json = '[{"match_repository":".*","permissions":["anonymous_pull","anonymous_first_pull"]}]', anon_rbac_policies_json = '[{"r":".*","p":"p,f"}]' WHERE name = 'test1';
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 1);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (1, 'test1', '%[1]s', %[2]d, '%[11]s', 0, '%[3]s', 604800);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (2, 'test1', '%[4]s', %[5]d, '', 0, '%[6]s', 0);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 1);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 2);
+				INSERT INTO manifest_contents (repo_id, digest, content) VALUES (1, '%[7]s', '%[8]s');
+				INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, last_pulled_at, next_validation_at) VALUES (1, '%[7]s', '%[9]s', %[10]d, 0, 0, 86400);
+				INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
+				INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (1, 'latest', '%[7]s', 0, 0);
+				INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, '%[7]s', 'Pending', '', 0);
+			`,
+				image.Config.Digest, len(image.Config.Contents), image.Config.MediaType,
+				image.Layers[0].Digest, len(image.Layers[0].Contents), image.Layers[0].MediaType,
+				image.Manifest.Digest, string(image.Manifest.Contents),
+				image.Manifest.MediaType, len(image.Manifest.Contents)+len(image.Config.Contents)+len(image.Layers[0].Contents),
+				s2.SIDGenerator.Peek(1),
+			)
+
+			// pulling from s1 directly only changes last_pulled_at and does not touch s2 at all
+			anonTokenHeaders = s1.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
+			expectManifestExists(t, s1, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
+			tr1.DBChanges().AssertEqualf(`
+				UPDATE manifests SET last_pulled_at = 0 WHERE repo_id = 1 AND digest = '%[1]s';
+				UPDATE tags SET last_pulled_at = 0 WHERE repo_id = 1 AND name = 'latest';
+			`,
+				image.Manifest.Digest,
+			)
+			tr2.DBChanges().AssertEmpty()
 		}, test.WithKeppelAPI)
 	})
 }
