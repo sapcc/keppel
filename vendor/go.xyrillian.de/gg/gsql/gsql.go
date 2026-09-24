@@ -14,6 +14,9 @@ package gsql
 import (
 	"context"
 	"database/sql"
+	"errors"
+
+	. "go.xyrillian.de/gg/option"
 )
 
 // ConnectionHandle extends [Handle] with methods that make sense for handles referring to entire connections or connection pools, but not e.g. to transactions.
@@ -75,4 +78,19 @@ type Rows interface {
 	Err() error
 	Next() bool
 	Scan(slots ...any) error
+}
+
+// NoneIfNoRows wraps any call returning a record from a DB that may return [sql.ErrNoRows],
+// and converts that error into a [None] in the value position instead.
+//
+// [None]: https://pkg.go.dev/go.xyrillian.de/gg/option#None
+func NoneIfNoRows[T any](value T, err error) (Option[T], error) {
+	switch {
+	case err == nil:
+		return Some(value), nil
+	case errors.Is(err, sql.ErrNoRows):
+		return None[T](), nil
+	default:
+		return None[T](), err
+	}
 }
