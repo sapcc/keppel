@@ -228,7 +228,7 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
-# go.podman.io/image/v5 v5.41.1
+# go.podman.io/image/v5 v5.41.2
 ## explicit; go 1.25.7
 go.podman.io/image/v5/docker/reference
 go.podman.io/image/v5/internal/manifest
@@ -239,7 +239,7 @@ go.podman.io/image/v5/pkg/compression/internal
 go.podman.io/image/v5/pkg/compression/types
 go.podman.io/image/v5/pkg/strslice
 go.podman.io/image/v5/types
-# go.podman.io/storage v1.64.0
+# go.podman.io/storage v1.64.1
 ## explicit; go 1.25.0
 go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
