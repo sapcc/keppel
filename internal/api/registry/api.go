@@ -143,8 +143,6 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 	if err == nil {
 		return false
-	} else if perr, ok := errext.As[processor.UpstreamManifestMissingError](err); ok {
-		return respondWithError(w, r, perr.Inner)
 	} else if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
 		if rerr == nil {
 			return false

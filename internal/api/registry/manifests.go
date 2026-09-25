@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	accept "github.com/timewasted/go-accept-headers"
@@ -71,6 +72,11 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})
+			// If replication failed with 401, attach our own challenge so that
+			// docker/containerd retry with credentials against us (not against upstream).
+			if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr.Status == http.StatusUnauthorized {
+				err = challenge.AddTo(rerr)
+			}
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -242,8 +248,13 @@ func mayReplicateManifest(account models.ReducedAccount, authz auth.Authorizatio
 		// should be possible with a single request to the internal replica account), so we do allow replication
 		// by a PeerUser if it is acting on behalf of a RegularUser with appropriate permissions
 		if account.ExternalPeerURL != "" {
-			if r.Header.Get("X-Keppel-Requesting-User-Type") == keppel.RegularUser.String() {
+			requestingUserType := r.Header.Get("X-Keppel-Requesting-User-Type")
+			if requestingUserType == keppel.RegularUser.String() {
 				return true, nil
+			}
+			// if the peer is acting on behalf of an anonymous user, emit a 401 with a challenge so that the peer can forward it to the actual client
+			if requestingUserType == keppel.AnonymousUser.String() {
+				return false, anonymousReplicationDeniedError(challenge, repo, reference, r.Host)
 			}
 		}
 		return false, nil
@@ -252,14 +263,20 @@ func mayReplicateManifest(account models.ReducedAccount, authz auth.Authorizatio
 	// when replicating from external, only authenticated users can trigger the replication
 	if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
 		if !authz.ScopeSet.AllowsAnonymousFirstPullOn(repo.FullName()) {
-			rerr := keppel.ErrDenied.With(fmt.Sprintf("image %q does not exist here, and anonymous users may not replicate images", models.ImageReference{Host: r.Host, RepoName: repo.FullName(), Reference: reference}))
-			// this must be a 401 and include a challenge; clients should be able to understand that
-			// they can retry this after authenticating and expect a different result
-			return false, challenge.AddTo(rerr).WithStatus(http.StatusUnauthorized)
+			return false, anonymousReplicationDeniedError(challenge, repo, reference, r.Host)
 		}
 	}
 
 	return true, nil
+}
+
+// anonymousReplicationDeniedError builds the 401 + challenge response used in replications to workaround quirks in Docker client.
+func anonymousReplicationDeniedError(challenge auth.Challenge, repo models.ReducedRepository, reference models.ManifestReference, host string) *keppel.RegistryV2Error {
+	rerr := keppel.ErrDenied.With(fmt.Sprintf("image %q does not exist here, and anonymous users may not replicate images",
+		models.ImageReference{Host: host, RepoName: repo.FullName(), Reference: reference}))
+	// this must be a 401 and include a challenge; clients should be able to understand that
+	// they can retry this after authenticating and expect a different result
+	return challenge.AddTo(rerr).WithStatus(http.StatusUnauthorized)
 }
 
 func (a *API) findManifestInDB(ctx context.Context, repo models.ReducedRepository, reference models.ManifestReference) (*models.Manifest, error) {
