@@ -72,8 +72,8 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})
-			// if replication failed with 401, attach our own challenge so that
-			// docker/containerd retry with credentials against us (not against upstream)
+			// If replication failed with 401, attach our own challenge so that
+			// docker/containerd retry with credentials against us (not against upstream).
 			if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr.Status == http.StatusUnauthorized {
 				err = challenge.AddTo(rerr)
 			}
