@@ -516,7 +516,7 @@ func TestReplicationChainedFromExternalToInternalReplica(t *testing.T) {
 				})
 			}
 
-			// anonymous pull on s2 returns 401 with a challenge so that docker know to retry with credentials
+			// anonymous pull on s2 returns 401 with a challenge so that docker knows to retry with credentials
 			anonTokenHeaders := s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull"})
 			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(anonTokenHeaders)).
 				ExpectHeader(t, "Www-Authenticate",
