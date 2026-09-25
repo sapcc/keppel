@@ -254,6 +254,14 @@ SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = [
+  "vendor/cyphar.com/go-pathrs/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = [
   "vendor/github.com/antlr4-go/antlr/v4/**",
 ]
 precedence = "override"
@@ -307,6 +315,14 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+  "vendor/github.com/cyphar/filepath-securejoin/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "MPL-2.0"
 
 [[annotations]]
 path = [
