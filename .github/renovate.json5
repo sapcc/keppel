@@ -27,10 +27,11 @@
       "matchUpdateTypes": [
         "digest"
       ],
-      "matchSourceUrls": [
-        "https://github.com/**/*"
+      "matchDatasources": [
+        "github-releases",
+        "github-tags"
       ],
-      "changelogUrl": "{{sourceUrl}}/compare/{{currentDigest}}..{{newDigest}}"
+      "changelogUrl": "https://github.com/{{packageName}}/compare/{{currentDigest}}..{{newDigest}}"
     },
     {
       "matchPackageNames": [
