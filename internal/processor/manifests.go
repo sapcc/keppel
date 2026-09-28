@@ -723,6 +723,11 @@ func (e UpstreamManifestMissingError) Error() string {
 	return e.Inner.Error()
 }
 
+// Unwrap implements the builtin/error interface.
+func (e UpstreamManifestMissingError) Unwrap() error {
+	return e.Inner
+}
+
 // ReplicateManifest replicates the manifest from its account's upstream registry.
 // On success, the manifest's metadata and contents are returned.
 func (p *Processor) ReplicateManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, reference models.ManifestReference, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, []byte, error) {

@@ -445,18 +445,21 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 	})
 }
 
+// Another test with three registries: registry-external is fully mocked,
+// s1 holds an external replica of that, s2 holds a replica of s1.
+//
+// We test that a regular user pulling from s2 can replicate all the way all at once,
+// whereas an anonymous user will get rejected on s2 the same as it would on s1.
 func TestReplicationChainedFromExternalToInternalReplica(t *testing.T) {
-	// Another test with three registries: registry-external is fully mocked,
-	// s1 holds an external replica of that, s2 holds a replica of s1.
-	//
-	// We test that a regular user pulling from s2 can replicate all the way all at once,
-	// whereas an anonymous user will get rejected on s2 the same as it would on s1.
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		ctx := t.Context()
 		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
 			if !firstPass {
 				return // no second pass needed
 			}
+
+			tr1, _ := easypg.NewTracker(t, s1.DB.DB)
+			tr2, _ := easypg.NewTracker(t, s2.DB.DB)
 
 			// setup registry-external as a mostly static responder
 			image := test.GenerateImage(test.GenerateExampleLayer(1))
@@ -488,16 +491,22 @@ func TestReplicationChainedFromExternalToInternalReplica(t *testing.T) {
 			test.MustExec(t, s1.DB, `UPDATE accounts SET external_peer_url = $2 WHERE name = $1`,
 				"test1", "registry-external.example.org")
 
-			// anonymous user on both accounts gets rejected in the same way...
+			// enable anonymous_pull (but NOT anonymous_first_pull) on both accounts
+			for _, s := range []test.Setup{s1, s2} {
+				test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+					test.ToJSON([]keppel.RBACPolicy{{
+						RepositoryPattern: ".*",
+						Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
+					}}),
+				)
+			}
+
+			tr1.DBContent().Ignore()
+			tr2.DBContent().Ignore()
+
+			// an anonymous user gets rejected on either account with a challenge because the "test1/foo" repo does not exist yet
 			for _, s := range []test.Setup{s1, s2} {
 				t.Run("host="+s.Config.APIPublicHostname, func(t *testing.T) {
-					// even when anonymous pull is enabled (because that's not the same as anonymous first pull)
-					test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
-						test.ToJSON([]keppel.RBACPolicy{{
-							RepositoryPattern: ".*",
-							Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
-						}}),
-					)
 					anonTokenHeaders := s.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull"})
 					s.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(anonTokenHeaders)).
 						ExpectJSON(t, http.StatusUnauthorized, test.ErrorCodeWithMessage{
@@ -507,7 +516,20 @@ func TestReplicationChainedFromExternalToInternalReplica(t *testing.T) {
 				})
 			}
 
-			// ... but an authenticated user on s2 triggers replication both into s1 and s2
+			// anonymous pull on s2 returns 401 with a challenge so that docker knows to retry with credentials
+			anonTokenHeaders := s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull"})
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(anonTokenHeaders)).
+				ExpectHeader(t, "Www-Authenticate",
+					`Bearer realm="https://registry-secondary.example.org/keppel/v1/auth",service="registry-secondary.example.org",scope="repository:test1/foo:pull"`).
+				ExpectStatus(t, http.StatusUnauthorized)
+
+			// no images were replicated, but the repository has been created
+			tr1.DBChanges().AssertEmpty()
+			tr2.DBChanges().AssertEqual(`
+				INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
+			`)
+
+			// docker will retry with credentials, so replication triggers
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 			expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, "latest")
 		})
@@ -515,9 +537,8 @@ func TestReplicationChainedFromExternalToInternalReplica(t *testing.T) {
 }
 
 // Like TestReplicationChainedFromExternalToInternalReplica, but with
-// "anonymous_first_pull" enabled on both the external replica (s1) and the
-// replica of that external replica (s2). We test that an anonymous user
-// pulling from s2 can now trigger replication all the way down the chain
+// "anonymous_first_pull" enabled on both accounts. Anonymous users can then
+// trigger replication all the way down the chain in a single request.
 func TestReplicationChainedAnonymousFirstPull(t *testing.T) {
 	testWithPrimary(t, []test.SetupOption{test.WithKeppelAPI}, func(s1 test.Setup) {
 		ctx := t.Context()
@@ -525,6 +546,9 @@ func TestReplicationChainedAnonymousFirstPull(t *testing.T) {
 			if !firstPass {
 				return // no second pass needed
 			}
+
+			tr1, _ := easypg.NewTracker(t, s1.DB.DB)
+			tr2, _ := easypg.NewTracker(t, s2.DB.DB)
 
 			// setup registry-external as a mostly static responder
 			image := test.GenerateImage(test.GenerateExampleLayer(1))
@@ -556,39 +580,172 @@ func TestReplicationChainedAnonymousFirstPull(t *testing.T) {
 			test.MustExec(t, s1.DB, `UPDATE accounts SET external_peer_url = $2 WHERE name = $1`,
 				"test1", "registry-external.example.org")
 
-			// enable anonymous first pull on the external replica
-			s1.RespondTo(ctx, "PUT /keppel/v1/accounts/test1",
-				httptest.WithHeader("X-Test-Perms", "change:"+authTenantID),
-				httptest.WithJSONBody(map[string]any{
-					"account": map[string]any{
-						"auth_tenant_id": authTenantID,
-						"rbac_policies": []map[string]any{{
-							"match_repository": ".*",
-							"permissions":      []string{"anonymous_pull", "anonymous_first_pull"},
-						}},
-					},
-				}),
-			).ExpectStatus(t, http.StatusOK)
+			// enable anonymous_pull AND anonymous_first_pull on both accounts
+			for _, s := range []test.Setup{s1, s2} {
+				s.RespondTo(ctx, "PUT /keppel/v1/accounts/test1",
+					httptest.WithHeader("X-Test-Perms", "change:"+authTenantID),
+					httptest.WithJSONBody(map[string]any{
+						"account": map[string]any{
+							"auth_tenant_id": authTenantID,
+							"rbac_policies": []map[string]any{{
+								"match_repository": ".*",
+								"permissions":      []string{"anonymous_pull", "anonymous_first_pull"},
+							}},
+						},
+					}),
+				).ExpectStatus(t, http.StatusOK)
+			}
+			tr1.DBChanges().Ignore()
+			tr2.DBChanges().Ignore()
 
-			// enable anonymous first pull on the internal replica
-			s2.RespondTo(ctx, "PUT /keppel/v1/accounts/test1",
-				httptest.WithHeader("X-Test-Perms", "change:"+authTenantID),
-				httptest.WithJSONBody(map[string]any{
-					"account": map[string]any{
-						"auth_tenant_id": authTenantID,
-						"rbac_policies": []map[string]any{{
-							"match_repository": ".*",
-							"permissions":      []string{"anonymous_pull", "anonymous_first_pull"},
-						}},
-					},
-				}),
-			).ExpectStatus(t, http.StatusOK)
-
-			// an anonymous user pulling from s2 triggers replication both into s1 and s2
-			anonTokenHeaders := s1.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
-			expectManifestExists(t, s1, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
-			anonTokenHeaders = s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
+			// anonymous pull on s2 triggers replication all the way down
+			anonTokenHeaders := s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
 			expectManifestExists(t, s2, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
+			tr1.DBChanges().AssertEqualf(`
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 1);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (1, 'test1', '%[1]s', %[2]d, '%[11]s', 0, '%[3]s', 604800);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (2, 'test1', '%[4]s', %[5]d, '', 0, '%[6]s', 0);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 1);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 2);
+				INSERT INTO manifest_contents (repo_id, digest, content) VALUES (1, '%[7]s', '%[8]s');
+				INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (1, '%[7]s', '%[9]s', %[10]d, 0, 86400);
+				INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
+				INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'latest', '%[7]s', 0);
+				INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, '%[7]s', 'Pending', '', 0);
+			`,
+				image.Config.Digest, len(image.Config.Contents), image.Config.MediaType,
+				image.Layers[0].Digest, len(image.Layers[0].Contents), image.Layers[0].MediaType,
+				image.Manifest.Digest, string(image.Manifest.Contents),
+				image.Manifest.MediaType, len(image.Manifest.Contents)+len(image.Config.Contents)+len(image.Layers[0].Contents),
+				test.StorageIDForNthCall(1),
+			)
+			tr2.DBChanges().AssertEqualf(`
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
+				INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 1);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (1, 'test1', '%[1]s', %[2]d, '%[11]s', 0, '%[3]s', 604800);
+				INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (2, 'test1', '%[4]s', %[5]d, '', 0, '%[6]s', 0);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 1);
+				INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, '%[7]s', 2);
+				INSERT INTO manifest_contents (repo_id, digest, content) VALUES (1, '%[7]s', '%[8]s');
+				INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, last_pulled_at, next_validation_at) VALUES (1, '%[7]s', '%[9]s', %[10]d, 0, 0, 86400);
+				INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
+				INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (1, 'latest', '%[7]s', 0, 0);
+				INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, '%[7]s', 'Pending', '', 0);
+			`,
+				image.Config.Digest, len(image.Config.Contents), image.Config.MediaType,
+				image.Layers[0].Digest, len(image.Layers[0].Contents), image.Layers[0].MediaType,
+				image.Manifest.Digest, string(image.Manifest.Contents),
+				image.Manifest.MediaType, len(image.Manifest.Contents)+len(image.Config.Contents)+len(image.Layers[0].Contents),
+				test.StorageIDForNthCall(1),
+			)
+
+			// pulling from s1 directly only changes last_pulled_at
+			anonTokenHeaders = s1.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
+			expectManifestExists(t, s1, anonTokenHeaders, "test1/foo", image.Manifest, "latest")
+			tr1.DBChanges().AssertEqualf(`
+				UPDATE manifests SET last_pulled_at = 0 WHERE repo_id = 1 AND digest = '%[1]s';
+				UPDATE tags SET last_pulled_at = 0 WHERE repo_id = 1 AND name = 'latest';
+			`,
+				image.Manifest.Digest,
+			)
+			tr2.DBChanges().AssertEmpty()
+		}, test.WithKeppelAPI)
+	})
+}
+
+// Like TestReplicationChainedAnonymousFirstPull, but exercises the case
+// where the repository already exists on s1 (from a previous authenticated pull of a different tag).
+// This must emit a 401 with a challenge; without it, s1 would respond ErrManifestUnknown (404)
+// and docker would silently give up.
+func TestReplicationChainedAnonymousPullForKnownRepoNewTag(t *testing.T) {
+	testWithPrimary(t, []test.SetupOption{test.WithKeppelAPI}, func(s1 test.Setup) {
+		ctx := t.Context()
+		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
+			if !firstPass {
+				return // no second pass needed
+			}
+
+			tr1, _ := easypg.NewTracker(t, s1.DB.DB)
+			tr2, _ := easypg.NewTracker(t, s2.DB.DB)
+
+			// two distinct images served under two different tags by registry-external
+			imageA := test.GenerateImage(test.GenerateExampleLayer(1))
+			imageB := test.GenerateImage(test.GenerateExampleLayer(2))
+			externalHandler := func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					http.Error(w, r.Method+" not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				for _, img := range []test.Image{imageA, imageB} {
+					for _, blob := range append(img.Layers, img.Config) {
+						if r.URL.Path == "/v2/foo/blobs/"+blob.Digest.String() {
+							w.Header().Set("Content-Length", strconv.Itoa(len(blob.Contents)))
+							w.WriteHeader(http.StatusOK)
+							w.Write(blob.Contents)
+							return
+						}
+					}
+				}
+				switch r.URL.Path {
+				case "/v2/foo/manifests/foo":
+					w.Header().Set("Content-Type", imageA.Manifest.MediaType)
+					w.Header().Set("Content-Length", strconv.Itoa(len(imageA.Manifest.Contents)))
+					w.WriteHeader(http.StatusOK)
+					w.Write(imageA.Manifest.Contents)
+					return
+				case "/v2/foo/manifests/buzz":
+					w.Header().Set("Content-Type", imageB.Manifest.MediaType)
+					w.Header().Set("Content-Length", strconv.Itoa(len(imageB.Manifest.Contents)))
+					w.WriteHeader(http.StatusOK)
+					w.Write(imageB.Manifest.Contents)
+					return
+				}
+				http.NotFound(w, r)
+			}
+			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-external.example.org"] = http.HandlerFunc(externalHandler)
+
+			// reconfigure "test1" to an external replica
+			test.MustExec(t, s1.DB, `UPDATE accounts SET external_peer_url = $2 WHERE name = $1`,
+				"test1", "registry-external.example.org")
+
+			// enable anonymous_pull only on both accounts
+			for _, s := range []test.Setup{s1, s2} {
+				s.RespondTo(ctx, "PUT /keppel/v1/accounts/test1",
+					httptest.WithHeader("X-Test-Perms", "change:"+authTenantID),
+					httptest.WithJSONBody(map[string]any{
+						"account": map[string]any{
+							"auth_tenant_id": authTenantID,
+							"rbac_policies": []map[string]any{{
+								"match_repository": ".*",
+								"permissions":      []string{"anonymous_pull"},
+							}},
+						},
+					}),
+				).ExpectStatus(t, http.StatusOK)
+			}
+
+			tr1.DBChanges().Ignore()
+			tr2.DBChanges().Ignore()
+
+			// step 1: authenticated pull of foo directly on s1 populates s1's repo
+			tokenHeaders := s1.GetTokenHeaders(t, "repository:test1/foo:pull")
+			expectManifestExists(t, s1, tokenHeaders, "test1/foo", imageA.Manifest, "foo")
+			tr1.DBChanges().Ignore()
+
+			// step 2: anonymous pull on s2 for buzz.
+			// On s1 the repo already exists and 401 + challenge must be emitted, so that docker retries with credentials
+			anonTokenHeaders := s2.GetAnonTokenHeaders(t, "repository:test1/foo", []string{"pull"})
+			s2.RespondTo(ctx, "GET /v2/test1/foo/manifests/buzz", httptest.WithHeaders(anonTokenHeaders)).
+				ExpectHeader(t, "Www-Authenticate",
+					`Bearer realm="https://registry-secondary.example.org/keppel/v1/auth",service="registry-secondary.example.org",scope="repository:test1/foo:pull"`).
+				ExpectStatus(t, http.StatusUnauthorized)
+
+			// nothing new should have been replicated on either side
+			tr1.DBChanges().AssertEmpty()
+			tr2.DBChanges().AssertEqual(`
+				INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
+			`)
 		}, test.WithKeppelAPI)
 	})
 }

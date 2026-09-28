@@ -142,6 +142,14 @@ func (e *RegistryV2Error) WithStatus(status int) *RegistryV2Error {
 	return e
 }
 
+// EffectiveStatus returns the HTTP status this error will be rendered with.
+func (e *RegistryV2Error) EffectiveStatus() int {
+	if e.Status != 0 {
+		return e.Status
+	}
+	return apiErrorStatusCodes[e.Code]
+}
+
 // WithHeader adds a HTTP response header to this error.
 func (e *RegistryV2Error) WithHeader(key string, values ...string) *RegistryV2Error {
 	if e.Headers == nil {
@@ -155,11 +163,7 @@ func (e *RegistryV2Error) WithHeader(key string, values ...string) *RegistryV2Er
 func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	maps.Copy(w.Header(), e.Headers)
-	if e.Status == 0 {
-		w.WriteHeader(apiErrorStatusCodes[e.Code])
-	} else {
-		w.WriteHeader(e.Status)
-	}
+	w.WriteHeader(e.EffectiveStatus())
 	if r.Method != http.MethodHead {
 		//nolint:errcheck // we can't do much about errors at this point, and the client will see an incomplete response if we fail to write the error body, so we ignore them
 		_ = json.NewEncoder(w).Encode(struct {
@@ -173,21 +177,13 @@ func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *
 // WriteAsAuthResponseTo reports this error in the format used by the Auth API endpoint.
 func (e *RegistryV2Error) WriteAsAuthResponseTo(w http.ResponseWriter) {
 	maps.Copy(w.Header(), e.Headers)
-	status := e.Status
-	if status == 0 {
-		status = apiErrorStatusCodes[e.Code]
-	}
-	respondwith.JSON(w, status, map[string]string{"details": e.Error()})
+	respondwith.JSON(w, e.EffectiveStatus(), map[string]string{"details": e.Error()})
 }
 
 // WriteAsTextTo reports this error in a plain text format.
 func (e *RegistryV2Error) WriteAsTextTo(w http.ResponseWriter) {
 	maps.Copy(w.Header(), e.Headers)
-	if e.Status == 0 {
-		w.WriteHeader(apiErrorStatusCodes[e.Code])
-	} else {
-		w.WriteHeader(e.Status)
-	}
+	w.WriteHeader(e.EffectiveStatus())
 	w.Write([]byte(e.Error() + "\n"))
 }
 
