@@ -12,7 +12,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.15.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/klauspost/compress v1.20.0
+	github.com/klauspost/compress v1.20.1
 	github.com/lib/pq v1.12.3
 	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260831232431-97274622c111
 	github.com/opencontainers/go-digest v1.0.0
@@ -21,7 +21,7 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.25.1
-	github.com/sapcc/go-bits v0.0.0-20260924170438-e0aa5c665ed9
+	github.com/sapcc/go-bits v0.0.0-20261001170337-e86369bc8beb
 	github.com/spf13/cobra v1.10.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.41.2
