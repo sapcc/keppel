@@ -15,22 +15,9 @@ import (
 func Compose(apis ...API) http.Handler {
 	autoConfigureMetricsIfNecessary()
 
-	r := mux.NewRouter()
-	c := &Composer{r}
-	m := middleware{inner: r}
-
-	// Automatically identify the endpoint for go-bits metrics using EndpointNamer,
-	// called here inside the gorilla/mux chain where route context is available.
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if EndpointNamer != nil {
-				if name, ok := EndpointNamer(r).Unpack(); ok {
-					IdentifyEndpoint(r, name)
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	ch := &composedHandler{}
+	c := &Composer{ch}
+	m := outermostMiddleware{inner: ch}
 
 	for _, a := range apis {
 		switch a := a.(type) {
@@ -41,8 +28,37 @@ func Compose(apis ...API) http.Handler {
 		}
 	}
 
-	h := http.Handler(m)
-	return h
+	return http.Handler(m)
+}
+
+// composedHandler is the http.Handler holding all API endpoints that were given to a single [Compose] call.
+// The only thing not in here are global middlewares registered via [WithGlobalMiddleware], which are wrapped outside this type:
+// The type [outermostMiddleware] is initially constructed holding this type as its inner handler,
+// and then middlewares wrap that slot.
+//
+// This type is separate from [Composer], which constitutes its public interface.
+type composedHandler struct {
+	tryHandlers []TryHandler
+	muxRouter   *mux.Router // initialized when Composer.Router() is first used
+}
+
+// ServeHTTP implements the [http.Handler] interface.
+func (h *composedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// if we have TryHandlers, use them first (they are likely more efficient than gorilla/mux)
+	for _, th := range h.tryHandlers {
+		if th.TryServeHTTP(w, r) {
+			return
+		}
+	}
+
+	// check gorilla/mux routes if we have any
+	if h.muxRouter != nil {
+		h.muxRouter.ServeHTTP(w, r)
+		return
+	}
+
+	// fallback if nothing matches
+	http.NotFound(w, r)
 }
 
 type oobKey string

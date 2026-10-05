@@ -187,7 +187,7 @@ github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20261001170337-e86369bc8beb
+# github.com/sapcc/go-bits v0.0.0-20261005151228-62a588a6b663
 ## explicit; go 1.27
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
@@ -245,7 +245,7 @@ go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
-# go.xyrillian.de/gg v1.16.0
+# go.xyrillian.de/gg v1.17.0
 ## explicit; go 1.26
 go.xyrillian.de/gg/assert
 go.xyrillian.de/gg/errext
@@ -254,6 +254,8 @@ go.xyrillian.de/gg/internal/path
 go.xyrillian.de/gg/jsonmatch
 go.xyrillian.de/gg/oblast
 go.xyrillian.de/gg/option
+go.xyrillian.de/gg/options
+go.xyrillian.de/gg/pathrouter
 go.xyrillian.de/gg/pgruntime
 go.xyrillian.de/gg/testcapture
 # go.xyrillian.de/oblast v0.17.0
