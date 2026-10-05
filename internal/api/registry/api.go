@@ -16,7 +16,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"go.xyrillian.de/gg/gsql"
-	pr "go.xyrillian.de/gg/pathrouter"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -62,26 +62,26 @@ func (a *API) AddTo(c *httpapi.Composer) {
 	//         to improve performance esp. for important endpoints like GetManifest and GetBlob.
 	// NOTE 2: Most HEAD handlers are deleted to match the endpoint list from
 	//         <https://github.com/opencontainers/distribution-spec/blob/main/spec.md#endpoints>.
-	c.AddTryHandler(pr.Element("v2", pr.Choice(
-		pr.Element("/", pr.Handlers(pr.ByMethod{
+	c.AddTryHandler(pathrouter.Element("v2", pathrouter.Choice(
+		pathrouter.Element("/", pathrouter.Handlers(pathrouter.ByMethod{
 			http.MethodGet:  a.handleToplevel,
 			http.MethodHead: nil,
 		})),
-		pr.Element("_catalog", pr.Handlers(pr.ByMethod{
+		pathrouter.Element("_catalog", pathrouter.Handlers(pathrouter.ByMethod{
 			http.MethodGet:  a.handleGetCatalog,
 			http.MethodHead: nil,
 		})),
-		pr.CatchAllVariable("repository", pr.Choice(
-			pr.Element("blobs", pr.Choice(
-				pr.Variable("digest", pr.Handlers(pr.ByMethod{
+		pathrouter.CatchAllVariable("repository", pathrouter.Choice(
+			pathrouter.Element("blobs", pathrouter.Choice(
+				pathrouter.Variable("digest", pathrouter.Handlers(pathrouter.ByMethod{
 					http.MethodDelete: a.handleDeleteBlob,
 					http.MethodGet:    a.handleGetOrHeadBlob,
 				})),
-				pr.Element("uploads", pr.Choice(
-					pr.Element("/", pr.Handlers(pr.ByMethod{
+				pathrouter.Element("uploads", pathrouter.Choice(
+					pathrouter.Element("/", pathrouter.Handlers(pathrouter.ByMethod{
 						http.MethodPost: a.handleStartBlobUpload,
 					})),
-					pr.Variable("uuid", pr.Handlers(pr.ByMethod{
+					pathrouter.Variable("uuid", pathrouter.Handlers(pathrouter.ByMethod{
 						http.MethodDelete: a.handleDeleteBlobUpload,
 						http.MethodGet:    a.handleGetBlobUpload,
 						http.MethodHead:   nil,
@@ -90,16 +90,16 @@ func (a *API) AddTo(c *httpapi.Composer) {
 					})),
 				)),
 			)),
-			pr.Element("manifests", pr.Variable("reference", pr.Handlers(pr.ByMethod{
+			pathrouter.Element("manifests", pathrouter.Variable("reference", pathrouter.Handlers(pathrouter.ByMethod{
 				http.MethodDelete: a.handleDeleteManifest,
 				http.MethodGet:    a.handleGetOrHeadManifest,
 				http.MethodPut:    a.handlePutManifest,
 			}))),
-			pr.Element("referrers", pr.Variable("reference", pr.Handlers(pr.ByMethod{
+			pathrouter.Element("referrers", pathrouter.Variable("reference", pathrouter.Handlers(pathrouter.ByMethod{
 				http.MethodGet:  a.handleGetReferrers,
 				http.MethodHead: nil,
 			}))),
-			pr.Element("tags", pr.Element("list", pr.Handlers(pr.ByMethod{
+			pathrouter.Element("tags", pathrouter.Element("list", pathrouter.Handlers(pathrouter.ByMethod{
 				http.MethodGet:  a.handleListTags,
 				http.MethodHead: nil,
 			}))),
@@ -204,7 +204,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	// check that repo name is wellformed
 	scope := auth.Scope{
 		ResourceType: "repository",
-		ResourceName: pr.VariableValue(r, "repository"),
+		ResourceName: pathrouter.VariableValue(r, "repository"),
 	}
 	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
