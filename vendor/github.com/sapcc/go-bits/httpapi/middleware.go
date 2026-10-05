@@ -5,6 +5,7 @@ package httpapi
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"net/http"
@@ -13,32 +14,21 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 )
 
-// EndpointNamer can be set by the application to derive the endpoint ID from a
-// request after routing has occurred (e.g. via mux.CurrentRoute). Return
-// Some(name) when a name can be derived, or None[string]() otherwise. If the
-// handler calls IdentifyEndpoint() explicitly, that value takes precedence over
-// the result of EndpointNamer.
-//
-// This variable must be set once during initialization (before the server
-// starts serving requests) and must not be changed concurrently.
-var EndpointNamer func(r *http.Request) Option[string] = func(r *http.Request) Option[string] {
-	return None[string]()
-}
-
-// A http.Handler middleware that adds all the special behavior for this package.
-type middleware struct {
+// A middleware that adds the logging and metrics instrumentation provided by this package.
+// This is the [http.Handler] instance that is returned by [Compose] and thus where requests first arrive, hence the name.
+// Middlewares supplied through [WithGlobalMiddleware] are attached directly below this middleware by manipulating the "inner" handler.
+type outermostMiddleware struct {
 	inner       http.Handler
 	skipAllLogs bool
 }
 
 // ServeHTTP implements the http.Handler interface.
-func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m outermostMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	skipLog := false
 	endpointID := "unknown"
 	userID := "-"
@@ -87,8 +77,8 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				httpext.GetRequesterIPFor(r), userID,
 				r.Method, r.URL.String(), r.Proto,
 				writer.statusCode, writer.bytesWritten,
-				stringOrDefault("-", r.Header.Get("Referer")),
-				stringOrDefault("-", r.Header.Get("User-Agent")),
+				cmp.Or(r.Header.Get("Referer"), "-"),
+				cmp.Or(r.Header.Get("User-Agent"), "-"),
 				duration.Seconds(),
 			)
 		}
@@ -114,13 +104,6 @@ func getLabels(statusCode int, endpointID string, r *http.Request) prometheus.La
 	}
 
 	return l
-}
-
-func stringOrDefault(defaultValue, value string) string {
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }
 
 // A custom response writer that collects information about the response to
