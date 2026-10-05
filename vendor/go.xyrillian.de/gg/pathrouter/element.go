@@ -3,7 +3,11 @@
 
 package pathrouter
 
-import "go.xyrillian.de/gg/options"
+import (
+	"net/http"
+
+	"go.xyrillian.de/gg/options"
+)
 
 // Element is a [Matcher] that accepts subpaths with at least one path element.
 // The first path element must be equal to the given value,
@@ -24,7 +28,7 @@ func element(value string, matcher realMatcher) Matcher {
 	return realMatcher{
 		minLength: matcher.minLength + 1,
 		maxLength: options.Map(matcher.maxLength, increment),
-		accept: func(path []string, rc Context) HandlerFunc {
+		accept: func(path []string, rc routingContext) http.HandlerFunc {
 			if len(path) == 0 || path[0] != value {
 				return nil
 			}

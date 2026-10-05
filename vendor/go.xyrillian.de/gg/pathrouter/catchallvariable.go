@@ -4,16 +4,17 @@
 package pathrouter
 
 import (
+	"net/http"
 	"strings"
 
 	. "go.xyrillian.de/gg/option"
 )
 
 // CatchAllVariable is a [Matcher] that accepts subpaths with an arbitrary number of path elements.
-// The value of any amount of leading path elements will be collected into the [Context],
+// The value of any amount of leading path elements will be collected
+// (to be retrieved inside the request handler using [VariableValue]),
 // such that the remainder is accepted by the next matcher.
 // At least one element must be collected.
-// The full sequence of collected path elements can be retrieved with [Context.Variable].
 //
 // CatchAllVariable() may appear at any point within the routing tree,
 // but it may not contain another CatchAllVariable() anywhere within it.
@@ -33,7 +34,7 @@ func catchAllVariable(name string, matcher realMatcher) Matcher {
 		panic("matcher within CatchAllVariable() may not accept unlimited path lengths")
 	}
 
-	accept := func(path []string, rc Context) HandlerFunc {
+	accept := func(path []string, rc routingContext) http.HandlerFunc {
 		for length := innerMinLength; length <= innerMaxLength; length++ {
 			if length > len(path) {
 				break

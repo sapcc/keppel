@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/httpapi"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -29,7 +29,7 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	digest := mux.Vars(r)["reference"]
+	digest := pathrouter.VariableValue(r, "reference")
 	filterArtifactType := r.URL.Query().Get("artifactType")
 	var (
 		dbManifests []models.Manifest

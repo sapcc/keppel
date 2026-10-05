@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -41,7 +41,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	blobDigest, err := digest.Parse(pathrouter.VariableValue(r, "digest"))
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -186,7 +186,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	blobDigest, err := digest.Parse(pathrouter.VariableValue(r, "digest"))
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return

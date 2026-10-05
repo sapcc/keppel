@@ -12,16 +12,10 @@ import (
 	. "go.xyrillian.de/gg/option"
 )
 
-// HandlerFunc is like [http.HandlerFunc], but also receives variable values that were extracted from the URL path.
-//
-// Package pathrouter passes variables explicitly like this, instead of via [context.Context.WithValue],
-// because doing so imposes a performance penalty for every usage of the respective context.
-type HandlerFunc = func(w http.ResponseWriter, r *http.Request, rc Context)
-
 // ByMethod is a set of request handlers matching the same request path, keyed on request method.
 // It is commonly constructed as a literal using the respective constants from the net/http package, such as [http.MethodGet].
 // This type appears in the signature of func [Handlers], see documentation over there for details.
-type ByMethod map[string]HandlerFunc
+type ByMethod map[string]http.HandlerFunc
 
 // Handlers is a [Matcher] that accepts empty subpaths only.
 // It appears at the leaf nodes of a [Matcher] tree, which correspond to specific endpoint paths,
@@ -41,7 +35,7 @@ type ByMethod map[string]HandlerFunc
 //
 // If there is a handler for [http.MethodGet], but none for [http.MethodHead], the GET handler will be called for HEAD as well.
 // To have a GET handler, but no HEAD handler, set the handler for [http.MethodHead] to nil.
-// Any other use of a nil [HandlerFunc] is invalid and will cause a panic.
+// Any other use of a nil [http.HandlerFunc] is invalid and will cause a panic.
 func Handlers(m ByMethod) Matcher {
 	// reuse GET handler for HEAD if not overridden
 	if handler, exists := m[http.MethodGet]; exists {
@@ -62,10 +56,10 @@ func Handlers(m ByMethod) Matcher {
 
 	// precomputations for accept()
 	allowHeader := m.buildAllowHeader()
-	serve := func(w http.ResponseWriter, r *http.Request, rc Context) {
+	serve := func(w http.ResponseWriter, r *http.Request) {
 		handler, ok := m[r.Method]
 		if ok {
-			handler(w, r, rc)
+			handler(w, r)
 			return
 		}
 
@@ -80,7 +74,7 @@ func Handlers(m ByMethod) Matcher {
 	return realMatcher{
 		minLength: 0,
 		maxLength: Some(0),
-		accept: func(path []string, rc Context) HandlerFunc {
+		accept: func(path []string, rc routingContext) http.HandlerFunc {
 			if len(path) != 0 {
 				return nil
 			}

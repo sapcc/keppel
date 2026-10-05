@@ -4,6 +4,7 @@
 package pathrouter
 
 import (
+	"net/http"
 	"slices"
 
 	. "go.xyrillian.de/gg/option"
@@ -48,7 +49,7 @@ func choice(matchers []realMatcher) Matcher {
 	return realMatcher{
 		minLength: slices.Min(minLengths),
 		maxLength: maxLength,
-		accept: func(path []string, rc Context) HandlerFunc {
+		accept: func(path []string, rc routingContext) http.HandlerFunc {
 			for _, m := range matchers {
 				hf := m.accept(path, rc)
 				if hf != nil {
