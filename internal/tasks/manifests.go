@@ -532,7 +532,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gsql.Tx, sec
 	}
 	close(inputChan)
 
-	threads := max(trivySecurityInfoThreads, lenSecurityInfo)
+	threads := min(trivySecurityInfoThreads, lenSecurityInfo)
 
 	type chanReturnStruct struct {
 		securityInfo models.TrivySecurityInfo
@@ -649,6 +649,9 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, manifest, parsedManifest, securityInfo)
 	if err != nil {
+		securityInfo.VulnerabilityStatus = models.ErrorVulnerabilityStatus
+		securityInfo.Message = err.Error()
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckErrorManifestInterval)))
 		return err
 	}
 	if !continueCheck {
@@ -672,7 +675,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		}
 
 		// retry in a bit again but only write down the error if it is not transient
-		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(5 * time.Minute)))
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckErrorManifestInterval)))
 
 		if !isTrivyTransientError(returnedError.Error()) {
 			securityInfo.Message = returnedError.Error()
@@ -783,7 +786,10 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 var blobUncompressedSizeTooBigGiB float64 = 10
 
-const trivyRecheckUnsupportedManifestInterval = 24 * time.Hour
+const (
+	trivyRecheckUnsupportedManifestInterval = 24 * time.Hour
+	trivyRecheckErrorManifestInterval       = 5 * time.Minute
+)
 
 func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, parsedManifest keppel.ParsedManifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
 	layerBlobs, err = j.collectManifestLayerBlobs(ctx, manifest, parsedManifest)
