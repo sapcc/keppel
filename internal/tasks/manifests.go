@@ -532,7 +532,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gsql.Tx, sec
 	}
 	close(inputChan)
 
-	threads := max(trivySecurityInfoThreads, lenSecurityInfo)
+	threads := min(trivySecurityInfoThreads, lenSecurityInfo)
 
 	type chanReturnStruct struct {
 		securityInfo models.TrivySecurityInfo
