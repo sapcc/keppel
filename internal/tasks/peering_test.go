@@ -15,6 +15,7 @@ import (
 	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/gg/pathrouter"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -105,7 +106,9 @@ type mockPeerReceivingPassword struct {
 
 // AddTo implements the api.API interface.
 func (p *mockPeerReceivingPassword) AddTo(c *httpapi.Composer) {
-	c.Router().Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(p.handleReceivePassword)
+	c.AddTryHandler(pathrouter.Element("keppel", pathrouter.Element("v1", pathrouter.Element("auth", pathrouter.Element("peering", pathrouter.Handlers(pathrouter.ByMethod{
+		http.MethodPost: p.handleReceivePassword,
+	}))))))
 }
 
 func (p *mockPeerReceivingPassword) handleReceivePassword(w http.ResponseWriter, r *http.Request) {

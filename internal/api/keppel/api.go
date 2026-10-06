@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -54,31 +54,43 @@ func (a *API) OverrideTimeNow(timeNow func() time.Time) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
-	r := c.Router()
-	r.Methods("GET").Path("/keppel/v1").HandlerFunc(a.handleGetAPIInfo)
-
 	//NOTE: Keppel account names are severely restricted because we used to
 	// derive Postgres database names from them.
-	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(a.handleGetAccounts)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}").HandlerFunc(a.handleGetAccount)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}").HandlerFunc(a.handlePutAccount)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}").HandlerFunc(a.handleDeleteAccount)
-	r.Methods("POST").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/sublease").HandlerFunc(a.handlePostAccountSublease)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/security_scan_policies").HandlerFunc(a.handleGetSecurityScanPolicies)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/security_scan_policies").HandlerFunc(a.handlePutSecurityScanPolicies)
+	c.AddTryHandler(pathrouter.Element("keppel", pathrouter.Element("v1", pathrouter.Choice(
+		pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.handleGetAPIInfo}),
+		pathrouter.Element("accounts", pathrouter.Choice(
+			pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.handleGetAccounts}),
+			pathrouter.Variable("account", pathrouter.Choice(
+				pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.withValidAccountName(a.handleGetAccount), http.MethodPut: a.withValidAccountName(a.handlePutAccount), http.MethodDelete: a.withValidAccountName(a.handleDeleteAccount)}),
+				pathrouter.Element("sublease", pathrouter.Handlers(pathrouter.ByMethod{http.MethodPost: a.withValidAccountName(a.handlePostAccountSublease)})),
+				pathrouter.Element("security_scan_policies", pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.withValidAccountName(a.handleGetSecurityScanPolicies), http.MethodPut: a.withValidAccountName(a.handlePutSecurityScanPolicies)})),
+				pathrouter.Element("repositories", pathrouter.Choice(
+					pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.withValidAccountName(a.handleGetRepositories)}),
+					pathrouter.CatchAllVariable("repo_name", pathrouter.Choice(
+						pathrouter.Element("_manifests", pathrouter.Variable("digest", pathrouter.Choice(
+							pathrouter.Element("trivy_report", pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.withValidAccountName(a.handleGetTrivyReport)})),
+							pathrouter.Handlers(pathrouter.ByMethod{http.MethodDelete: a.withValidAccountName(a.handleDeleteManifest)}),
+						))),
+						pathrouter.Element("_manifests", pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.withValidAccountName(a.handleGetManifests), http.MethodDelete: a.withValidAccountName(a.handleDeleteRepository)})),
+						pathrouter.Element("_tags", pathrouter.Variable("tag_name", pathrouter.Handlers(pathrouter.ByMethod{http.MethodDelete: a.withValidAccountName(a.handleDeleteTag)}))),
+					)),
+					pathrouter.CatchAllVariable("repo_name", pathrouter.Handlers(pathrouter.ByMethod{http.MethodDelete: a.withValidAccountName(a.handleDeleteRepository)})),
+				)),
+			)),
+		)),
+		pathrouter.Element("peers", pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.handleGetPeers})),
+		pathrouter.Element("quotas", pathrouter.Variable("auth_tenant_id", pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.handleGetQuotas, http.MethodPut: a.handlePutQuotas}))),
+	))))
+}
 
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_manifests").HandlerFunc(a.handleGetManifests)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_manifests/{digest}").HandlerFunc(a.handleDeleteManifest)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_manifests/{digest}/trivy_report").HandlerFunc(a.handleGetTrivyReport)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_tags/{tag_name}").HandlerFunc(a.handleDeleteTag)
-
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories").HandlerFunc(a.handleGetRepositories)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}").HandlerFunc(a.handleDeleteRepository)
-
-	r.Methods("GET").Path("/keppel/v1/peers").HandlerFunc(a.handleGetPeers)
-
-	r.Methods("GET").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handleGetQuotas)
-	r.Methods("PUT").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handlePutQuotas)
+func (a *API) withValidAccountName(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !models.IsAccountName(pathrouter.VariableValue(r, "account")) {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (a *API) processor() *processor.Processor {
@@ -113,7 +125,7 @@ func authTenantScope(perm keppel.Permission, authTenantID string) auth.ScopeSet 
 func accountScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet {
 	return auth.NewScopeSet(auth.Scope{
 		ResourceType: "keppel_account",
-		ResourceName: mux.Vars(r)["account"],
+		ResourceName: pathrouter.VariableValue(r, "account"),
 		Actions:      []string{string(perm)},
 	})
 }
@@ -131,10 +143,9 @@ func accountScopes(perm keppel.Permission, names ...models.AccountName) auth.Sco
 }
 
 func repoScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet {
-	vars := mux.Vars(r)
 	return auth.NewScopeSet(auth.Scope{
 		ResourceType: "repository",
-		ResourceName: fmt.Sprintf("%s/%s", vars["account"], vars["repo_name"]),
+		ResourceName: fmt.Sprintf("%s/%s", pathrouter.VariableValue(r, "account"), pathrouter.VariableValue(r, "repo_name")),
 		Actions:      []string{string(perm)},
 	})
 }
@@ -167,7 +178,7 @@ var (
 // accounts exist or not to unauthorized users.
 func (a *API) findAccountFromRequest(r *http.Request, _ *auth.Authorization) (models.Account, error) {
 	ctx := r.Context()
-	accountName := models.AccountName(mux.Vars(r)["account"])
+	accountName := models.AccountName(pathrouter.VariableValue(r, "account"))
 	account, err := keppel.FindAccount(ctx, a.db, accountName)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
@@ -183,7 +194,7 @@ func (a *API) findAccountFromRequest(r *http.Request, _ *auth.Authorization) (mo
 
 func (a *API) findReducedAccountFromRequest(r *http.Request, _ *auth.Authorization) (models.ReducedAccount, error) {
 	ctx := r.Context()
-	accountName := models.AccountName(mux.Vars(r)["account"])
+	accountName := models.AccountName(pathrouter.VariableValue(r, "account"))
 	account, err := keppel.FindReducedAccount(ctx, a.db, accountName)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
@@ -199,7 +210,7 @@ func (a *API) findReducedAccountFromRequest(r *http.Request, _ *auth.Authorizati
 
 func (a *API) findRepositoryFromRequest(r *http.Request, accountName models.AccountName) (models.Repository, error) {
 	ctx := r.Context()
-	repoName := mux.Vars(r)["repo_name"]
+	repoName := pathrouter.VariableValue(r, "repo_name")
 	if !isValidRepoName(repoName) {
 		return models.Repository{}, respondwith.CustomStatus(http.StatusUnprocessableEntity, errRepoNameInvalid)
 	}

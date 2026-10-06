@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -40,7 +40,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find account
-	accountName := models.AccountName(mux.Vars(r)["account"])
+	accountName := models.AccountName(pathrouter.VariableValue(r, "account"))
 	accountExists, err := keppel.DoesAccountExist(a.db, accountName)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
@@ -51,7 +51,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find repository
-	repo, err := keppel.FindReducedRepository(ctx, a.db, mux.Vars(r)["repo"], accountName)
+	repo, err := keppel.FindReducedRepository(ctx, a.db, pathrouter.VariableValue(r, "repo"), accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repository not found", http.StatusNotFound)
 		return

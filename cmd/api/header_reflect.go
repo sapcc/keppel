@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/sapcc/go-bits/httpapi"
+	"go.xyrillian.de/gg/pathrouter"
 )
 
 // guiRedirecter is an api.API that implements the GET /debug/reflect-headers endpoint.
@@ -20,7 +21,9 @@ type headerReflector struct {
 // AddTo implements the api.API interface.
 func (hr *headerReflector) AddTo(c *httpapi.Composer) {
 	if hr.Enabled {
-		c.Router().Methods("GET").Path("/debug/reflect-headers").HandlerFunc(reflectHeaders)
+		c.AddTryHandler(pathrouter.Element("debug", pathrouter.Element("reflect-headers", pathrouter.Handlers(pathrouter.ByMethod{
+			http.MethodGet: reflectHeaders,
+		}))))
 	}
 }
 

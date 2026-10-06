@@ -12,6 +12,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -33,9 +34,14 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.Federation
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
-	r := c.Router()
-	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(a.handleGetAuth)
-	r.Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(a.handlePostPeering)
+	c.AddTryHandler(pathrouter.Element("keppel", pathrouter.Element("v1", pathrouter.Element("auth", pathrouter.Choice(
+		pathrouter.Handlers(pathrouter.ByMethod{
+			http.MethodGet: a.handleGetAuth,
+		}),
+		pathrouter.Element("peering", pathrouter.Handlers(pathrouter.ByMethod{
+			http.MethodPost: a.handlePostPeering,
+		})),
+	)))))
 }
 
 func respondWithError(w http.ResponseWriter, code int, err error) bool {

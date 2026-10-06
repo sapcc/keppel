@@ -9,6 +9,7 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -30,13 +31,18 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *gsql.DB) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
-	r := c.Router()
 	// All endpoints shall be grouped into /peer/v1/. For the "delegated pull"
 	// subset of endpoints, the end of the path reflects the request that we make
 	// to upstream, so there is an additional /v2/ in there in reference to the
 	// Registry V2 API.
-	r.Methods("GET").Path("/peer/v1/delegatedpull/{hostname}/v2/{repo:.+}/manifests/{reference}").HandlerFunc(a.handleDelegatedPullManifest)
-	r.Methods("POST").Path("/peer/v1/sync-replica/{account}/{repo:.+}").HandlerFunc(a.handleSyncReplica)
+	c.AddTryHandler(pathrouter.Element("peer", pathrouter.Element("v1", pathrouter.Choice(
+		pathrouter.Element("delegatedpull", pathrouter.Variable("hostname", pathrouter.Element("v2", pathrouter.CatchAllVariable("repo", pathrouter.Element("manifests", pathrouter.Variable("reference", pathrouter.Handlers(pathrouter.ByMethod{
+			http.MethodGet: a.handleDelegatedPullManifest,
+		}))))))),
+		pathrouter.Element("sync-replica", pathrouter.Variable("account", pathrouter.CatchAllVariable("repo", pathrouter.Handlers(pathrouter.ByMethod{
+			http.MethodPost: a.handleSyncReplica,
+		})))),
+	))))
 }
 
 // TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()

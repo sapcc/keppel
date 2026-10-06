@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-api-declarations/liquid"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
@@ -18,6 +17,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -44,13 +44,16 @@ func NewLiquidAPI(cfg keppel.Configuration, ad keppel.AuthDriver, sd keppel.Stor
 
 // AddTo implements the LiquidAPI interface.
 func (a *API) AddTo(c *httpapi.Composer) {
-	r := c.Router()
 	// Besides the native Keppel API, this handler also implements LIQUID.
 	// Ref: <https://pkg.go.dev/github.com/sapcc/go-api-declarations/liquid>
-	r.Methods("GET").Path("/liquid/v1/info").HandlerFunc(a.handleLiquidGetInfo)
-	r.Methods("POST").Path("/liquid/v1/report-capacity").HandlerFunc(a.handleLiquidReportCapacity)
-	r.Methods("POST").Path("/liquid/v1/projects/{auth_tenant_id}/report-usage").HandlerFunc(a.handleLiquidReportUsage)
-	r.Methods("PUT").Path("/liquid/v1/projects/{auth_tenant_id}/quota").HandlerFunc(a.handleLiquidSetQuota)
+	c.AddTryHandler(pathrouter.Element("liquid", pathrouter.Element("v1", pathrouter.Choice(
+		pathrouter.Element("info", pathrouter.Handlers(pathrouter.ByMethod{http.MethodGet: a.handleLiquidGetInfo})),
+		pathrouter.Element("report-capacity", pathrouter.Handlers(pathrouter.ByMethod{http.MethodPost: a.handleLiquidReportCapacity})),
+		pathrouter.Element("projects", pathrouter.Variable("auth_tenant_id", pathrouter.Choice(
+			pathrouter.Element("report-usage", pathrouter.Handlers(pathrouter.ByMethod{http.MethodPost: a.handleLiquidReportUsage})),
+			pathrouter.Element("quota", pathrouter.Handlers(pathrouter.ByMethod{http.MethodPut: a.handleLiquidSetQuota})),
+		))),
+	))))
 }
 
 func (a *API) processor() *processor.Processor {
@@ -139,7 +142,7 @@ func authTenantScope(perm keppel.Permission, authTenantID string) auth.ScopeSet 
 
 func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/projects/:auth_tenant_id/report-usage")
-	authTenantID := mux.Vars(r)["auth_tenant_id"]
+	authTenantID := pathrouter.VariableValue(r, "auth_tenant_id")
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
 	if authz == nil {
 		return
@@ -161,7 +164,7 @@ func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/projects/:auth_tenant_id/quota")
-	authTenantID := mux.Vars(r)["auth_tenant_id"]
+	authTenantID := pathrouter.VariableValue(r, "auth_tenant_id")
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
 	if authz == nil {
 		return

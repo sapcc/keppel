@@ -26,6 +26,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
+	"go.xyrillian.de/gg/pathrouter"
 )
 
 // AddCommandTo mounts the trivy-proxy command to the parent command.
@@ -82,7 +83,9 @@ func NewAPI(dbMirrorPrefix, token, trivyURL string) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
-	c.Router().Methods("GET").Path("/trivy").HandlerFunc(a.proxyToTrivy)
+	c.AddTryHandler(pathrouter.Element("trivy", pathrouter.Handlers(pathrouter.ByMethod{
+		http.MethodGet: a.proxyToTrivy,
+	})))
 }
 
 func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {

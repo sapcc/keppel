@@ -12,6 +12,7 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/models"
@@ -35,7 +36,9 @@ func NewTrivyDouble() *TrivyDouble {
 
 // AddTo implements the api.API interface.
 func (t *TrivyDouble) AddTo(c *httpapi.Composer) {
-	c.Router().Methods("GET").Path("/trivy").HandlerFunc(t.mockRunTrivy)
+	c.AddTryHandler(pathrouter.Element("trivy", pathrouter.Handlers(pathrouter.ByMethod{
+		http.MethodGet: t.mockRunTrivy,
+	})))
 }
 
 func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {

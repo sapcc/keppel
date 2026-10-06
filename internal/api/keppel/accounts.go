@@ -10,13 +10,13 @@ import (
 	"slices"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -107,7 +107,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// we do not allow to set name in the request body ...
-	if req.Account.Name != "" && req.Account.Name != models.AccountName(mux.Vars(r)["account"]) {
+	if req.Account.Name != "" && req.Account.Name != models.AccountName(pathrouter.VariableValue(r, "account")) {
 		http.Error(w, `changing attribute "account.name" in request body is not allowed`, http.StatusUnprocessableEntity)
 		return
 	}
@@ -117,7 +117,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// ... and transfer the name here into the struct, to make the below code simpler
-	req.Account.Name = models.AccountName(mux.Vars(r)["account"])
+	req.Account.Name = models.AccountName(pathrouter.VariableValue(r, "account"))
 
 	// check permission to create account
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, req.Account.AuthTenantID))
