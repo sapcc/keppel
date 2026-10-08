@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -58,50 +58,53 @@ func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
-	r := c.Router()
-	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleToplevel)
-	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleGetCatalog)
-
-	//NOTE: We used to match account name and repository name separately here,
-	// but that is not possible anymore since domain-remapped APIs do not have the
-	// account name in the URL path. The "repository" variable is split later in
-	// checkAccountAccess().
-	r.Methods("DELETE").
-		Path("/v2/{repository:.+}/blobs/{digest}").
-		HandlerFunc(a.handleDeleteBlob)
-	r.Methods("GET", "HEAD").
-		Path("/v2/{repository:.+}/blobs/{digest}").
-		HandlerFunc(a.handleGetOrHeadBlob)
-	r.Methods("POST").
-		Path("/v2/{repository:.+}/blobs/uploads/").
-		HandlerFunc(a.handleStartBlobUpload)
-	r.Methods("DELETE").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleDeleteBlobUpload)
-	r.Methods("GET").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleGetBlobUpload)
-	r.Methods("PATCH").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleContinueBlobUpload)
-	r.Methods("PUT").
-		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleFinishBlobUpload)
-	r.Methods("DELETE").
-		Path("/v2/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handleDeleteManifest)
-	r.Methods("GET", "HEAD").
-		Path("/v2/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handleGetOrHeadManifest)
-	r.Methods("PUT").
-		Path("/v2/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handlePutManifest)
-	r.Methods("GET").
-		Path("/v2/{repository:.+}/referrers/{reference}").
-		HandlerFunc(a.handleGetReferrers)
-	r.Methods("GET").
-		Path("/v2/{repository:.+}/tags/list").
-		HandlerFunc(a.handleListTags)
+	// NOTE 1: This uses gg/pathrouter instead of gorilla/mux for the actual path matching
+	//         to improve performance esp. for important endpoints like GetManifest and GetBlob.
+	// NOTE 2: Most HEAD handlers are deleted to match the endpoint list from
+	//         <https://github.com/opencontainers/distribution-spec/blob/main/spec.md#endpoints>.
+	c.AddTryHandler(pathrouter.Element("v2", pathrouter.Choice(
+		pathrouter.Element("/", pathrouter.Handlers(pathrouter.ByMethod{
+			http.MethodGet:  a.handleToplevel,
+			http.MethodHead: nil,
+		})),
+		pathrouter.Element("_catalog", pathrouter.Handlers(pathrouter.ByMethod{
+			http.MethodGet:  a.handleGetCatalog,
+			http.MethodHead: nil,
+		})),
+		pathrouter.CatchAllVariable("repository", pathrouter.Choice(
+			pathrouter.Element("blobs", pathrouter.Choice(
+				pathrouter.Variable("digest", pathrouter.Handlers(pathrouter.ByMethod{
+					http.MethodDelete: a.handleDeleteBlob,
+					http.MethodGet:    a.handleGetOrHeadBlob,
+				})),
+				pathrouter.Element("uploads", pathrouter.Choice(
+					pathrouter.Element("/", pathrouter.Handlers(pathrouter.ByMethod{
+						http.MethodPost: a.handleStartBlobUpload,
+					})),
+					pathrouter.Variable("uuid", pathrouter.Handlers(pathrouter.ByMethod{
+						http.MethodDelete: a.handleDeleteBlobUpload,
+						http.MethodGet:    a.handleGetBlobUpload,
+						http.MethodHead:   nil,
+						http.MethodPatch:  a.handleContinueBlobUpload,
+						http.MethodPut:    a.handleFinishBlobUpload,
+					})),
+				)),
+			)),
+			pathrouter.Element("manifests", pathrouter.Variable("reference", pathrouter.Handlers(pathrouter.ByMethod{
+				http.MethodDelete: a.handleDeleteManifest,
+				http.MethodGet:    a.handleGetOrHeadManifest,
+				http.MethodPut:    a.handlePutManifest,
+			}))),
+			pathrouter.Element("referrers", pathrouter.Variable("reference", pathrouter.Handlers(pathrouter.ByMethod{
+				http.MethodGet:  a.handleGetReferrers,
+				http.MethodHead: nil,
+			}))),
+			pathrouter.Element("tags", pathrouter.Element("list", pathrouter.Handlers(pathrouter.ByMethod{
+				http.MethodGet:  a.handleListTags,
+				http.MethodHead: nil,
+			}))),
+		)),
+	)))
 }
 
 func (a *API) processor() *processor.Processor {
@@ -182,7 +185,7 @@ func (info anycastRequestInfo) asPrometheusLabels() prometheus.Labels {
 	}
 }
 
-// A one-stop-shop authorization checker for all endpoints that set the mux
+// A one-stop-shop authorization checker for all endpoints that include the path
 // variable "repository". On success, returns the account and repository
 // that this request is about.
 //
@@ -201,7 +204,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	// check that repo name is wellformed
 	scope := auth.Scope{
 		ResourceType: "repository",
-		ResourceName: mux.Vars(r)["repository"],
+		ResourceName: pathrouter.VariableValue(r, "repository"),
 	}
 	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)

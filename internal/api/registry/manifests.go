@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	accept "github.com/timewasted/go-accept-headers"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
@@ -44,7 +44,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reference := models.ParseManifestReference(mux.Vars(r)["reference"])
+	reference := models.ParseManifestReference(pathrouter.VariableValue(r, "reference"))
 	dbManifest, err := a.findManifestInDB(ctx, *repo, reference)
 	var manifestBytes []byte
 
@@ -334,7 +334,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// delete tag or manifest from the database
-	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
+	ref := models.ParseManifestReference(pathrouter.VariableValue(r, "reference"))
 	actx := keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
@@ -404,7 +404,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate and store manifest
-	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
+	ref := models.ParseManifestReference(pathrouter.VariableValue(r, "reference"))
 	incomingManifest := processor.IncomingManifest{
 		Reference: ref,
 		MediaType: r.Header.Get("Content-Type"),

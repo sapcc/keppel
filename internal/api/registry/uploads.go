@@ -22,13 +22,13 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
@@ -487,7 +487,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 // TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
 func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.ReducedRepository) (models.Upload, bool) {
-	uploadUUID := mux.Vars(r)["uuid"]
+	uploadUUID := pathrouter.VariableValue(r, "uuid")
 	ctx := r.Context()
 
 	upload, err := keppel.FindUploadByRepository(ctx, a.db, uploadUUID, repo)

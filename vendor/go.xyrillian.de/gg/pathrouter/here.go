@@ -4,6 +4,8 @@
 package pathrouter
 
 import (
+	"net/http"
+
 	. "go.xyrillian.de/gg/option"
 )
 
@@ -43,7 +45,7 @@ func here(matcher realMatcher) Matcher {
 	return realMatcher{
 		minLength: 0,
 		maxLength: Some(1),
-		accept: func(path []string, rc Context) HandlerFunc {
+		accept: func(path []string, rc routingContext) http.HandlerFunc {
 			if len(path) == 0 || (len(path) == 1 && path[0] == "") {
 				return matcher.accept(nil, rc)
 			}
