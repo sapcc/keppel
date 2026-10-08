@@ -19,12 +19,18 @@ import (
 // CatchAllVariable() may appear at any point within the routing tree,
 // but it may not contain another CatchAllVariable() anywhere within it.
 func CatchAllVariable(name string, matcher Matcher) Matcher {
-	return catchAllVariable(name, matcher.downcast())
+	return catchAllVariable(name, nil, matcher.downcast())
 }
 
-func catchAllVariable(name string, matcher realMatcher) Matcher {
+// CatchAllVariableIf is like [CatchAllVariable], but only matches if the collected path elements are accepted by the given predicate.
+// The predicate will receive the unescaped form of the collected path elements, matching the return value of later [VariableValue] calls.
+func CatchAllVariableIf(name string, predicate func(string) bool, matcher Matcher) Matcher {
+	return catchAllVariable(name, predicate, matcher.downcast())
+}
+
+func catchAllVariable(name string, predicate func(string) bool, matcher realMatcher) Matcher {
 	// NOTE: The specific behavior of CatchAllVariable() is why this package exists in the first place.
-	//       I wanted to replace gorilla/mux with something more performance in Keppel,
+	//       I wanted to replace gorilla/mux with something more performant in Keppel,
 	//       but all the fast routers do not accept catch-all variables in the middle of a path
 	//       like the OCI Distribution API requires (e.g. "/v2/*repo/manifests/:reference" with "repo" being a full path).
 
@@ -43,12 +49,16 @@ func catchAllVariable(name string, matcher realMatcher) Matcher {
 			if len(caughtPath) == 0 {
 				continue
 			}
+			variableValue := pathUnescape(strings.Join(caughtPath, "/"))
+			if predicate != nil && !predicate(variableValue) {
+				continue
+			}
 
 			handlerFunc := matcher.accept(subpath, rc)
 			if handlerFunc == nil {
 				continue
 			}
-			rc.vars[name] = pathUnescape(strings.Join(caughtPath, "/"))
+			rc.vars[name] = variableValue
 			return handlerFunc
 		}
 		return nil
