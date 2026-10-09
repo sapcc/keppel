@@ -171,10 +171,6 @@ linters:
       enable-all: true
     nolintlint:
       require-specific: true
-    modernize:
-      disable:
-        # embedlit is new in Go 1.27 and triggers in a ton of places. We will enable this once Go 1.27 has settled a bit. (TODO: revisit this in a few weeks)
-        - embedlit
     perfsprint:
       # modernize generates nicer fix code
       concat-loop: false
