@@ -26,7 +26,7 @@ cel.dev/cel-go/parser/gen
 # cel.dev/expr v0.25.1
 ## explicit; go 1.23.0
 cel.dev/expr
-# github.com/alicebob/miniredis/v2 v2.39.0
+# github.com/alicebob/miniredis/v2 v2.40.0
 ## explicit; go 1.17
 github.com/alicebob/miniredis/v2
 github.com/alicebob/miniredis/v2/fpconv
@@ -135,8 +135,8 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/prometheus/client_golang v1.24.1
-## explicit; go 1.25.0
+# github.com/prometheus/client_golang v1.25.0
+## explicit; go 1.26.0
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil/header
 github.com/prometheus/client_golang/prometheus
@@ -150,16 +150,16 @@ github.com/prometheus/client_model/go
 ## explicit; go 1.26.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.21.1
+# github.com/prometheus/procfs v0.22.0
 ## explicit; go 1.25.0
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-github.com/prometheus/procfs/internal/util
+github.com/prometheus/procfs/internal/parsers
 # github.com/rabbitmq/amqp091-go v1.15.0
 ## explicit; go 1.20
 github.com/rabbitmq/amqp091-go
-# github.com/redis/go-redis/v9 v9.22.0
-## explicit; go 1.24
+# github.com/redis/go-redis/v9 v9.23.0
+## explicit; go 1.26.0
 github.com/redis/go-redis/v9
 github.com/redis/go-redis/v9/auth
 github.com/redis/go-redis/v9/internal
@@ -242,7 +242,7 @@ go.podman.io/image/v5/types
 # go.podman.io/storage v1.64.1
 ## explicit; go 1.25.0
 go.podman.io/storage/pkg/regexp
-# go.uber.org/atomic v1.11.0
+# go.uber.org/atomic v1.12.0
 ## explicit; go 1.18
 go.uber.org/atomic
 # go.xyrillian.de/gg v1.19.0
