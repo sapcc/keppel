@@ -108,28 +108,17 @@ func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Redu
 }
 
 // ReadBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, error) {
 	path := d.getBlobPath(account, storageID)
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
-		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
+		return nil, keppel.NotFoundInStorageError{Inner: err}
 	}
-	if err != nil {
-		return nil, 0, classifyError(err)
-	}
-	stat, err := f.Stat()
-	if os.IsNotExist(err) {
-		return nil, 0, keppel.NotFoundInStorageError{Inner: err}
-	}
-	if err != nil {
-		f.Close()
-		return nil, 0, classifyError(err)
-	}
-	return f, keppel.AtLeastZero(stat.Size()), nil
+	return f, classifyError(err)
 }
 
 // ReadBlobForValidation implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string, sizeBytes uint64) (io.ReadCloser, error) {
 	return d.ReadBlob(ctx, account, storageID)
 }
 

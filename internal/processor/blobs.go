@@ -33,7 +33,7 @@ func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Red
 		return fmt.Errorf("cannot parse blob digest: %s", err.Error())
 	}
 
-	readCloser, _, err := p.sd.ReadBlobForValidation(ctx, account, blob.StorageID)
+	readCloser, err := p.sd.ReadBlobForValidation(ctx, account, blob.StorageID, blob.SizeBytes)
 	// If we cannot find the blob and the account is a replication from somewhere else try to get it from there
 	if errors.Is(err, keppel.NotFoundInStorageError{}) && account.IsReplica() {
 		// find any repo that mounts this blob (needed by ReplicateBlob to identify the upstream repo)
@@ -55,7 +55,7 @@ func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Red
 		if err != nil {
 			return fmt.Errorf("blob replicated, but could not reload blob from DB: %w", err)
 		}
-		readCloser, _, err = p.sd.ReadBlobForValidation(ctx, account, blob.StorageID)
+		readCloser, err = p.sd.ReadBlobForValidation(ctx, account, blob.StorageID, blob.SizeBytes)
 		if err != nil {
 			return fmt.Errorf("blob replicated, but could not read blob from storage: %w", err)
 		}

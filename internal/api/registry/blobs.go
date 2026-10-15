@@ -147,19 +147,19 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return the blob contents to the client directly (TODO: support range requests)
-	reader, lengthBytes, err := a.sd.ReadBlob(ctx, *account, blob.StorageID)
+	reader, err := a.sd.ReadBlob(ctx, *account, blob.StorageID)
 	if respondWithError(w, r, err) {
 		return
 	}
 	defer reader.Close()
-	w.Header().Set("Content-Length", strconv.FormatUint(lengthBytes, 10))
+	w.Header().Set("Content-Length", strconv.FormatUint(blob.SizeBytes, 10))
 	w.Header().Set("Content-Type", blob.SafeMediaType())
 	w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 	w.WriteHeader(http.StatusOK)
 	if r.Method != http.MethodHead {
 		// The use of io.LimitReader() here is a hint to io.Copy() to not allocate
 		// a buffer bigger than the expected size of the blob if the blob is small.
-		_, err = io.Copy(w, io.LimitReader(reader, int64(lengthBytes))) //nolint:gosec // lengthBytes will probably not be above 2^63 :)
+		_, err = io.Copy(w, io.LimitReader(reader, int64(blob.SizeBytes))) //nolint:gosec // SizeBytes will probably not be above 2^63 :)
 		if err != nil {
 			logg.Error("unexpected error from io.Copy() while sending blob to client: %s", err.Error())
 		}

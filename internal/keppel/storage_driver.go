@@ -50,9 +50,9 @@ type StorageDriver interface {
 	// the blob upload failed.
 	AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error
 
-	ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (contents io.ReadCloser, sizeBytes uint64, err error)
-	// ReadBlobForValidation is the same as ReadBlob but when the multi storage driver is used, it also migrates blobs from the old driver to the new storage driver.
-	ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (contents io.ReadCloser, sizeBytes uint64, err error)
+	ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, error)
+	// ReadBlobForValidation is like ReadBlob, but the multi driver also migrates blobs from the old to the new backend.
+	ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string, sizeBytes uint64) (io.ReadCloser, error)
 
 	// If the blob can be retrieved by a publicly accessible URL, URLForBlob shall
 	// return it. Otherwise ErrCannotGenerateURL shall be returned to instruct the
