@@ -855,7 +855,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 				}
 			} else {
 				// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
-				reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
+				reader, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
 				if err != nil {
 					return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
 				}

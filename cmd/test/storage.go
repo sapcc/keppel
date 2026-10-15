@@ -232,7 +232,7 @@ func executeAbortBlobUpload(ctx context.Context, sd keppel.StorageDriver, accoun
 func executeReadBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
 	storageID := args[0]
 
-	contents, sizeBytes, err := sd.ReadBlob(ctx, account, storageID)
+	contents, err := sd.ReadBlob(ctx, account, storageID)
 	if err != nil {
 		logg.Fatal("ReadBlob failed: %s", err.Error())
 	}
@@ -245,7 +245,7 @@ func executeReadBlob(ctx context.Context, sd keppel.StorageDriver, account model
 
 	result := map[string]any{
 		"contents":   string(contentBytes),
-		"size_bytes": sizeBytes,
+		"size_bytes": uint64(len(contentBytes)),
 	}
 	outputJSON(result)
 }
@@ -253,7 +253,7 @@ func executeReadBlob(ctx context.Context, sd keppel.StorageDriver, account model
 func executeReadBlobForValidation(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
 	storageID := args[0]
 
-	contents, sizeBytes, err := sd.ReadBlobForValidation(ctx, account, storageID)
+	contents, err := sd.ReadBlobForValidation(ctx, account, storageID, 0)
 	if err != nil {
 		logg.Fatal("ReadBlob failed: %s", err.Error())
 	}
@@ -266,7 +266,7 @@ func executeReadBlobForValidation(ctx context.Context, sd keppel.StorageDriver, 
 
 	result := map[string]any{
 		"contents":   string(contentBytes),
-		"size_bytes": sizeBytes,
+		"size_bytes": uint64(len(contentBytes)),
 	}
 	outputJSON(result)
 }
