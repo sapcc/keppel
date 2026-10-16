@@ -127,7 +127,10 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 		if err != nil {
 			err = fmt.Errorf("while calling new driver: %w", err)
 			pw.CloseWithError(err)
-			<-errCh
+			oldDriverErr := <-errCh
+			if oldDriverErr != nil {
+				err = errors.Join(err, fmt.Errorf("while calling old driver: %w", oldDriverErr))
+			}
 			return err
 		}
 
