@@ -23,7 +23,7 @@ func (s Setup) ExpectBlobsExistInStorage(t testing.TB, blobs ...models.Blob) {
 
 	for _, blob := range blobs {
 		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, blob.AccountName))(t)
-		readCloser, sizeBytes, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
+		readCloser, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
 		if err != nil {
 			t.Errorf("expected blob %s to exist in the storage, but got: %s", blob.Digest, err.Error())
 			continue
@@ -39,8 +39,8 @@ func (s Setup) ExpectBlobsExistInStorage(t testing.TB, blobs ...models.Blob) {
 			continue
 		}
 
-		if uint64(len(blobBytes)) != sizeBytes {
-			t.Errorf("unexpected error while reading blob %s: expected %d bytes, but got %d bytes", blob.Digest, sizeBytes, len(blobBytes))
+		if blob.SizeBytes > 0 && uint64(len(blobBytes)) != blob.SizeBytes {
+			t.Errorf("unexpected error while reading blob %s: expected %d bytes, but got %d bytes", blob.Digest, blob.SizeBytes, len(blobBytes))
 			continue
 		}
 
@@ -65,9 +65,10 @@ func (s Setup) ExpectBlobsMissingInStorage(t testing.TB, blobs ...models.Blob) {
 
 	for _, blob := range blobs {
 		account := must.ReturnT(keppel.FindReducedAccount(ctx, s.DB, blob.AccountName))(t)
-		_, _, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
+		readCloser, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
 		if err == nil {
 			t.Errorf("expected blob %s to be missing in the storage, but could read it", blob.Digest)
+			_ = readCloser.Close()
 			continue
 		}
 	}

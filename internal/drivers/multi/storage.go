@@ -184,7 +184,7 @@ func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Redu
 }
 
 // ReadBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, error) {
 	switch d.Phase {
 	case copyPhase:
 		return d.oldDriver.ReadBlob(ctx, account, storageID)
@@ -211,8 +211,8 @@ func appendToBlob(ctx context.Context, sd keppel.StorageDriver, account models.R
 	return sd.AppendToBlob(ctx, account, storageID, *numChunks, Some(remainingBytes), contents)
 }
 
-func (d *StorageDriver) migrateBlob(ctx context.Context, account models.ReducedAccount, storageID string) error {
-	reader, sizeBytes, err := d.oldDriver.ReadBlob(ctx, account, storageID)
+func (d *StorageDriver) migrateBlob(ctx context.Context, account models.ReducedAccount, storageID string, sizeBytes uint64) error {
+	reader, err := d.oldDriver.ReadBlob(ctx, account, storageID)
 	if err != nil {
 		return fmt.Errorf("while reading from old driver for replication: %w", err)
 	}
@@ -241,55 +241,55 @@ func (d *StorageDriver) migrateBlob(ctx context.Context, account models.ReducedA
 // ReadBlobForValidation reads a blob for validation purposes.
 // In CopyPhase it tries the new driver first. If the blob does not exist there,
 // it reads from the old driver and copies the data to the new driver so the blob is migrated on first validation.
-func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
+func (d *StorageDriver) ReadBlobForValidation(ctx context.Context, account models.ReducedAccount, storageID string, sizeBytes uint64) (io.ReadCloser, error) {
 	switch d.Phase {
 	case copyPhase:
-		reader, sizeBytes, err := d.newDriver.ReadBlob(ctx, account, storageID)
+		reader, err := d.newDriver.ReadBlob(ctx, account, storageID)
 		if errors.Is(err, keppel.NotFoundInStorageError{}) {
-			migrateErr := d.migrateBlob(ctx, account, storageID)
+			migrateErr := d.migrateBlob(ctx, account, storageID, sizeBytes)
 			if migrateErr != nil {
 				// The replication failed, so we just validate the old blob below
 				logg.Error(migrateErr.Error())
 			}
 
 			if migrateErr == nil {
-				reader, sizeBytes, err = d.newDriver.ReadBlobForValidation(ctx, account, storageID)
+				reader, err = d.newDriver.ReadBlobForValidation(ctx, account, storageID, sizeBytes)
 				if err != nil {
-					return nil, 0, fmt.Errorf("while reading from new driver: %w", err)
+					return nil, fmt.Errorf("while reading from new driver: %w", err)
 				}
 			} else {
-				reader, sizeBytes, err = d.oldDriver.ReadBlobForValidation(ctx, account, storageID)
+				reader, err = d.oldDriver.ReadBlobForValidation(ctx, account, storageID, sizeBytes)
 				if err != nil {
-					return nil, 0, fmt.Errorf("while reading from old driver: %w", err)
+					return nil, fmt.Errorf("while reading from old driver: %w", err)
 				}
 			}
 
-			return reader, sizeBytes, nil
+			return reader, nil
 		}
 
 		if err != nil {
-			return nil, 0, fmt.Errorf("while reading from new driver: %w", err)
+			return nil, fmt.Errorf("while reading from new driver: %w", err)
 		}
 
-		return reader, sizeBytes, nil
+		return reader, nil
 	case cleanupPhase:
-		reader, size, err := d.newDriver.ReadBlobForValidation(ctx, account, storageID)
+		reader, err := d.newDriver.ReadBlobForValidation(ctx, account, storageID, sizeBytes)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 
-		// delete blob only one we know it exists on the new side
+		// delete blob only once we know it exists on the new side
 		errOnOldSide := d.oldDriver.DeleteBlob(ctx, account, storageID)
 		if errOnOldSide != nil && !errors.Is(errOnOldSide, keppel.NotFoundInStorageError{}) {
-			return nil, 0, errext.WithCleanup(errOnOldSide, "Reader.Close", reader.Close())
+			return nil, errext.WithCleanup(errOnOldSide, "Reader.Close", reader.Close())
 		}
 		if errOnOldSide == nil {
 			cleanedUpCounter.With(prometheus.Labels{"type": "blobs"}).Inc()
 		}
 
-		return reader, size, err
+		return reader, err
 	case finalizePhase:
-		return d.newDriver.ReadBlobForValidation(ctx, account, storageID)
+		return d.newDriver.ReadBlobForValidation(ctx, account, storageID, sizeBytes)
 	default:
 		panic(fmt.Sprintf("multi-driver: unexpected phase %q", d.Phase))
 	}
