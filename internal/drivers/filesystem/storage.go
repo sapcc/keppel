@@ -111,9 +111,6 @@ func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Redu
 func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, error) {
 	path := d.getBlobPath(account, storageID)
 	f, err := os.Open(path)
-	if os.IsNotExist(err) {
-		return nil, keppel.NotFoundInStorageError{Inner: err}
-	}
 	return f, classifyError(err)
 }
 

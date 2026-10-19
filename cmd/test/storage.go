@@ -75,8 +75,8 @@ func AddStorageCommandTo(parent *cobra.Command) {
 			Run:  wrapStorageCommand(executeReadBlob),
 		},
 		&cobra.Command{
-			Use:  "read-blob-for-validation <storage-id>",
-			Args: cobra.ExactArgs(1),
+			Use:  "read-blob-for-validation <storage-id> <size-bytes>",
+			Args: cobra.ExactArgs(2),
 			Run:  wrapStorageCommand(executeReadBlobForValidation),
 		},
 		&cobra.Command{
@@ -246,8 +246,11 @@ func executeReadBlob(ctx context.Context, sd keppel.StorageDriver, account model
 
 func executeReadBlobForValidation(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
 	storageID := args[0]
+	sizeBytesStr := args[1]
 
-	contents, err := sd.ReadBlobForValidation(ctx, account, storageID, 0)
+	sizeBytes := must.Return(strconv.ParseUint(sizeBytesStr, 10, 64))
+
+	contents, err := sd.ReadBlobForValidation(ctx, account, storageID, sizeBytes)
 	if err != nil {
 		logg.Fatal("ReadBlob failed: %s", err.Error())
 	}
