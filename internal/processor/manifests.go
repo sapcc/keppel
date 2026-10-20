@@ -475,7 +475,7 @@ func parseManifestConfig(ctx context.Context, tx *gsql.Tx, sd keppel.StorageDriv
 	if storageID == "" {
 		return manifestConfigInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(configBlob.Digest.String())
 	}
-	blobReader, _, err := sd.ReadBlob(ctx, account, storageID)
+	blobReader, err := sd.ReadBlob(ctx, account, storageID)
 	if err != nil {
 		return manifestConfigInfo{}, err
 	}

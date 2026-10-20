@@ -75,8 +75,8 @@ func AddStorageCommandTo(parent *cobra.Command) {
 			Run:  wrapStorageCommand(executeReadBlob),
 		},
 		&cobra.Command{
-			Use:  "read-blob-for-validation <storage-id>",
-			Args: cobra.ExactArgs(1),
+			Use:  "read-blob-for-validation <storage-id> <size-bytes>",
+			Args: cobra.ExactArgs(2),
 			Run:  wrapStorageCommand(executeReadBlobForValidation),
 		},
 		&cobra.Command{
@@ -232,43 +232,34 @@ func executeAbortBlobUpload(ctx context.Context, sd keppel.StorageDriver, accoun
 func executeReadBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
 	storageID := args[0]
 
-	contents, sizeBytes, err := sd.ReadBlob(ctx, account, storageID)
+	contents, err := sd.ReadBlob(ctx, account, storageID)
 	if err != nil {
 		logg.Fatal("ReadBlob failed: %s", err.Error())
 	}
 	defer contents.Close()
 
-	contentBytes, err := io.ReadAll(contents)
+	_, err = io.Copy(os.Stdout, contents)
 	if err != nil {
 		logg.Fatal("failed to read blob contents: %s", err.Error())
 	}
-
-	result := map[string]any{
-		"contents":   string(contentBytes),
-		"size_bytes": sizeBytes,
-	}
-	outputJSON(result)
 }
 
 func executeReadBlobForValidation(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
 	storageID := args[0]
+	sizeBytesStr := args[1]
 
-	contents, sizeBytes, err := sd.ReadBlobForValidation(ctx, account, storageID)
+	sizeBytes := must.Return(strconv.ParseUint(sizeBytesStr, 10, 64))
+
+	contents, err := sd.ReadBlobForValidation(ctx, account, storageID, sizeBytes)
 	if err != nil {
 		logg.Fatal("ReadBlob failed: %s", err.Error())
 	}
 	defer contents.Close()
 
-	contentBytes, err := io.ReadAll(contents)
+	_, err = io.Copy(os.Stdout, contents)
 	if err != nil {
 		logg.Fatal("failed to read blob contents: %s", err.Error())
 	}
-
-	result := map[string]any{
-		"contents":   string(contentBytes),
-		"size_bytes": sizeBytes,
-	}
-	outputJSON(result)
 }
 
 func executeURLForBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
