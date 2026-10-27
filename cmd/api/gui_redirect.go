@@ -8,10 +8,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -31,11 +31,18 @@ func (g *guiRedirecter) AddTo(c *httpapi.Composer) {
 		return
 	}
 
-	c.Router().Methods("GET").Path("/{account:[a-z0-9][a-z0-9-]{0,47}}/{repository:.+}").HandlerFunc(g.tryRedirectToGUI)
+	c.AddTryHandler(pathrouter.Variable("account", pathrouter.CatchAllVariable("repository", pathrouter.Handlers(pathrouter.ByMethod{
+		http.MethodGet: g.tryRedirectToGUI,
+	}))))
 }
 
 func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	if !models.IsAccountName(pathrouter.VariableValue(r, "account")) {
+		respondNotFound(w, r)
+		return
+	}
 
 	// only attempt to redirect if it's a web browser doing the request
 	if !strings.Contains(r.Header.Get("Accept"), "text/html") {
@@ -43,16 +50,14 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	vars := mux.Vars(r)
-
 	// do we have this account/repo?
-	accountName := models.AccountName(vars["account"])
+	accountName := models.AccountName(pathrouter.VariableValue(r, "account"))
 	account, err := keppel.FindAccount(ctx, g.db, accountName)
 	if err != nil {
 		respondNotFound(w, r)
 		return
 	}
-	repoName := stripTagAndDigest(vars["repository"])
+	repoName := stripTagAndDigest(pathrouter.VariableValue(r, "repository"))
 	repo, err := keppel.FindRepository(ctx, g.db, repoName, accountName)
 	if err != nil {
 		respondNotFound(w, r)
