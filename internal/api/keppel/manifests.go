@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
@@ -21,6 +20,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 	. "go.xyrillian.de/gg/option"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
@@ -208,7 +208,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	parsedDigest, err := digest.Parse(pathrouter.VariableValue(r, "digest"))
 	if err != nil {
 		http.Error(w, "digest not found", http.StatusNotFound)
 		return
@@ -248,7 +248,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	tagName := mux.Vars(r)["tag_name"]
+	tagName := pathrouter.VariableValue(r, "tag_name")
 
 	tagPolicies, err := api.GetTagPolicies(a.db, account)
 	if respondwith.ObfuscatedErrorText(w, err) {
@@ -297,7 +297,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	parsedDigest, err := digest.Parse(pathrouter.VariableValue(r, "digest"))
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
