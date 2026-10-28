@@ -6,10 +6,10 @@ package keppelv1
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
@@ -17,7 +17,7 @@ import (
 
 func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
-	authTenantID := mux.Vars(r)["auth_tenant_id"]
+	authTenantID := pathrouter.VariableValue(r, "auth_tenant_id")
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
 	if authz == nil {
 		return
@@ -32,7 +32,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
-	authTenantID := mux.Vars(r)["auth_tenant_id"]
+	authTenantID := pathrouter.VariableValue(r, "auth_tenant_id")
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
 	if authz == nil {
 		return

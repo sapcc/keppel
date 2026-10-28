@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -33,15 +33,14 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		},
 	}
 
-	vars := mux.Vars(r)
 	rc := client.RepoClient{
 		Scheme:   "https",
-		Host:     vars["hostname"],
-		RepoName: vars["repo"],
+		Host:     pathrouter.VariableValue(r, "hostname"),
+		RepoName: pathrouter.VariableValue(r, "repo"),
 		UserName: r.Header.Get("X-Keppel-Delegated-Pull-Username"), // may be empty
 		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), // may be empty
 	}
-	ref := models.ParseManifestReference(vars["reference"])
+	ref := models.ParseManifestReference(pathrouter.VariableValue(r, "reference"))
 	manifestBytes, manifestMediaType, err := rc.DownloadManifest(ctx, ref, &opts)
 
 	if err != nil {
