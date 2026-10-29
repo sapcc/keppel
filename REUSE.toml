@@ -342,6 +342,14 @@ SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
 path = [
+  "vendor/github.com/hashicorp/go-uuid/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = [
   "vendor/github.com/inconshreveable/mousetrap/**",
 ]
 precedence = "override"
@@ -475,6 +483,14 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+  "vendor/github.com/pandatix/go-abnf/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [

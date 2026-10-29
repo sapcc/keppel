@@ -13,6 +13,7 @@
     "SuperSandro2000"
   ],
   "commitMessageAction": "Renovate: Update",
+  "minimumReleaseAge": "3 days",
   "constraints": {
     "go": "1.27"
   },
