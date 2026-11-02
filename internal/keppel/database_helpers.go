@@ -10,6 +10,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -140,16 +141,16 @@ func AtLeastZero[I interface{ int | int64 }](x I) uint64 {
 	return uint64(x)
 }
 
-// FindOrCreateRepository works similar to Store.SelectOne(), but autovivifies a
-// Repository record when none exists yet.
-func FindOrCreateRepository(ctx context.Context, db DBInterface, name string, accountName models.AccountName) (models.Repository, error) {
+// FindOrCreateRepository works similar to Store.SelectOne(), but autovivifies a Repository record when none exists yet.
+// This function cannot take a transaction, because if it does insert, it must be committed before mosving on.
+func FindOrCreateRepository(ctx context.Context, db *gsql.DB, name string, accountName models.AccountName) (models.Repository, error) {
 	repo, err := FindRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
-		repo = models.Repository{
-			Name:        name,
-			AccountName: accountName,
+		_, err = db.Exec(repoInsertIfMissingQuery, accountName, name)
+		if err != nil {
+			return models.Repository{}, err
 		}
-		err = models.RepositoryStore.Insert(ctx, db, &repo)
+		return FindRepository(ctx, db, name, accountName)
 	}
 	return repo, err
 }
@@ -158,6 +159,10 @@ var (
 	repoGetQueryByName        = models.RepositoryStore.MustPrepareSelectQueryWhere(`account_name = $1 AND name = $2`)
 	repoGetQueryByID          = models.RepositoryStore.MustPrepareSelectQueryWhere(`id = $1`)
 	reducedRepoGetQueryByName = models.ReducedRepositoryStore.MustPrepareSelectQueryWhere(`account_name = $1 AND name = $2`)
+	repoInsertIfMissingQuery  = sqlext.SimplifyWhitespace(`
+		INSERT INTO repos (account_name, name) VALUES ($1, $2)
+		ON CONFLICT (account_name, name) DO NOTHING
+	`)
 )
 
 // FindRepository is a convenience wrapper around Store.SelectOne().
@@ -167,15 +172,15 @@ func FindRepository(ctx context.Context, db DBInterface, name string, accountNam
 }
 
 // FindOrCreateReducedRepository is like [FindOrCreateRepository], but is faster because it returns a ReducedRepository.
-func FindOrCreateReducedRepository(ctx context.Context, db DBInterface, name string, accountName models.AccountName) (models.ReducedRepository, error) {
+// This function cannot take a transaction, because if it does insert, it must be committed before mosving on.
+func FindOrCreateReducedRepository(ctx context.Context, db *gsql.DB, name string, accountName models.AccountName) (models.ReducedRepository, error) {
 	repo, err := FindReducedRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
-		fullRepo := models.Repository{
-			Name:        name,
-			AccountName: accountName,
+		_, err = db.Exec(repoInsertIfMissingQuery, accountName, name)
+		if err != nil {
+			return models.ReducedRepository{}, err
 		}
-		err = models.RepositoryStore.Insert(ctx, db, &fullRepo)
-		repo = fullRepo.Reduced()
+		return FindReducedRepository(ctx, db, name, accountName)
 	}
 	return repo, err
 }
