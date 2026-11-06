@@ -47,7 +47,7 @@ jobs:
       - name: Run go-makefile-maker
         run: go run github.com/sapcc/go-makefile-maker@latest
       - name: Report generated changes
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |-
             const { execFileSync } = require('node:child_process')
