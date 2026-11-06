@@ -3,7 +3,7 @@ module github.com/sapcc/keppel
 go 1.27
 
 require (
-	cel.dev/cel-go v0.33.0
+	cel.dev/cel-go v0.33.2
 	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 	github.com/dlmiddlecote/sqlstats v1.0.2
