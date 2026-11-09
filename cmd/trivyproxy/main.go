@@ -85,7 +85,8 @@ func NewAPI(dbMirrorPrefix, token, trivyURL string) *API {
 func (a *API) AddTo(c *httpapi.Composer) {
 	c.AddTryHandler(
 		pathrouter.Element("trivy", pathrouter.Handlers(pathrouter.ByMethod{
-			http.MethodGet: a.proxyToTrivy,
+			http.MethodGet:  a.proxyToTrivy,
+			http.MethodHead: nil, // do not start an expensive scan to prepare a response body if the client does not want it
 		})),
 	)
 }

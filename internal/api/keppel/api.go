@@ -54,21 +54,27 @@ func (a *API) OverrideTimeNow(timeNow func() time.Time) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
+	// All implicit HEAD handlers are deleted because those endpoints,
+	// while sometimes potentially useful, are not documented in the API specification,
+	// and thus clients should not implicitly rely on their existence.
 	c.AddTryHandler(
 		pathrouter.Elements("keppel/v1",
 			pathrouter.Choice(
 				pathrouter.Handlers(pathrouter.ByMethod{
-					http.MethodGet: a.handleGetAPIInfo,
+					http.MethodGet:  a.handleGetAPIInfo,
+					http.MethodHead: nil,
 				}),
 				pathrouter.Element("accounts",
 					pathrouter.Choice(
 						pathrouter.Handlers(pathrouter.ByMethod{
-							http.MethodGet: a.handleGetAccounts,
+							http.MethodGet:  a.handleGetAccounts,
+							http.MethodHead: nil,
 						}),
 						pathrouter.VariableIf("account", models.IsAccountName,
 							pathrouter.Choice(
 								pathrouter.Handlers(pathrouter.ByMethod{
 									http.MethodGet:    a.handleGetAccount,
+									http.MethodHead:   nil,
 									http.MethodPut:    a.handlePutAccount,
 									http.MethodDelete: a.handleDeleteAccount,
 								}),
@@ -76,13 +82,15 @@ func (a *API) AddTo(c *httpapi.Composer) {
 									http.MethodPost: a.handlePostAccountSublease,
 								})),
 								pathrouter.Element("security_scan_policies", pathrouter.Handlers(pathrouter.ByMethod{
-									http.MethodGet: a.handleGetSecurityScanPolicies,
-									http.MethodPut: a.handlePutSecurityScanPolicies,
+									http.MethodGet:  a.handleGetSecurityScanPolicies,
+									http.MethodHead: nil,
+									http.MethodPut:  a.handlePutSecurityScanPolicies,
 								})),
 								pathrouter.Element("repositories",
 									pathrouter.Choice(
 										pathrouter.Handlers(pathrouter.ByMethod{
-											http.MethodGet: a.handleGetRepositories,
+											http.MethodGet:  a.handleGetRepositories,
+											http.MethodHead: nil,
 										}),
 										pathrouter.CatchAllVariableIf("repo_name", isValidRepoName,
 											pathrouter.Choice(
@@ -92,7 +100,8 @@ func (a *API) AddTo(c *httpapi.Composer) {
 												pathrouter.Element("_manifests",
 													pathrouter.Choice(
 														pathrouter.Handlers(pathrouter.ByMethod{
-															http.MethodGet: a.handleGetManifests,
+															http.MethodGet:  a.handleGetManifests,
+															http.MethodHead: nil,
 														}),
 														pathrouter.Variable("digest",
 															pathrouter.Choice(
@@ -100,7 +109,8 @@ func (a *API) AddTo(c *httpapi.Composer) {
 																	http.MethodDelete: a.handleDeleteManifest,
 																}),
 																pathrouter.Element("trivy_report", pathrouter.Handlers(pathrouter.ByMethod{
-																	http.MethodGet: a.handleGetTrivyReport,
+																	http.MethodGet:  a.handleGetTrivyReport,
+																	http.MethodHead: nil,
 																})),
 															),
 														),
@@ -122,12 +132,14 @@ func (a *API) AddTo(c *httpapi.Composer) {
 					),
 				),
 				pathrouter.Element("peers", pathrouter.Handlers(pathrouter.ByMethod{
-					http.MethodGet: a.handleGetPeers,
+					http.MethodGet:  a.handleGetPeers,
+					http.MethodHead: nil,
 				})),
 				pathrouter.Element("quotas",
 					pathrouter.Variable("auth_tenant_id", pathrouter.Handlers(pathrouter.ByMethod{
-						http.MethodGet: a.handleGetQuotas,
-						http.MethodPut: a.handlePutQuotas,
+						http.MethodGet:  a.handleGetQuotas,
+						http.MethodHead: nil,
+						http.MethodPut:  a.handlePutQuotas,
 					})),
 				),
 			),

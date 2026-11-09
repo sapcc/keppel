@@ -49,7 +49,8 @@ func (a *API) AddTo(c *httpapi.Composer) {
 		pathrouter.Elements("liquid/v1",
 			pathrouter.Choice(
 				pathrouter.Element("info", pathrouter.Handlers(pathrouter.ByMethod{
-					http.MethodGet: a.handleLiquidGetInfo,
+					http.MethodGet:  a.handleLiquidGetInfo,
+					http.MethodHead: nil,
 				})),
 				pathrouter.Element("report-capacity", pathrouter.Handlers(pathrouter.ByMethod{
 					http.MethodPost: a.handleLiquidReportCapacity,

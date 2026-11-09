@@ -35,6 +35,10 @@ func (a *API) AddTo(c *httpapi.Composer) {
 	// subset of endpoints, the end of the path reflects the request that we make
 	// to upstream, so there is an additional /v2/ in there in reference to the
 	// Registry V2 API.
+	//
+	// All implicit HEAD handlers are deleted because those endpoints,
+	// while sometimes potentially useful, are not documented in the API specification,
+	// and thus clients should not implicitly rely on their existence.
 	c.AddTryHandler(
 		pathrouter.Elements("peer/v1",
 			pathrouter.Choice(
@@ -44,7 +48,8 @@ func (a *API) AddTo(c *httpapi.Composer) {
 							pathrouter.CatchAllVariable("repo",
 								pathrouter.Element("manifests",
 									pathrouter.Variable("reference", pathrouter.Handlers(pathrouter.ByMethod{
-										http.MethodGet: a.handleDelegatedPullManifest,
+										http.MethodGet:  a.handleDelegatedPullManifest,
+										http.MethodHead: nil,
 									})),
 								),
 							),

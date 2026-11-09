@@ -34,6 +34,9 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.Federation
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(c *httpapi.Composer) {
+	// All implicit HEAD handlers are deleted because those endpoints,
+	// while sometimes potentially useful, are not documented in the API specification,
+	// and thus clients should not implicitly rely on their existence.
 	c.AddTryHandler(
 		pathrouter.Elements("keppel/v1/auth",
 			pathrouter.Choice(
