@@ -75,9 +75,12 @@ func run(cmd *cobra.Command, args []string) {
 	})
 	enableHeaderReflector := logg.ShowDebug || osext.GetenvBool("KEPPEL_ENABLE_HEADER_REFLECTOR")
 	handler := httpapi.Compose(
-		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
-		auth.NewAPI(cfg, ad, fd, db),
+		// the most commonly used APIs come first, ordered by usage frequency,
+		// to micro-optimize the most common requests
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
+		auth.NewAPI(cfg, ad, fd, db),
+		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
+		// secondary APIs
 		peerv1.NewAPI(cfg, ad, db),
 		&headerReflector{enableHeaderReflector}, // the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		httpapi.HealthCheckAPI{
