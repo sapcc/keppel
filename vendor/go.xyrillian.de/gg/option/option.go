@@ -111,10 +111,13 @@ package option // import "go.xyrillian.de/gg/option"
 import (
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"iter"
 )
+
+// TODO: with 1.27 support for type variables on methods, consider additional methods referencing U from Rust's Option type
 
 // Option is a type that contains either one or no instances of T.
 type Option[T any] struct {
@@ -221,6 +224,15 @@ func (o Option[T]) Iter() iter.Seq[T] {
 	}
 }
 
+// Map applies the given function to the value contained in o, if there is one.
+func (o Option[T]) Map[U any](mapping func(T) U) Option[U] {
+	if t, ok := o.Unpack(); ok {
+		return Some(mapping(t))
+	} else {
+		return None[U]()
+	}
+}
+
 // Or returns the option itself if it contains a value, or otherwise returns "other".
 //
 // If you are passing the result of a function call, consider using OrElse() to avoid calling the function unless necessary.
@@ -299,11 +311,11 @@ func (o Option[T]) Xor(other Option[T]) Option[T] {
 // These are static assertions that Option implements the intended interfaces.
 // (The YAML interfaces are not checked because we don't want to add 3rd-party lib deps here.)
 var (
-	_ fmt.Formatter    = Option[bool]{}
-	_ sql.Scanner      = &Option[bool]{}
-	_ driver.Valuer    = Option[bool]{}
-	_ json.Marshaler   = Option[bool]{}
-	_ json.Unmarshaler = &Option[bool]{}
+	_ fmt.Formatter        = Option[bool]{}
+	_ sql.Scanner          = &Option[bool]{}
+	_ driver.Valuer        = Option[bool]{}
+	_ json.MarshalerTo     = Option[bool]{}
+	_ json.UnmarshalerFrom = &Option[bool]{}
 )
 
 // Format implements the [fmt.Formatter] interface.
@@ -353,23 +365,29 @@ func (o Option[T]) Value() (driver.Value, error) {
 	}
 }
 
-// MarshalJSON implements the [json.Marshaler] interface.
-func (o Option[T]) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo implements the [json.MarshalerTo] interface.
+func (o Option[T]) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if o.isSome {
-		return json.Marshal(o.value)
+		return json.MarshalEncode(enc, o.value)
 	} else {
-		return []byte("null"), nil
+		return enc.WriteToken(jsontext.Null)
 	}
 }
 
-// UnmarshalJSON implements the [json.Unmarshaler] interface.
-func (o *Option[T]) UnmarshalJSON(buf []byte) error {
-	var data *T
-	err := json.Unmarshal(buf, &data)
+// UnmarshalJSONFrom implements the [json.UnmarshalerFrom] interface.
+func (o *Option[T]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if dec.PeekKind() == jsontext.KindNull {
+		*o = None[T]()
+		_, err := dec.ReadToken()
+		return err
+	}
+
+	var data T
+	err := json.UnmarshalDecode(dec, &data)
 	if err != nil {
 		return err
 	}
-	*o = fromPointer(data)
+	*o = Some(data)
 	return nil
 }
 

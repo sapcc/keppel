@@ -6,8 +6,8 @@ package models
 import (
 	"time"
 
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
-	"go.xyrillian.de/oblast"
 )
 
 // Repository contains a record from the `repos` table.

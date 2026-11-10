@@ -18,7 +18,7 @@ import (
 // of type [Handle] would allocate a new fat pointer when converting from e.g. [*DB]
 // at the callsite to [Handle] in the argument value.
 //
-// To circumvent this, our types only _have_ [Handle] instances within them within them
+// To circumvent this, our types only _have_ [Handle] instances within them
 // as an embedded field, thus implementing [Handle] indirectly instead of directly.
 
 // DB wraps [*sql.DB] into a [Handle].

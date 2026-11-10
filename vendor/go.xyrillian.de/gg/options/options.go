@@ -32,11 +32,8 @@ func IsNoneOrZero[T comparable](o Option[T]) bool {
 
 // Map applies the given function to the value contained in o, if there is one.
 func Map[T, U any](o Option[T], mapping func(T) U) Option[U] {
-	if t, ok := o.Unpack(); ok {
-		return Some(mapping(t))
-	} else {
-		return None[U]()
-	}
+	// TODO: deprecate
+	return o.Map(mapping)
 }
 
 // Max returns the largest of its input values, while disregarding None values.

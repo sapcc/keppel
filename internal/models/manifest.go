@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
-	"go.xyrillian.de/oblast"
 )
 
 // Manifest contains a record from the `manifests` table.

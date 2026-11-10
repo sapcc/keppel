@@ -15,6 +15,7 @@ import (
 	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/errext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 )
 
 // Connector describes how to connect to a PostgreSQL database given a [libpq-style connection URI].
@@ -135,14 +136,14 @@ func (c Connector[T]) ConnectForTest(t assert.TestingTB, behavior ConnectionBeha
 
 func createDatabaseIfMissing(ctx context.Context, db gsql.Handle, dbName string) error {
 	// check if database exists
-	exists, err := selectOneValue[bool](ctx, db, `SELECT COUNT(*) > 0 FROM pg_catalog.pg_database WHERE datname = $1`, dbName)
+	exists, err := oblast.SelectOne[bool](ctx, db, `SELECT COUNT(*) > 0 FROM pg_catalog.pg_database WHERE datname = $1`, dbName)
 	if err != nil {
 		return fmt.Errorf("while reading from pg_catalog.pg_database: %w", err)
 	}
 
 	// create database if necessary
 	if !exists {
-		_, err = execQuery(ctx, db, "CREATE DATABASE "+quoteIdentifier(dbName), nil)
+		_, err = gsql.Exec(ctx, db, "CREATE DATABASE "+quoteIdentifier(dbName))
 		if err != nil {
 			return fmt.Errorf("during CREATE DATABASE: %w", err)
 		}
@@ -158,7 +159,7 @@ func resetTestDatabase(ctx context.Context, db gsql.Handle, params testSetupPara
 		condition += ` AND table_name != 'schema_migrations'`
 	}
 	query := fmt.Sprintf(`SELECT quote_ident(table_name) FROM information_schema.tables WHERE %s ORDER BY table_name`, condition)
-	quotedTableNames, err := selectSeveralValues[string](ctx, db, query)
+	quotedTableNames, err := oblast.Select[string](ctx, db, query).Collect()
 	if err != nil {
 		return fmt.Errorf("while listing tables to truncate: %w", err)
 	}
@@ -166,7 +167,7 @@ func resetTestDatabase(ctx context.Context, db gsql.Handle, params testSetupPara
 	// truncate all tables at once
 	if len(quotedTableNames) > 0 {
 		query = fmt.Sprintf(`TRUNCATE %s RESTART IDENTITY CASCADE`, strings.Join(quotedTableNames, ", "))
-		_, err = execQuery(ctx, db, query, nil)
+		_, err = gsql.Exec(ctx, db, query)
 		if err != nil {
 			return fmt.Errorf("during %s: %w", query, err)
 		}

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/oblast"
 )
 
 // UnknownBlob contains a record from the `unknown_blobs` table.

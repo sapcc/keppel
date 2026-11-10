@@ -4,11 +4,11 @@
 package oblast
 
 // RuntimeIndex provides methods for sorting records (R) by some type of key (K) at runtime.
-// It is most commonly used with the result of [Store.Select] or [Store.SelectWhere], to build a lookup table for or partition of the retrieved records.
+// It is most commonly used with any of the functions returning a [Selection],
+// to build a lookup table for or partition of the retrieved records.
 type RuntimeIndex[R any, K comparable] func(R) K
 
-// TODO: rename Index() to Of(), IndexFrom() to From(), Partition() to PartitionOf() (in practice, instances of RuntimeIndex are often named e.g. ObjectByIDIndex, and then ObjectByIDIndex.IndexFrom() stutters) -> naming might need some workshopping
-// TODO: make Index() and Partition() take an iter.Seq[], or alternatively add additional methods that do
+// TODO: add additional methods like Index() and Partition() that take an iter.Seq[]
 
 // NewRuntimeIndex casts a function into type [RuntimeIndex].
 //
@@ -30,7 +30,7 @@ func (i RuntimeIndex[R, K]) Index(records []R) map[K]R {
 	return result
 }
 
-// IndexFrom is like Index, but can directly wrap a [Store.Select] or [Store.SelectWhere] call.
+// IndexFrom is like Index, but can directly wrap a call that returns a [Selection].
 // If there is an error, it is passed through unchanged.
 func (i RuntimeIndex[R, K]) IndexFrom(s Selection[R]) (map[K]R, error) {
 	result := make(map[K]R)
@@ -52,7 +52,7 @@ func (i RuntimeIndex[R, K]) Partition(records []R) map[K][]R {
 	return result
 }
 
-// PartitionFrom is like Partition, but can directly wrap a [Store.Select] or [Store.SelectWhere] call.
+// PartitionFrom is like Partition, but can directly wrap a call that returns a [Selection].
 // If there is an error, it is passed through unchanged.
 func (i RuntimeIndex[R, K]) PartitionFrom(s Selection[R]) (map[K][]R, error) {
 	result := make(map[K][]R)
