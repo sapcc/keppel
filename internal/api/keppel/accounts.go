@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -30,8 +31,8 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 
 	// load just account names at first (we do not load full accounts here because we have not done AuthZ yet,
 	// so only loading names limits the risk of amplification attacks from unauthorized requests)
-	accountNames, err := keppel.SelectSeveralValues[models.AccountName](a.db,
-		`SELECT name FROM accounts ORDER BY name`)
+	accountNames, err := oblast.Select[models.AccountName](ctx, a.db,
+		`SELECT name FROM accounts ORDER BY name`).Collect()
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

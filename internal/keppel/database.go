@@ -5,7 +5,6 @@ package keppel
 
 import (
 	"context"
-	"database/sql"
 	_ "embed"
 
 	"github.com/dlmiddlecote/sqlstats"
@@ -69,27 +68,6 @@ var (
 	_ DBInterface = &gsql.DB{}
 	_ DBInterface = &gsql.Tx{}
 )
-
-// SelectOneValue executes a query that yields a single row with a single value.
-func SelectOneValue[T any](db DBInterface, query string, args ...any) (T, error) {
-	var result T
-	err := db.QueryRow(query, args...).Scan(&result)
-	return result, err
-}
-
-// SelectSeveralValues executes a query that yields rows with a single value each.
-func SelectSeveralValues[T any](db DBInterface, query string, args ...any) ([]T, error) {
-	var result []T
-	err := sqlext.ForeachRow(db, query, args, func(rows *sql.Rows) error {
-		var value T
-		err := rows.Scan(&value)
-		if err == nil {
-			result = append(result, value)
-		}
-		return err
-	})
-	return result, err
-}
 
 // DBConfiguration returns the [pgruntime.ConnectionBehavior] object that [InitDB] uses to initialize the DB connection.
 // This is exported because test.NewSetup() needs to be able to access it.

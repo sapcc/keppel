@@ -78,7 +78,7 @@ func (p *Processor) checkQuotaForManifestPush(ctx context.Context, account model
 	} else if err != nil {
 		return err
 	}
-	manifestUsage, err := keppel.GetManifestUsage(p.db, quotas)
+	manifestUsage, err := keppel.GetManifestUsage(ctx, p.db, quotas)
 	if err != nil {
 		return err
 	}

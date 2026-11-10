@@ -91,7 +91,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 			scope := req.Scopes[0]
 			if scope.ResourceType == "repository" {
 				repoScope := scope.ParseRepositoryScope(req.IntendedAudience)
-				accountExists, err := keppel.DoesAccountExist(a.db, repoScope.AccountName)
+				accountExists, err := keppel.DoesAccountExist(ctx, a.db, repoScope.AccountName)
 				if respondWithError(w, http.StatusInternalServerError, err) {
 					return
 				}

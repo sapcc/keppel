@@ -15,6 +15,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -200,7 +201,7 @@ func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Author
 
 	// the section above could only delete manifests that are not referenced by others;
 	// if there is stuff left over, restart the loop
-	manifestCount, err := keppel.SelectOneValue[uint64](a.db, deleteRepositoryCountManifestsQuery, repo.ID)
+	manifestCount, err := oblast.SelectOne[uint64](ctx, a.db, deleteRepositoryCountManifestsQuery, repo.ID)
 	if err != nil {
 		return err
 	}
@@ -259,7 +260,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		uploadCount, err := keppel.SelectOneValue[uint64](tx, `SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
+		uploadCount, err := oblast.SelectOne[uint64](ctx, tx, `SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
 		if err != nil {
 			return err
 		}

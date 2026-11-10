@@ -12,6 +12,7 @@ import (
 
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -174,5 +175,5 @@ func (s Setup) findAuthTenantIDForAccountName(accountName models.AccountName) (s
 	}
 
 	// base case: look up in the DB
-	return keppel.SelectOneValue[string](s.DB, `SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
+	return oblast.SelectOne[string](s.Ctx, s.DB, `SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"go.podman.io/image/v5/manifest"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/api"
@@ -155,7 +156,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 	err := models.PendingBlobStore.Insert(ctx, p.db, &pendingBlob)
 	if err != nil {
 		// did we get a duplicate-key error because this blob is already being replicated?
-		count, err := keppel.SelectOneValue[int](p.db,
+		count, err := oblast.SelectOne[int](ctx, p.db,
 			`SELECT COUNT(*) FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
 			account.Name, blob.Digest,
 		)

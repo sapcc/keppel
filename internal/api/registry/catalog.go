@@ -4,6 +4,7 @@
 package registryv2
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -14,9 +15,9 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
-	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -92,7 +93,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	var allNames []string
 	partialResult := false
 	for idx, accountName := range accountNames {
-		names, err := a.getCatalogForAccount(accountName, includeAccountName)
+		names, err := a.getCatalogForAccount(ctx, accountName, includeAccountName)
 		if respondWithError(w, r, err) {
 			return
 		}
@@ -135,8 +136,8 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 
 const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY name`
 
-func (a *API) getCatalogForAccount(accountName models.AccountName, includeAccountName bool) ([]string, error) {
-	result, err := keppel.SelectSeveralValues[string](a.db, catalogGetQuery, accountName)
+func (a *API) getCatalogForAccount(ctx context.Context, accountName models.AccountName, includeAccountName bool) ([]string, error) {
+	result, err := oblast.Select[string](ctx, a.db, catalogGetQuery, accountName).Collect()
 	if err != nil {
 		return nil, err
 	}

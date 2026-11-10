@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pgruntime"
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"
@@ -208,8 +209,10 @@ func expectManifestExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoN
 
 func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gsql.DB) {
 	t.Helper()
+	ctx := t.Context()
+
 	// test that no blobs were yet committed to the DB...
-	count := must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM blobs`))(t)
+	count := must.ReturnT(oblast.SelectOne[uint64](ctx, db, `SELECT COUNT(*) FROM blobs`))(t)
 	if count > 0 {
 		t.Errorf("expected 0 blobs in the DB, but found %d blobs", count)
 	}
@@ -220,14 +223,14 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gsql.DB) {
 	}
 
 	// also there should be no unfinished uploads
-	count = must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM uploads`))(t)
+	count = must.ReturnT(oblast.SelectOne[uint64](ctx, db, `SELECT COUNT(*) FROM uploads`))(t)
 	if count > 0 {
 		t.Errorf("expected 0 uploads in the DB, but found %d uploads", count)
 	}
 
 	// same checks for manifests
 	for _, table := range []string{"manifests", "manifest_contents"} {
-		count = must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM `+table))(t)
+		count = must.ReturnT(oblast.SelectOne[uint64](ctx, db, `SELECT COUNT(*) FROM `+table))(t)
 		if count > 0 {
 			t.Errorf("expected 0 %s in the DB, but found %d %[1]s", table, count)
 		}
@@ -237,7 +240,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gsql.DB) {
 	}
 
 	// same checks for Trivy reports
-	count = must.ReturnT(keppel.SelectOneValue[uint64](db, `SELECT COUNT(*) FROM trivy_security_info`))(t)
+	count = must.ReturnT(oblast.SelectOne[uint64](ctx, db, `SELECT COUNT(*) FROM trivy_security_info`))(t)
 	if count > 0 {
 		t.Errorf("expected 0 Trivy reports in the DB, but found %d Trivy reports", count)
 	}

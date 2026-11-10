@@ -84,7 +84,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	} else if respondWithError(w, r, err) {
 		return
 	}
-	manifestUsage, err := keppel.GetManifestUsage(a.db, quotas)
+	manifestUsage, err := keppel.GetManifestUsage(ctx, a.db, quotas)
 	if respondWithError(w, r, err) {
 		return
 	}

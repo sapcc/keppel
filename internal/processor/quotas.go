@@ -74,7 +74,7 @@ func (p *Processor) GetQuotas(ctx context.Context, authTenantID string) (*QuotaR
 		return nil, err
 	}
 
-	manifestCount, err := keppel.GetManifestUsage(p.db, quotas)
+	manifestCount, err := keppel.GetManifestUsage(ctx, p.db, quotas)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 	)
 	err = p.db.WithinTransaction(ctx, nil, func(tx *gsql.Tx) error {
 		// check usage
-		manifestCount, err := keppel.GetManifestUsage(tx, quotas)
+		manifestCount, err := keppel.GetManifestUsage(ctx, tx, quotas)
 		if err != nil {
 			return err
 		}

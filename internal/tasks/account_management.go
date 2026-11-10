@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -47,14 +48,14 @@ var (
 	`)
 )
 
-func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels) (accountName models.AccountName, err error) {
+func (j *Janitor) discoverManagedAccount(ctx context.Context, _ prometheus.Labels) (accountName models.AccountName, err error) {
 	managedAccountNames, err := j.amd.ManagedAccountNames()
 	if err != nil {
 		return "", fmt.Errorf("could not get ManagedAccountNames() from account management driver: %w", err)
 	}
 
 	// if there is a managed account that does not exist yet, create it
-	existingAccountNames, err := keppel.SelectSeveralValues[models.AccountName](j.db, `SELECT name FROM accounts WHERE is_managed`)
+	existingAccountNames, err := oblast.Select[models.AccountName](ctx, j.db, `SELECT name FROM accounts WHERE is_managed`).Collect()
 	if err != nil {
 		return "", err
 	}
@@ -65,7 +66,7 @@ func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels)
 	}
 
 	// otherwise return the next existing managed account that needs to be synced
-	return keppel.SelectOneValue[models.AccountName](j.db, managedAccountEnforcementSelectQuery, j.timeNow())
+	return oblast.SelectOne[models.AccountName](ctx, j.db, managedAccountEnforcementSelectQuery, j.timeNow())
 }
 
 func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) error {

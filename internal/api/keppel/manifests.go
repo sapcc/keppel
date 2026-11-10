@@ -19,6 +19,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 	"go.xyrillian.de/gg/pathrouter"
 
@@ -214,7 +215,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagPolicies, err := api.GetTagPolicies(a.db, account)
+	tagPolicies, err := api.GetTagPolicies(ctx, a.db, account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -236,6 +237,8 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_tags/:name")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
@@ -250,12 +253,12 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 	tagName := pathrouter.VariableValue(r, "tag_name")
 
-	tagPolicies, err := api.GetTagPolicies(a.db, account)
+	tagPolicies, err := api.GetTagPolicies(ctx, a.db, account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
-	err = a.processor().DeleteTag(account, repo.Reduced(), tagName, tagPolicies, keppel.AuditContext{
+	err = a.processor().DeleteTag(ctx, account, repo.Reduced(), tagName, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -330,7 +333,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	//- we don't have vulnerability scanning enabled at all
 	//- vulnerability scanning is not done yet
 	//- the image does not have any blobs that could be scanned for vulnerabilities
-	blobCount, err := keppel.SelectOneValue[uint64](a.db,
+	blobCount, err := oblast.SelectOne[uint64](ctx, a.db,
 		`SELECT COUNT(*) FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifest.Digest,
 	)

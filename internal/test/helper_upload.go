@@ -13,6 +13,7 @@ import (
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -64,7 +65,7 @@ func (i Image) MustUpload(t testing.TB, s Setup, repo models.Repository, tagName
 
 	// upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
-		count := must.ReturnT(keppel.SelectOneValue[uint64](s.DB, checkBlobExistsQuery, repo.AccountName, blob.Digest.String()))(t)
+		count := must.ReturnT(oblast.SelectOne[uint64](s.Ctx, s.DB, checkBlobExistsQuery, repo.AccountName, blob.Digest.String()))(t)
 		if count == 0 {
 			blob.MustUpload(t, s, repo)
 		}
@@ -114,7 +115,7 @@ func (l ImageList) MustUpload(t testing.TB, s Setup, repo models.Repository, tag
 
 	// upload missing images
 	for _, image := range l.Images {
-		count := must.ReturnT(keppel.SelectOneValue[uint64](s.DB, checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest))(t)
+		count := must.ReturnT(oblast.SelectOne[uint64](s.Ctx, s.DB, checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest))(t)
 		if count == 0 {
 			image.MustUpload(t, s, repo, "")
 		}
