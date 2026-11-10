@@ -181,7 +181,7 @@ func (a *API) performCrossRepositoryBlobMount(ctx context.Context, account model
 	}
 
 	// create blob mount if missing
-	err = keppel.MountBlobIntoRepo(a.db, blob, targetRepo)
+	err = keppel.MountBlobIntoRepo(ctx, a.db, blob, targetRepo)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		if err != nil {
 			return err
 		}
-		return keppel.MountBlobIntoRepo(tx, blob, repo)
+		return keppel.MountBlobIntoRepo(ctx, tx, blob, repo)
 	})
 	if respondWithError(w, r, err) {
 		return false
@@ -672,7 +672,7 @@ func (a *API) createBlobFromUpload(ctx context.Context, account models.ReducedAc
 		if err != nil {
 			return err
 		}
-		return keppel.MountBlobIntoRepo(tx, blob, repo)
+		return keppel.MountBlobIntoRepo(ctx, tx, blob, repo)
 	})
 	return blob, err
 }

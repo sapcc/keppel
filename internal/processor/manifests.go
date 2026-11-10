@@ -122,7 +122,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		IsBeingPushed: true,
 		ActionBeforeCommit: func(tx *gsql.Tx) error {
 			if m.Reference.IsTag() {
-				err = upsertTag(tx, models.Tag{
+				err = upsertTag(ctx, tx, models.Tag{
 					RepositoryID: repo.ID,
 					Name:         m.Reference.Tag,
 					Digest:       manifest.Digest,
@@ -335,7 +335,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		}
 
 		// create or update database entries
-		err = upsertManifest(tx, *manifest, manifestBytes.Bytes(), p.timeNow())
+		err = upsertManifest(ctx, tx, *manifest, manifestBytes.Bytes(), p.timeNow())
 		if err != nil {
 			return err
 		}
@@ -539,17 +539,17 @@ var upsertManifestSecurityInfo = sqlext.SimplifyWhitespace(`
 	ON CONFLICT DO NOTHING
 `)
 
-func upsertManifest(db keppel.DBInterface, m models.Manifest, manifestBytes []byte, timeNow time.Time) error {
-	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.NextValidationAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt, m.AnnotationsJSON, m.ArtifactType, m.SubjectDigest)
+func upsertManifest(ctx context.Context, db gsql.Handle, m models.Manifest, manifestBytes []byte, timeNow time.Time) error {
+	_, err := gsql.Exec(ctx, db, upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.NextValidationAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt, m.AnnotationsJSON, m.ArtifactType, m.SubjectDigest)
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(upsertManifestContentQuery, m.RepositoryID, m.Digest, manifestBytes)
+	_, err = gsql.Exec(ctx, db, upsertManifestContentQuery, m.RepositoryID, m.Digest, manifestBytes)
 	if err != nil {
 		return err
 	}
 
-	_, err = db.Exec(upsertManifestSecurityInfo, m.RepositoryID, m.Digest, models.PendingVulnerabilityStatus, "", timeNow)
+	_, err = gsql.Exec(ctx, db, upsertManifestSecurityInfo, m.RepositoryID, m.Digest, models.PendingVulnerabilityStatus, "", timeNow)
 	return err
 }
 
@@ -564,8 +564,8 @@ var upsertTagQuery = sqlext.SimplifyWhitespace(`
 			last_pulled_at = (CASE WHEN tags.digest = EXCLUDED.digest THEN GREATEST(tags.last_pulled_at, EXCLUDED.last_pulled_at) ELSE EXCLUDED.last_pulled_at END)
 `)
 
-func upsertTag(db keppel.DBInterface, t models.Tag) error {
-	_, err := db.Exec(upsertTagQuery, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
+func upsertTag(ctx context.Context, db gsql.Handle, t models.Tag) error {
+	_, err := gsql.Exec(ctx, db, upsertTagQuery, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
 	return err
 }
 
@@ -775,7 +775,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 		// also ensure that the blob is mounted in this repo (this is also
 		// important if the blob exists; it may only have been replicated in a
 		// different repo)
-		err = keppel.MountBlobIntoRepo(p.db, blob, repo)
+		err = keppel.MountBlobIntoRepo(ctx, p.db, blob, repo)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -953,7 +953,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 		return err
 	}
 
-	result, err := p.db.Exec(
+	result, err := gsql.Exec(ctx, p.db,
 		// this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifestDigest)
