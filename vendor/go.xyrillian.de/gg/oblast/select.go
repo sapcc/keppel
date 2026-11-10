@@ -308,10 +308,10 @@ func selectOneValue(ctx context.Context, db gsql.Handle, target any, query strin
 ////////////////////////////////////////////////////////////////////////////////
 // type Selection
 
-// Selection provides access to the result set from a [Select], [Store.Select], [Store.SelectWhere] or [PreparedSelectQuery.Select] call.
+// Selection provides access to the result set from a [Select], [TupleSelect], [Store.Select], [Store.SelectWhere] or [PreparedSelectQuery.Select] call.
 //
 // Instances of this type are not meant to be held in variables.
-// Instead, chain one of its method calls directly after the Select or SelectWhere call to choose how to process the result set.
+// Instead, chain one of its method calls directly after the Select/SelectWhere/TupleSelect call to choose how to process the result set.
 type Selection[R any] struct {
 	selection
 }

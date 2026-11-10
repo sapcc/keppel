@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
-	"go.xyrillian.de/oblast"
+	"go.xyrillian.de/gg/oblast"
 )
 
 // PendingBlob contains a record from the `pending_blobs` table.

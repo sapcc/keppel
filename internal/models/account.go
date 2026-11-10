@@ -6,8 +6,8 @@ package models
 import (
 	"time"
 
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
-	"go.xyrillian.de/oblast"
 )
 
 // AccountName identifies an account. This typedef is used to distinguish these

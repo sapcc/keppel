@@ -8,7 +8,7 @@
 // A [Handle] implementation for use with [pgx] is provided in [gg-pgx].
 //
 // [pgx]: https://github.com/jackc/pgx
-// [gg-pgx]: https://git.xyrillian.de/go-gg-pgx/
+// [gg-pgx]: https://pkg.go.dev/go.xyrillian.de/gg-pgx
 package gsql
 
 import (
@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"go.xyrillian.de/gg/errext"
 	. "go.xyrillian.de/gg/option"
 )
 
@@ -93,4 +94,19 @@ func NoneIfNoRows[T any](value T, err error) (Option[T], error) {
 	default:
 		return None[T](), err
 	}
+}
+
+// Exec is a shorthand for preparing and executing a one-off query that returns an [sql.Result].
+//
+// For shorthands involving [Statement.QueryRow] instead of [Statement.Exec],
+// look at Select() and SelectOne() in [gg/oblast].
+//
+// [gg/oblast]: https://pkg.go.dev/go.xyrillian.de/gg/oblast
+func Exec(ctx context.Context, db Handle, query string, args ...any) (sql.Result, error) {
+	stmt, err := db.GSQLPrepare(ctx, query, false)
+	if err != nil {
+		return nil, err
+	}
+	result, err := stmt.Exec(ctx, args)
+	return result, errext.WithCleanup(err, "Statement.Close", stmt.Close())
 }

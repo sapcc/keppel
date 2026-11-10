@@ -3,7 +3,7 @@
 
 package models
 
-import "go.xyrillian.de/oblast"
+import "go.xyrillian.de/gg/oblast"
 
 // Quotas contains a record from the `quotas` table.
 //

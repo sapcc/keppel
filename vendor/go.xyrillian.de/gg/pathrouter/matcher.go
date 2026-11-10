@@ -79,6 +79,10 @@ var (
 	_ url.URL
 )
 
+// TODO: new Matcher that introduces a Middleware which runs if a contained route matches (similar to how Variable() modifies routingContext on successful accept)
+// TODO: store typed precomputed values in routingContext (func ComputedValue[T any](*http.Request) T and SetComputedValue analogously)
+// TODO: then add Middleware variant that computes a value as func(*http.Request) T (e.g. to extract AuthN information from headers into an object of type Session etc.)
+
 // Matcher is the common type for any actor that can inspect the path of a request URL (or a suffix of it)
 // and either accept or decline to handle the request.
 //
