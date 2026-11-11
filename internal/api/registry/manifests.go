@@ -20,6 +20,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	accept "github.com/timewasted/go-accept-headers"
+	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/api"
@@ -63,7 +64,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if tryReplication {
-			tagPolicies, err := api.GetTagPolicies(a.db, *account)
+			tagPolicies, err := api.GetTagPolicies(ctx, a.db, *account)
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -87,7 +88,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// if manifest was found in our DB, fetch the contents from the DB (or fall
 		// back to the storage if the DB entry is not there for some reason)
-		manifestBytes, err = a.getManifestContentFromDB(repo.ID, dbManifest.Digest)
+		manifestBytes, err = a.getManifestContentFromDB(ctx, repo.ID, dbManifest.Digest)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				logg.Info("could not read manifest %s@%s from DB (falling back to read from storage): %s",
@@ -283,7 +284,7 @@ func (a *API) findManifestInDB(ctx context.Context, repo models.ReducedRepositor
 	// resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
-		digestStr, err := keppel.SelectOneValue[string](a.db,
+		digestStr, err := oblast.SelectOne[string](ctx, a.db,
 			`SELECT digest FROM tags WHERE repo_id = $1 AND name = $2`,
 			repo.ID, reference.Tag,
 		)
@@ -303,8 +304,8 @@ func (a *API) findManifestInDB(ctx context.Context, repo models.ReducedRepositor
 	return &result, err
 }
 
-func (a *API) getManifestContentFromDB(repoID int64, digestStr digest.Digest) ([]byte, error) {
-	return keppel.SelectOneValue[[]byte](a.db,
+func (a *API) getManifestContentFromDB(ctx context.Context, repoID int64, digestStr digest.Digest) ([]byte, error) {
+	return oblast.SelectOne[[]byte](ctx, a.db,
 		`SELECT content FROM manifest_contents WHERE repo_id = $1 AND digest = $2`,
 		repoID, digestStr,
 	)
@@ -328,7 +329,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagPolicies, err := api.GetTagPolicies(a.db, *account)
+	tagPolicies, err := api.GetTagPolicies(ctx, a.db, *account)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -340,7 +341,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		Request:      r,
 	}
 	if ref.IsTag() {
-		err = a.processor().DeleteTag(*account, *repo, ref.Tag, tagPolicies, actx)
+		err = a.processor().DeleteTag(ctx, *account, *repo, ref.Tag, tagPolicies, actx)
 	} else {
 		err = a.processor().DeleteManifest(ctx, *account, *repo, ref.Digest, tagPolicies, actx)
 	}
@@ -398,7 +399,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagPolicies, err := api.GetTagPolicies(a.db, *account)
+	tagPolicies, err := api.GetTagPolicies(ctx, a.db, *account)
 	if respondWithError(w, r, err) {
 		return
 	}

@@ -13,8 +13,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
-
-	"github.com/sapcc/keppel/internal/keppel"
+	"go.xyrillian.de/gg/oblast"
 )
 
 var tagsListQuery = sqlext.SimplifyWhitespace(`
@@ -25,6 +24,8 @@ var tagsListQuery = sqlext.SimplifyWhitespace(`
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
+	ctx := r.Context()
+
 	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleListTagsAnycast)
 	if account == nil {
 		return
@@ -57,7 +58,7 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	marker := query.Get("last")
 
 	// list tags (we request one more than `limit` to see if we need to paginate)
-	tags, err := keppel.SelectSeveralValues[string](a.db, tagsListQuery, repo.ID, marker, limit+1)
+	tags, err := oblast.Select[string](ctx, a.db, tagsListQuery, repo.ID, marker, limit+1).Collect()
 	if respondWithError(w, r, err) {
 		return
 	}

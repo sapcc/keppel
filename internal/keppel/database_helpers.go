@@ -11,6 +11,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -33,8 +34,8 @@ func FindReducedAccount(ctx context.Context, db DBInterface, name models.Account
 }
 
 // DoesAccountExist checks if an account with the given name exists in the DB.
-func DoesAccountExist(db DBInterface, name models.AccountName) (bool, error) {
-	return SelectOneValue[bool](db, `SELECT COUNT(*) > 0 FROM accounts WHERE name = $1`, name)
+func DoesAccountExist(ctx context.Context, db DBInterface, name models.AccountName) (bool, error) {
+	return oblast.SelectOne[bool](ctx, db, `SELECT COUNT(*) > 0 FROM accounts WHERE name = $1`, name)
 }
 
 var blobGetQueryByRepoName = sqlext.SimplifyWhitespace(`
@@ -128,8 +129,8 @@ var manifestUsageQuery = sqlext.SimplifyWhitespace(`
 
 // GetManifestUsage returns how many manifests currently exist in repos in
 // accounts connected to this quota set's auth tenant.
-func GetManifestUsage(db DBInterface, quotas models.Quotas) (uint64, error) {
-	return SelectOneValue[uint64](db, manifestUsageQuery, quotas.AuthTenantID)
+func GetManifestUsage(ctx context.Context, db DBInterface, quotas models.Quotas) (uint64, error) {
+	return oblast.SelectOne[uint64](ctx, db, manifestUsageQuery, quotas.AuthTenantID)
 }
 
 // AtLeastZero safely converts int or int64 values (which might come from

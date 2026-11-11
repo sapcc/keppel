@@ -41,7 +41,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	// find account
 	accountName := models.AccountName(pathrouter.VariableValue(r, "account"))
-	accountExists, err := keppel.DoesAccountExist(a.db, accountName)
+	accountExists, err := keppel.DoesAccountExist(ctx, a.db, accountName)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

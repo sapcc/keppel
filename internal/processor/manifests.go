@@ -24,6 +24,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 	imageManifest "go.podman.io/image/v5/manifest"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -61,7 +62,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 	// the actual upsert, so results should be taken with a grain of salt; but the
 	// result is accurate enough to avoid most duplicate audit events
 	contentsDigest := digest.Canonical.FromBytes(m.Contents)
-	manifestExistsAlready, err := keppel.SelectOneValue[bool](p.db, checkManifestExistsQuery, repo.ID, contentsDigest.String())
+	manifestExistsAlready, err := oblast.SelectOne[bool](ctx, p.db, checkManifestExistsQuery, repo.ID, contentsDigest.String())
 	if err != nil {
 		return nil, err
 	}
@@ -69,14 +70,14 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 	var tagExistsWithSameDigest bool
 	if m.Reference.IsTag() {
-		tagExists, err := keppel.SelectOneValue[bool](p.db, checkTagExistsQuery, repo.ID, m.Reference.Tag)
+		tagExists, err := oblast.SelectOne[bool](ctx, p.db, checkTagExistsQuery, repo.ID, m.Reference.Tag)
 		if err != nil {
 			return nil, err
 		}
 		if tagExists {
 			logg.Debug("ValidateAndStoreManifest: in repository %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExists)
 		}
-		tagExistsWithSameDigest, err = keppel.SelectOneValue[bool](p.db, checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
+		tagExistsWithSameDigest, err = oblast.SelectOne[bool](ctx, p.db, checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
 		if err != nil {
 			return nil, err
 		}
@@ -465,7 +466,7 @@ func parseManifestConfig(ctx context.Context, tx *gsql.Tx, sd keppel.StorageDriv
 	}
 
 	// load the config blob
-	storageID, err := keppel.SelectOneValue[string](tx,
+	storageID, err := oblast.SelectOne[string](ctx, tx,
 		`SELECT storage_id FROM blobs WHERE account_name = $1 AND digest = $2`,
 		account.Name, configBlob.Digest.String(),
 	)
@@ -936,7 +937,7 @@ func (e DeleteManifestBlockedByTagPolicyError) Error() string {
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
 func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifestDigest digest.Digest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
-	tags, err := keppel.SelectSeveralValues[string](p.db, `SELECT name FROM tags WHERE repo_id = $1 AND digest = $2`, repo.ID, manifestDigest)
+	tags, err := oblast.Select[string](ctx, p.db, `SELECT name FROM tags WHERE repo_id = $1 AND digest = $2`, repo.ID, manifestDigest).Collect()
 	if err != nil {
 		return err
 	}
@@ -957,7 +958,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifestDigest)
 	if err != nil {
-		otherDigest, err2 := keppel.SelectOneValue[string](p.db,
+		otherDigest, err2 := oblast.SelectOne[string](ctx, p.db,
 			`SELECT parent_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND child_digest = $2 LIMIT 1`,
 			repo.ID, manifestDigest)
 		// more than one manifest is referenced by another manifest
@@ -1021,14 +1022,14 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 
 // DeleteTag deletes the given tag from the database. The manifest is not deleted.
 // If the tag does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.ReducedRepository, tagName string, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
+func (p *Processor) DeleteTag(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, tagName string, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
 	for _, tagPolicy := range tagPolicies {
 		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{tagName}) {
 			return keppel.ErrDenied.With("cannot delete tag as it is protected by a tag_policy").WithStatus(http.StatusConflict)
 		}
 	}
 
-	digestStr, err := keppel.SelectOneValue[string](p.db,
+	digestStr, err := oblast.SelectOne[string](ctx, p.db,
 		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
 		repo.ID, tagName)
 	if err != nil {

@@ -22,6 +22,7 @@ import (
 	"go.podman.io/image/v5/manifest"
 	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -615,7 +616,7 @@ func TestRuleForManifest(t *testing.T) {
 
 func expectLabelsJSONOnManifest(t *testing.T, db *gsql.DB, manifestDigest digest.Digest, expected map[string]string) {
 	t.Helper()
-	labelsJSONStr := must.ReturnT(keppel.SelectOneValue[string](db, `SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String()))(t)
+	labelsJSONStr := must.ReturnT(oblast.SelectOne[string](t.Context(), db, `SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String()))(t)
 
 	var actual map[string]string
 	must.SucceedT(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
@@ -671,7 +672,7 @@ func TestManifestAnnotations(t *testing.T) {
 		image.MustUpload(t, s, fooRepoRef, "latest")
 
 		// check that the annotations_json field is populated correctly in the DB
-		labelsJSONStr := must.ReturnT(keppel.SelectOneValue[string](s.DB, `SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
+		labelsJSONStr := must.ReturnT(oblast.SelectOne[string](t.Context(), s.DB, `SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 
 		var actual map[string]string
 		must.SucceedT(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
@@ -688,7 +689,7 @@ func TestManifestArtifactType(t *testing.T) {
 		image.MustUpload(t, s, fooRepoRef, "latest")
 
 		// check that the artifact_type field is populated correctly in the DB
-		actualArtifactType := must.ReturnT(keppel.SelectOneValue[string](s.DB, `SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
+		actualArtifactType := must.ReturnT(oblast.SelectOne[string](t.Context(), s.DB, `SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 		assert.Equal(t, actualArtifactType, artifactType)
 	})
 }

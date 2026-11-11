@@ -28,6 +28,7 @@ import (
 	"github.com/sapcc/go-bits/syncext"
 	imageManifest "go.podman.io/image/v5/manifest"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -727,7 +728,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 			securityStatuses = append(securityStatuses, status)
 
 			// abort if the account is in deletion mode in the meantime
-			accountIsInDeleting, err := keppel.SelectOneValue[bool](j.db, `SELECT is_deleting FROM accounts WHERE name = $1`, account.Name)
+			accountIsInDeleting, err := oblast.SelectOne[bool](ctx, j.db, `SELECT is_deleting FROM accounts WHERE name = $1`, account.Name)
 			if err != nil {
 				return fmt.Errorf("could not check if account %s is in deletion mode: %w", account.Name, err)
 			}
@@ -750,7 +751,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	// could the image have constituent images?
 	if manifest.MediaType != imageManifest.DockerV2Schema2MediaType && manifest.MediaType != imagespecs.MediaTypeImageManifest {
 		// collect vulnerability status of constituent images
-		substatuses, err := keppel.SelectSeveralValues[models.VulnerabilityStatus](j.db, securityInfoCheckSubmanifestInfoQuery, repo.ID, manifest.Digest)
+		substatuses, err := oblast.Select[models.VulnerabilityStatus](ctx, j.db, securityInfoCheckSubmanifestInfoQuery, repo.ID, manifest.Digest).Collect()
 		if err != nil {
 			return err
 		}

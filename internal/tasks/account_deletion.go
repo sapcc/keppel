@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -44,8 +45,8 @@ var (
 	`)
 )
 
-func (j *Janitor) discoverAccountForDeletion(_ context.Context, _ prometheus.Labels) (accountName models.AccountName, err error) {
-	return keppel.SelectOneValue[models.AccountName](j.db, accountDeletionSelectQuery, j.timeNow())
+func (j *Janitor) discoverAccountForDeletion(ctx context.Context, _ prometheus.Labels) (accountName models.AccountName, err error) {
+	return oblast.SelectOne[models.AccountName](ctx, j.db, accountDeletionSelectQuery, j.timeNow())
 }
 
 var (
@@ -138,7 +139,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 
 	// the section above could only delete manifests that are not referenced by others;
 	// if there is stuff left over, restart the loop
-	manifestCount, err := keppel.SelectOneValue[uint64](j.db, deleteAccountCountManifestsQuery, account.Name)
+	manifestCount, err := oblast.SelectOne[uint64](ctx, j.db, deleteAccountCountManifestsQuery, account.Name)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	}
 
 	// can only delete account when all blobs have been deleted
-	blobCount, err := keppel.SelectOneValue[uint64](j.db, deleteAccountCountBlobsQuery, account.Name)
+	blobCount, err := oblast.SelectOne[uint64](ctx, j.db, deleteAccountCountBlobsQuery, account.Name)
 	if err != nil {
 		return err
 	}

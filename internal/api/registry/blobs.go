@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/api"
@@ -202,7 +203,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// can only delete blob mount if it's not used by any manifests
-	refCount, err := keppel.SelectOneValue[uint64](a.db, `SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
+	refCount, err := oblast.SelectOne[uint64](ctx, a.db, `SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, r, err) {
 		return
 	}

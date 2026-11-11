@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -60,8 +62,8 @@ var getTagPolicyByAccountNameQuery = sqlext.SimplifyWhitespace(`
 
 // GetTagPolicies is used to read tag policies of an account.
 // It is used when the initial AuthN/AuthZ check of an API call only loaded a ReducedAccount for performance reasons.
-func GetTagPolicies(db *gsql.DB, account models.ReducedAccount) ([]keppel.TagPolicy, error) {
-	tagPoliciesStr, err := keppel.SelectOneValue[string](db, getTagPolicyByAccountNameQuery, account.Name)
+func GetTagPolicies(ctx context.Context, db *gsql.DB, account models.ReducedAccount) ([]keppel.TagPolicy, error) {
+	tagPoliciesStr, err := oblast.SelectOne[string](ctx, db, getTagPolicyByAccountNameQuery, account.Name)
 	if err != nil {
 		return nil, err
 	}
