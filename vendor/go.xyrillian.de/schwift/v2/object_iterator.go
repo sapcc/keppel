@@ -138,7 +138,7 @@ func (i *ObjectIterator) NextPageDetailed(ctx context.Context, limit int) ([]Obj
 			result[idx].ContentType = data.ContentType
 			result[idx].Etag = data.Etag
 			result[idx].SizeBytes = data.SizeBytes
-			result[idx].LastModified, err = time.Parse(time.RFC3339Nano, data.LastModifiedStr+"Z")
+			result[idx].LastModified, err = parseSwiftLastModified(data.LastModifiedStr)
 			if err != nil {
 				// this error is sufficiently obscure that we don't need to expose a type for it
 				return nil, fmt.Errorf("bad field objects[%d].last_modified: %s", idx, err.Error())

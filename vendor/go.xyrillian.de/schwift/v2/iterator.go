@@ -9,7 +9,17 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
+
+func parseSwiftLastModified(value string) (time.Time, error) {
+	// Swift listings traditionally omit the timezone, which is implicitly UTC.
+	// Some Swift-compatible APIs include a timezone, so try the value as-is first.
+	if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		return parsed, nil
+	}
+	return time.Parse(time.RFC3339Nano, value+"Z")
+}
 
 // iteratorInterface allows iteratorBase to access public attributes of
 // ContainerIterator/ObjectIterator.

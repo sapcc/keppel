@@ -1,4 +1,4 @@
-// // SPDX-FileCopyrightText: 2018 Stefan Majewsky <majewsky@gmx.net>
+// SPDX-FileCopyrightText: 2018 Stefan Majewsky <majewsky@gmx.net>
 // SPDX-License-Identifier: Apache-2.0
 
 // Package capabilities contains feature switches that Schwift's unit tests can

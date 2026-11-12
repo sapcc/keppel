@@ -4,4 +4,4 @@
 package schwift
 
 // Version contains the version number of Schwift.
-const Version = "2.2.1"
+const Version = "2.2.2"

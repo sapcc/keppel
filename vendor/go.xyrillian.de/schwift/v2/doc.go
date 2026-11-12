@@ -92,4 +92,4 @@ that can be detected this way by stating that "This method fails with
 http.StatusXXX if ...". Because of the wide variety of failure modes in Swift,
 this information is not guaranteed to be exhaustive.
 */
-package schwift // import "go.xyrillian.de/schwift/v2"
+package schwift
