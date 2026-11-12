@@ -62,4 +62,4 @@ See also: [List of available API attributes](https://github.com/sapcc/go-bits/bl
 
 [limes]: https://github.com/sapcc/limes
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html
-[os-pol-json]: https://docs.openstack.org/oslo.policy/latest/admin/policy-json-file.html
+[os-pol-json]: https://docs.openstack.org/oslo.policy/latest/admin/policy-yaml-file.html
