@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/alicebob/miniredis/v2"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,6 +26,7 @@ import (
 	"github.com/sapcc/go-bits/mock"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
+	gg_pgx "go.xyrillian.de/gg-pgx"
 	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
 	"go.xyrillian.de/gg/pgruntime"
@@ -151,7 +154,7 @@ func WithoutCurrentIssuerKey(params *setupParams) {
 type Setup struct {
 	// fields that are always set
 	Config       keppel.Configuration
-	DB           *gsql.DB
+	DB           *gg_pgx.Pool
 	Clock        *mock.Clock
 	SIDGenerator *StorageIDGenerator
 	Auditor      *audittools.MockAuditor
@@ -251,7 +254,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	if params.IsSecondary {
 		dbOpts = append(dbOpts, pgruntime.OverrideDatabaseName(t.Name()+"_secondary"))
 	}
-	s.DB, _ = pgruntime.StdConnector("postgres").ConnectForTest(t, keppel.DBConfiguration(), dbOpts...)
+	s.DB, _ = gg_pgx.PoolConnector().ConnectForTest(t, keppel.DBConfiguration(), dbOpts...)
 
 	// setup anycast if requested
 	if params.WithAnycast {
@@ -372,7 +375,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 }
 
 // MustExec is a test helper function that executes a DB query and fails the test if it returns an error.
-func MustExec(t *testing.T, db *gsql.DB, query string, args ...any) {
+func MustExec(t *testing.T, db *gg_pgx.Pool, query string, args ...any) {
 	t.Helper()
 	_, err := gsql.Exec(t.Context(), db, query, args...)
 	must.SucceedT(t, err)

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
@@ -30,7 +32,7 @@ var createOrUpdatePeerQuery = sqlext.SimplifyWhitespace(`
 		ON CONFLICT (hostname) DO UPDATE SET use_for_pull_delegation = EXCLUDED.use_for_pull_delegation
 `)
 
-func runPeering(ctx context.Context, cfg keppel.Configuration, db *gsql.DB) {
+func runPeering(ctx context.Context, cfg keppel.Configuration, db *gg_pgx.Pool) {
 	isPeerHostName := make(map[string]bool)
 
 	var peeringCfg peeringConfig

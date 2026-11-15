@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -31,7 +32,7 @@ type API struct {
 	fd      keppel.FederationDriver
 	sd      keppel.StorageDriver
 	icd     keppel.InboundCacheDriver
-	db      *gsql.DB
+	db      *gg_pgx.Pool
 	auditor audittools.Auditor
 	rle     *keppel.RateLimitEngine // may be nil
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
@@ -40,7 +41,7 @@ type API struct {
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *gsql.DB, auditor audittools.Auditor, rle *keppel.RateLimitEngine) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *gg_pgx.Pool, auditor audittools.Auditor, rle *keppel.RateLimitEngine) *API {
 	return &API{cfg, ad, fd, sd, icd, db, auditor, rle, time.Now, keppel.GenerateStorageID}
 }
 

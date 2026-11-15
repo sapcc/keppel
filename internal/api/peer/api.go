@@ -7,8 +7,9 @@ import (
 	"context"
 	"net/http"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-bits/httpapi"
-	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -21,11 +22,11 @@ import (
 type API struct {
 	cfg keppel.Configuration
 	ad  keppel.AuthDriver
-	db  *gsql.DB
+	db  *gg_pgx.Pool
 }
 
 // NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *gsql.DB) *API {
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *gg_pgx.Pool) *API {
 	return &API{cfg, ad, db}
 }
 

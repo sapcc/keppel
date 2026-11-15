@@ -7,14 +7,9 @@ import (
 	"context"
 	_ "embed"
 
-	"github.com/dlmiddlecote/sqlstats"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/must"
-	"go.xyrillian.de/gg/gsql"
+	gg_pgx "go.xyrillian.de/gg-pgx"
 	"go.xyrillian.de/gg/pgruntime"
-
-	// include SQL driver
-	_ "github.com/lib/pq"
 )
 
 //go:embed database-baseline.sql
@@ -65,12 +60,12 @@ func DBConfiguration() pgruntime.ConnectionBehavior {
 
 // InitDB initializes a DB connection for productive use.
 // (Tests use the DB connection logic in test.NewSetup() instead.)
-func InitDB(ctx context.Context) *gsql.DB {
+func InitDB(ctx context.Context) *gg_pgx.Pool {
 	target := getDatabaseURLFromEnvironment()
-	dbConn := must.Return(pgruntime.StdConnector("postgres").Connect(ctx, target, DBConfiguration()))
+	dbConn := must.Return(gg_pgx.PoolConnector().Connect(ctx, target, DBConfiguration()))
 	// ensure that this process does not starve other Keppel processes for DB connections
-	dbConn.SetMaxOpenConns(16)
+	// TODO: dbConn.SetMaxOpenConns(16)
 
-	prometheus.MustRegister(sqlstats.NewStatsCollector(target.DatabaseName, dbConn))
+	// TODO: prometheus.MustRegister(sqlstats.NewStatsCollector(target.DatabaseName, dbConn))
 	return dbConn
 }

@@ -11,9 +11,10 @@ import (
 	"strconv"
 	"testing"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
-	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pgruntime"
 
@@ -113,7 +114,7 @@ func testWithAllReplicaTypes(t *testing.T, s1 test.Setup, action func(strategy s
 
 // To be called inside testWithReplica() if the test is specifically about
 // testing how anycast requests are redirected between peers.
-func testAnycast(t *testing.T, firstPass bool, db2 *gsql.DB, action func()) {
+func testAnycast(t *testing.T, firstPass bool, db2 *gg_pgx.Pool, action func()) {
 	t.Helper()
 
 	// the second pass of testWithReplica() has a severed network connection, so anycast is not possible
@@ -207,7 +208,7 @@ func expectManifestExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoN
 	}
 }
 
-func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gsql.DB) {
+func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gg_pgx.Pool) {
 	t.Helper()
 	ctx := t.Context()
 
@@ -250,7 +251,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gsql.DB) {
 }
 
 //nolint:unparam
-func testWithAccountIsDeleting(t *testing.T, db *gsql.DB, accountName models.AccountName, action func()) {
+func testWithAccountIsDeleting(t *testing.T, db *gg_pgx.Pool, accountName models.AccountName, action func()) {
 	test.MustExec(t, db, "UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName)
 	action()
 	test.MustExec(t, db, "UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName)

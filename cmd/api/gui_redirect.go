@@ -8,10 +8,11 @@ import (
 	"slices"
 	"strings"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
-	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -20,7 +21,7 @@ import (
 
 // guiRedirecter is an api.API that implements the GUI redirect.
 type guiRedirecter struct {
-	db     *gsql.DB
+	db     *gg_pgx.Pool
 	urlStr string
 }
 

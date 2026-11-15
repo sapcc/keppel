@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-api-declarations/liquid"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
 	"go.xyrillian.de/gg/pathrouter"
 
@@ -31,14 +32,14 @@ type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
 	sd         keppel.StorageDriver
-	db         *gsql.DB
+	db         *gg_pgx.Pool
 	auditor    audittools.Auditor
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow func() time.Time
 }
 
 // NewLiquidAPI constructs a new LiquidAPI instance.
-func NewLiquidAPI(cfg keppel.Configuration, ad keppel.AuthDriver, sd keppel.StorageDriver, db *gsql.DB, auditor audittools.Auditor) *API {
+func NewLiquidAPI(cfg keppel.Configuration, ad keppel.AuthDriver, sd keppel.StorageDriver, db *gg_pgx.Pool, auditor audittools.Auditor) *API {
 	return &API{cfg, ad, sd, db, auditor, time.Now}
 }
 

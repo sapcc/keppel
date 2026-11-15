@@ -13,11 +13,12 @@ import (
 	"testing"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/respondwith"
-	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -423,7 +424,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
 			// reconfigure "test1" into an external replica of tertiary
-			for _, db := range []*gsql.DB{s1.DB, s2.DB} {
+			for _, db := range []*gg_pgx.Pool{s1.DB, s2.DB} {
 				test.MustExec(t, db, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2, next_platform_filter_sync_at = NULL WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
 			}

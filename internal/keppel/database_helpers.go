@@ -10,6 +10,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/sqlext"
+	gg_pgx "go.xyrillian.de/gg-pgx"
 	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 
@@ -144,7 +145,7 @@ func AtLeastZero[I interface{ int | int64 }](x I) uint64 {
 
 // FindOrCreateRepository works similar to Store.SelectOne(), but autovivifies a Repository record when none exists yet.
 // This function cannot take a transaction, because if it does insert, it must be committed before mosving on.
-func FindOrCreateRepository(ctx context.Context, db *gsql.DB, name string, accountName models.AccountName) (models.Repository, error) {
+func FindOrCreateRepository(ctx context.Context, db *gg_pgx.Pool, name string, accountName models.AccountName) (models.Repository, error) {
 	repo, err := FindRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		_, err = gsql.Exec(ctx, db, repoInsertIfMissingQuery, accountName, name)
@@ -174,7 +175,7 @@ func FindRepository(ctx context.Context, db gsql.Handle, name string, accountNam
 
 // FindOrCreateReducedRepository is like [FindOrCreateRepository], but is faster because it returns a ReducedRepository.
 // This function cannot take a transaction, because if it does insert, it must be committed before mosving on.
-func FindOrCreateReducedRepository(ctx context.Context, db *gsql.DB, name string, accountName models.AccountName) (models.ReducedRepository, error) {
+func FindOrCreateReducedRepository(ctx context.Context, db *gg_pgx.Pool, name string, accountName models.AccountName) (models.ReducedRepository, error) {
 	repo, err := FindReducedRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		_, err = gsql.Exec(ctx, db, repoInsertIfMissingQuery, accountName, name)

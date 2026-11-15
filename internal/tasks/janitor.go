@@ -13,9 +13,10 @@ import (
 	"net/url"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
-	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -41,7 +42,7 @@ type Janitor struct {
 	fd      keppel.FederationDriver
 	sd      keppel.StorageDriver
 	icd     keppel.InboundCacheDriver
-	db      *gsql.DB
+	db      *gg_pgx.Pool
 	amd     keppel.AccountManagementDriver
 	auditor audittools.Auditor
 
@@ -52,7 +53,7 @@ type Janitor struct {
 }
 
 // NewJanitor creates a new Janitor.
-func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *gsql.DB, amd keppel.AccountManagementDriver, auditor audittools.Auditor) *Janitor {
+func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *gg_pgx.Pool, amd keppel.AccountManagementDriver, auditor audittools.Auditor) *Janitor {
 	j := &Janitor{cfg, fd, sd, icd, db, amd, auditor, time.Now, keppel.GenerateStorageID, addJitter}
 	return j
 }

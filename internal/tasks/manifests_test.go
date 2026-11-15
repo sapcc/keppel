@@ -13,13 +13,14 @@ import (
 	"testing"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/opencontainers/go-digest"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
-	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
@@ -33,7 +34,7 @@ import (
 
 // Base behavior for various unit tests that start with the same image list, destroy
 // it in various ways, and check that ManifestValidationJob correctly fixes it.
-func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*gsql.DB, []int64, []string)) {
+func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*gg_pgx.Pool, []int64, []string)) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 	validateManifestJob := j.ManifestValidationJob(s.Registry)
@@ -90,28 +91,28 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*gsql.
 }
 
 func TestManifestValidationJobFixesWrongSize(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *gsql.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *gg_pgx.Pool, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestBlobRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *gsql.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *gg_pgx.Pool, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestManifestRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *gsql.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *gg_pgx.Pool, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `DELETE FROM manifest_manifest_refs`)
 	})
 }
 
 func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *gsql.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *gg_pgx.Pool, allBlobIDs []int64, allManifestDigests []string) {
 		for _, id := range allBlobIDs {
 			for _, d := range allManifestDigests {
 				test.MustExec(t, db, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d, id)
@@ -121,7 +122,7 @@ func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
 }
 
 func TestManifestValidationJobFixesSuperfluousManifestManifestRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *gsql.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *gg_pgx.Pool, allBlobIDs []int64, allManifestDigests []string) {
 		_ = allBlobIDs
 		for _, d1 := range allManifestDigests {
 			for _, d2 := range allManifestDigests {
@@ -222,7 +223,7 @@ func TestManifestSyncJob(t *testing.T) {
 			}
 
 			// some of the replicated images are also tagged
-			for _, db := range []*gsql.DB{s1.DB, s2.DB} {
+			for _, db := range []*gg_pgx.Pool{s1.DB, s2.DB} {
 				for _, tagName := range []string{"latest", "other"} {
 					test.MustExec(t, db,
 						`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,

@@ -12,8 +12,9 @@ import (
 	"strings"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-bits/audittools"
-	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -25,7 +26,7 @@ import (
 // lockstep with StorageDriver accesses.
 type Processor struct {
 	cfg         keppel.Configuration
-	db          *gsql.DB
+	db          *gg_pgx.Pool
 	fd          keppel.FederationDriver
 	sd          keppel.StorageDriver
 	icd         keppel.InboundCacheDriver
@@ -38,7 +39,7 @@ type Processor struct {
 }
 
 // New creates a new Processor.
-func New(cfg keppel.Configuration, db *gsql.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
+func New(cfg keppel.Configuration, db *gg_pgx.Pool, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
 	return &Processor{cfg, db, fd, sd, icd, auditor, make(map[string]*client.RepoClient), timenow, keppel.GenerateStorageID}
 }
 
@@ -62,7 +63,7 @@ func (p *Processor) OverrideGenerateStorageID(generateStorageID func() string) *
 // NOTE: This method is not used widely at the moment because callers usually
 // have direct access to `db` and `sd`, but my plan is to convert most or all DB
 // accesses into methods on type Processor eventually.
-func (p *Processor) WithLowlevelAccess(action func(*gsql.DB, keppel.StorageDriver) error) error {
+func (p *Processor) WithLowlevelAccess(action func(*gg_pgx.Pool, keppel.StorageDriver) error) error {
 	return action(p.db, p.sd)
 }
 

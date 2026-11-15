@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2025 Stefan Majewsky <majewsky@gmx.net>
+# SPDX-License-Identifier: Apache-2.0
+version = 1
+SPDX-PackageName = "gg-pgx"
+SPDX-PackageDownloadLocation = "https://git.xyrillian.de/go-gg-pgx"
+
+[[annotations]]
+path = [
+  ".gitignore",
+  "description",
+  "go.mod",
+  "go.sum",
+]
+SPDX-FileCopyrightText = "Stefan Majewsky <majewsky@gmx.net>"
+SPDX-License-Identifier = "Apache-2.0"

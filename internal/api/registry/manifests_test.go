@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/easypg"
@@ -21,7 +23,6 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
 	"go.xyrillian.de/gg/assert"
-	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -614,7 +615,7 @@ func TestRuleForManifest(t *testing.T) {
 	})
 }
 
-func expectLabelsJSONOnManifest(t *testing.T, db *gsql.DB, manifestDigest digest.Digest, expected map[string]string) {
+func expectLabelsJSONOnManifest(t *testing.T, db *gg_pgx.Pool, manifestDigest digest.Digest, expected map[string]string) {
 	t.Helper()
 	labelsJSONStr := must.ReturnT(oblast.SelectOne[string](t.Context(), db, `SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String()))(t)
 

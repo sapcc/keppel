@@ -10,7 +10,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
@@ -57,7 +56,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// load full accounts
-	accounts, err := models.AccountStore.SelectWhere(ctx, a.db, `name = ANY($1) ORDER BY name`, pq.Array(accountNamesFiltered)).Collect()
+	accounts, err := models.AccountStore.SelectWhere(ctx, a.db, `name = ANY($1) ORDER BY name`, accountNamesFiltered).Collect()
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}

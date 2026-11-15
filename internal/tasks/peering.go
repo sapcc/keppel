@@ -16,6 +16,8 @@ import (
 	"net/url"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/errext"
@@ -38,7 +40,7 @@ var getNextPeerQuery = sqlext.SimplifyWhitespace(`
 // IssueNewPasswordForNextPeer issues a new replication password for a peer that needs one.
 //
 // If no peer needs to have a new password issued right now, returns nil without doing anything.
-func IssueNewPasswordForNextPeer(ctx context.Context, cfg keppel.Configuration, db *gsql.DB) (resultErr error) {
+func IssueNewPasswordForNextPeer(ctx context.Context, cfg keppel.Configuration, db *gg_pgx.Pool) (resultErr error) {
 	var (
 		peer        models.Peer
 		newPassword string

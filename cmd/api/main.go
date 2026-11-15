@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/cors"
@@ -20,6 +22,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
+	gg_pgx "go.xyrillian.de/gg-pgx"
 	"go.xyrillian.de/gg/gsql"
 
 	auth "github.com/sapcc/keppel/internal/api/auth"
@@ -120,7 +123,7 @@ func initRedis() (*redis.Client, error) {
 	return redis.NewClient(opts), nil
 }
 
-func setupDBIfRequested(ctx context.Context, db *gsql.DB) error {
+func setupDBIfRequested(ctx context.Context, db *gg_pgx.Pool) error {
 	// This method performs specialized first-time setup for conformance test
 	// scenarios where we always start with a fresh empty database.
 	//

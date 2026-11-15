@@ -9,8 +9,9 @@ import (
 	"errors"
 	"fmt"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-bits/httpext"
-	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
@@ -21,7 +22,7 @@ import (
 // Produces a new ScopeSet containing only those scopes that the given
 // `uid` is permitted to access and only those actions therein which this `uid`
 // is permitted to perform.
-func filterAuthorized(ctx context.Context, ir IncomingRequest, uid keppel.UserIdentity, audience Audience, db *gsql.DB) (ScopeSet, error) {
+func filterAuthorized(ctx context.Context, ir IncomingRequest, uid keppel.UserIdentity, audience Audience, db *gg_pgx.Pool) (ScopeSet, error) {
 	result := make(ScopeSet, 0, len(ir.Scopes))
 	// make sure that additional scopes get appended at the end, on the offchance
 	// that a client might parse its token and look at access[0] to check for its
@@ -83,7 +84,7 @@ func filterAuthorized(ctx context.Context, ir IncomingRequest, uid keppel.UserId
 	return append(result, additional...), nil
 }
 
-func addCatalogAccess(ctx context.Context, ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *gsql.DB) error {
+func addCatalogAccess(ctx context.Context, ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *gg_pgx.Pool) error {
 	var accounts []models.Account
 	if audience.AccountName == "" {
 		// on the standard API, all accounts are potentially accessible
@@ -117,7 +118,7 @@ func addCatalogAccess(ctx context.Context, ss *ScopeSet, uid keppel.UserIdentity
 	return nil
 }
 
-func filterRegistryActions(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *gsql.DB, scope Scope, additional *ScopeSet) ([]string, error) {
+func filterRegistryActions(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *gg_pgx.Pool, scope Scope, additional *ScopeSet) ([]string, error) {
 	var filtered []string
 
 	if audience.IsAnycast {
@@ -149,7 +150,7 @@ func filterRegistryActions(ctx context.Context, uid keppel.UserIdentity, audienc
 	return filtered, nil
 }
 
-func filterRepoActions(ctx context.Context, ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *gsql.DB) ([]string, error) {
+func filterRepoActions(ctx context.Context, ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *gg_pgx.Pool) ([]string, error) {
 	repoScope := scope.ParseRepositoryScope(audience)
 	if repoScope.RepositoryName == "" {
 		// this happens when we are not on a domain-remapped API and thus expect a
@@ -239,7 +240,7 @@ func filterRepoActions(ctx context.Context, ip string, scope Scope, uid keppel.U
 	return result, nil
 }
 
-func filterKeppelAccountActions(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *gsql.DB, scope Scope) ([]string, error) {
+func filterKeppelAccountActions(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *gg_pgx.Pool, scope Scope) ([]string, error) {
 	if audience.AccountName != "" && scope.ResourceName != string(audience.AccountName) {
 		// domain-remapped APIs only allow access to that API's account
 		return nil, nil

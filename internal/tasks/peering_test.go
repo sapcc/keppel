@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
+	gg_pgx "go.xyrillian.de/gg-pgx"
+
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
-	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
 	"go.xyrillian.de/gg/pathrouter"
 
@@ -94,7 +95,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	})
 }
 
-func getPeerFromDB(t *testing.T, db *gsql.DB) models.Peer {
+func getPeerFromDB(t *testing.T, db *gg_pgx.Pool) models.Peer {
 	t.Helper()
 	ctx := t.Context()
 	return must.ReturnT(models.PeerStore.SelectOneWhere(ctx, db, `use_for_pull_delegation`))(t)
