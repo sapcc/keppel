@@ -71,7 +71,7 @@ func IssueNewPasswordForNextPeer(ctx context.Context, cfg keppel.Configuration, 
 		// update password in our own DB - we need to do this first because, as soon
 		// as we send the HTTP request, the peer could come back to us at any time to
 		// verify the password
-		_, err = tx.Exec(`
+		_, err = gsql.Exec(ctx, tx, `
 		UPDATE peers SET
 			their_current_password_hash = $1,
 			their_previous_password_hash = their_current_password_hash,
@@ -96,7 +96,7 @@ func IssueNewPasswordForNextPeer(ctx context.Context, cfg keppel.Configuration, 
 		if resultErr == nil {
 			return
 		}
-		_, err := db.Exec(`
+		_, err := gsql.Exec(ctx, db, `
 			UPDATE peers SET
 				their_current_password_hash = $1,
 				their_previous_password_hash = $2,

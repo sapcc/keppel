@@ -691,7 +691,7 @@ func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gsql.Tx, sizeByt
 	// directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
 	// inserted because of ON CONFLICT, so in the general case, we need another
 	// SELECT to get the resulting blob anyway)
-	_, err := tx.Exec(insertBlobIfMissingQuery,
+	_, err := gsql.Exec(ctx, tx, insertBlobIfMissingQuery,
 		account.Name, blobDigest.String(), sizeBytes, storageID,
 		blobPushedAt, blobPushedAt.Add(models.BlobValidationInterval),
 	)

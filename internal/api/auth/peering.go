@@ -12,6 +12,7 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -74,7 +75,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// update database
-	_, err = a.db.Exec(
+	_, err = gsql.Exec(ctx, a.db,
 		`UPDATE peers SET our_password = $1 WHERE hostname = $2`,
 		req.Password, req.PeerHostName,
 	)

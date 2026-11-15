@@ -170,7 +170,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 	// to unblock others who are waiting for this replication to come to an end
 	// (one way or the other)
 	defer func() {
-		_, err := p.db.Exec(
+		_, err := gsql.Exec(ctx, p.db,
 			`DELETE FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
 			account.Name, blob.Digest,
 		)

@@ -4,6 +4,7 @@
 package apicmd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -50,7 +51,7 @@ func run(cmd *cobra.Command, args []string) {
 	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
 	db := keppel.InitDB(ctx)
-	must.Succeed(setupDBIfRequested(db))
+	must.Succeed(setupDBIfRequested(ctx, db))
 
 	rc := must.Return(initRedis())
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), rc))
@@ -119,7 +120,7 @@ func initRedis() (*redis.Client, error) {
 	return redis.NewClient(opts), nil
 }
 
-func setupDBIfRequested(db *gsql.DB) error {
+func setupDBIfRequested(ctx context.Context, db *gsql.DB) error {
 	// This method performs specialized first-time setup for conformance test
 	// scenarios where we always start with a fresh empty database.
 	//
@@ -129,7 +130,7 @@ func setupDBIfRequested(db *gsql.DB) error {
 		// clear out database before running conformance tests to be not out of sync with cleared out storage filedriver
 		// borrowed from test setup
 		for {
-			result := must.Return(db.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`))
+			result := must.Return(gsql.Exec(ctx, db, `DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`))
 			rowsDeleted := must.Return(result.RowsAffected())
 			if rowsDeleted == 0 {
 				break
@@ -148,7 +149,7 @@ func setupDBIfRequested(db *gsql.DB) error {
 		}
 
 		for _, query := range queries {
-			_, err := db.Exec(query)
+			_, err := gsql.Exec(ctx, db, query)
 			if err != nil {
 				return fmt.Errorf("while performing DB setup for conformance test: %w", err)
 			}

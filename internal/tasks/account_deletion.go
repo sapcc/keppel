@@ -83,7 +83,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 
 	defer func() {
 		if returnErr != nil {
-			_, err = j.db.Exec(`UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(10*time.Minute), account.Name)
+			_, err = gsql.Exec(ctx, j.db, `UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(10*time.Minute), account.Name)
 			if err != nil {
 				logg.Error("additional error encountered while marking account %q for deletion: %s", account.Name, err.Error())
 			}
@@ -153,7 +153,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	}
 
 	// delete all repos (and therefore, all blob mounts), so that blob sweeping can immediately take place
-	_, err = j.db.Exec(deleteAccountReposQuery, account.Name)
+	_, err = gsql.Exec(ctx, j.db, deleteAccountReposQuery, account.Name)
 	if err != nil {
 		return err
 	}
@@ -166,17 +166,17 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	if blobCount > 0 {
 		// make sure that blob sweep runs immediately
 		// TODO: how to prevent resetting time stamp if already set?
-		_, err := j.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, j.timeNow())
+		_, err := gsql.Exec(ctx, j.db, deleteAccountMarkAllBlobsForDeletionQuery, account.Name, j.timeNow())
 		if err != nil {
 			return err
 		}
 
-		_, err = j.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, j.timeNow())
+		_, err = gsql.Exec(ctx, j.db, deleteAccountScheduleBlobSweepQuery, account.Name, j.timeNow())
 		if err != nil {
 			return err
 		}
 
-		_, err = j.db.Exec(`UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(1*time.Minute), account.Name)
+		_, err = gsql.Exec(ctx, j.db, `UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(1*time.Minute), account.Name)
 		if err != nil {
 			return err
 		}

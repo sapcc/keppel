@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
@@ -94,7 +95,7 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 			UserIdentity: janitorUserIdentity{TaskName: "managed-account-enforcement"},
 			Request:      janitorDummyRequest,
 		}
-		err = j.processor().MarkAccountForDeletion(accountModel, actx)
+		err = j.processor().MarkAccountForDeletion(ctx, accountModel, actx)
 		if err == nil {
 			nextCheckDuration = 1 * time.Hour // account will be deleted -> defer next check until probably after it was deleted
 		} else {
@@ -104,7 +105,7 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 	}
 
 	// ...but depending on the outcome, we also update account.NextEnforcementAt as necessary
-	_, err2 := j.db.Exec(managedAccountEnforcementDoneQuery, accountName, j.timeNow().Add(j.addJitter(nextCheckDuration)))
+	_, err2 := gsql.Exec(ctx, j.db, managedAccountEnforcementDoneQuery, accountName, j.timeNow().Add(j.addJitter(nextCheckDuration)))
 	if err2 == nil {
 		return err
 	} else {

@@ -147,7 +147,7 @@ func AtLeastZero[I interface{ int | int64 }](x I) uint64 {
 func FindOrCreateRepository(ctx context.Context, db *gsql.DB, name string, accountName models.AccountName) (models.Repository, error) {
 	repo, err := FindRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
-		_, err = db.Exec(repoInsertIfMissingQuery, accountName, name)
+		_, err = gsql.Exec(ctx, db, repoInsertIfMissingQuery, accountName, name)
 		if err != nil {
 			return models.Repository{}, err
 		}
@@ -177,7 +177,7 @@ func FindRepository(ctx context.Context, db gsql.Handle, name string, accountNam
 func FindOrCreateReducedRepository(ctx context.Context, db *gsql.DB, name string, accountName models.AccountName) (models.ReducedRepository, error) {
 	repo, err := FindReducedRepository(ctx, db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
-		_, err = db.Exec(repoInsertIfMissingQuery, accountName, name)
+		_, err = gsql.Exec(ctx, db, repoInsertIfMissingQuery, accountName, name)
 		if err != nil {
 			return models.ReducedRepository{}, err
 		}

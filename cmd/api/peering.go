@@ -46,7 +46,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *gsql.DB) {
 		if peer.UseForPullDelegation != nil {
 			useForPullDelegation = *peer.UseForPullDelegation
 		}
-		_ = must.Return(db.Exec(createOrUpdatePeerQuery, peer.Hostname, useForPullDelegation))
+		_ = must.Return(gsql.Exec(ctx, db, createOrUpdatePeerQuery, peer.Hostname, useForPullDelegation))
 	}
 
 	// remove old entries from `peers` table
