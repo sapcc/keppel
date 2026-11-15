@@ -24,10 +24,10 @@ import (
 // Our benchmarking with the mattn/go-sqlite3 driver (and last checked with Go 1.26.2 on x86_64) indicates that this becomes a worthwhile investment at 8 or more records, so this is our default.
 // If your benchmarking indicates a different tradeoff depending on your choice of Go version or SQL driver, you may adjust this variable accordingly.
 //
-// The actual effect of this setting is to control the value of the "repeated" argument in [Handle.Prepare].
+// The actual effect of this setting is to control the value of the "repeated" argument in [gsql.Handle.Prepare].
 var PrepareThreshold int = 8
 
-// prepare behaves like [Handle.Prepare].
+// prepare behaves like [gsql.Handle.Prepare].
 func prepare(ctx context.Context, db gsql.Handle, readOnly bool, query, operation string, inputSize int) (gsql.Statement, error) {
 	if query == "" {
 		if readOnly {

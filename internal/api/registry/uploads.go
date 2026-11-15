@@ -729,9 +729,10 @@ func (a *API) abortBlobUpload(ctx context.Context, account models.ReducedAccount
 	// 3. The client drives the chunked upload to completion, so a Blob is created and the Upload is deleted in the DB.
 	// 4. The request from step 1 finally runs into a timeout in the storage backend
 	//    and runs AbortBlobUpload(), thus deleting data belonging to the finalized blob.
-	var deletedUpload models.Upload
-	err := a.db.QueryRow(`DELETE FROM uploads WHERE uuid = $1 AND repo_id = $2 RETURNING storage_id, num_chunks`,
-		originalUpload.UUID, originalUpload.RepositoryID).Scan(&deletedUpload.StorageID, &deletedUpload.NumChunks)
+	deletedUpload, err := models.UploadStore.SelectOne(ctx, a.db,
+		`DELETE FROM uploads WHERE uuid = $1 AND repo_id = $2 RETURNING *`,
+		originalUpload.UUID, originalUpload.RepositoryID,
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil

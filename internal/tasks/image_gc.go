@@ -207,7 +207,7 @@ outer:
 		}
 	}
 
-	return j.persistGCStatus(manifests, repo.ID)
+	return j.persistGCStatus(ctx, manifests, repo.ID)
 }
 
 func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor, manifests []*manifestData, account models.ReducedAccount, repo models.Repository, gcPolicy keppel.GCPolicy, tagPolicies []keppel.TagPolicy) error {
@@ -273,10 +273,10 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 	return nil
 }
 
-func (j *Janitor) persistGCStatus(manifests []*manifestData, repoID int64) error {
+func (j *Janitor) persistGCStatus(ctx context.Context, manifests []*manifestData, repoID int64) error {
 	// finalize and persist GCStatus for all affected manifests
 	query := `UPDATE manifests SET gc_status_json = $1 WHERE repo_id = $2 AND digest = $3`
-	err := sqlext.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {
+	err := gsql.WithPreparedStatement(ctx, j.db, query, func(stmt gsql.PreparedStatement) error {
 		for _, m := range manifests {
 			if m.IsDeleted {
 				continue
@@ -290,7 +290,7 @@ func (j *Janitor) persistGCStatus(manifests []*manifestData, repoID int64) error
 			if err != nil {
 				return err
 			}
-			_, err = stmt.Exec(string(gcStatusJSON), repoID, m.Manifest.Digest)
+			_, err = stmt.Exec(ctx, string(gcStatusJSON), repoID, m.Manifest.Digest)
 			if err != nil {
 				return err
 			}

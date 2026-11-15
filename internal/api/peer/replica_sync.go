@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -78,13 +79,13 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	// update our own last_pulled_at timestamps to cover pulls performed on the replica side
 	query := `UPDATE manifests SET last_pulled_at = $3 WHERE repo_id = $1 AND digest = $2 AND (last_pulled_at IS NULL OR last_pulled_at < $3)`
 	if hasManifestsLastPulledAt {
-		err = sqlext.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
+		err = gsql.WithPreparedStatement(ctx, a.db, query, func(stmt gsql.PreparedStatement) error {
 			for _, m := range req.Manifests {
 				lastPulledAt, ok := m.LastPulledAt.Unpack()
 				if !ok {
 					continue
 				}
-				_, err := stmt.Exec(repo.ID, m.Digest, time.Unix(lastPulledAt, 0))
+				_, err := stmt.Exec(ctx, repo.ID, m.Digest, time.Unix(lastPulledAt, 0))
 				if err != nil {
 					return err
 				}
@@ -98,14 +99,14 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	query = `UPDATE tags SET last_pulled_at = $4 WHERE repo_id = $1 AND digest = $2 AND name = $3 AND (last_pulled_at IS NULL OR last_pulled_at < $4)`
 	if hasTagsLastPulledAt {
-		err = sqlext.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
+		err = gsql.WithPreparedStatement(ctx, a.db, query, func(stmt gsql.PreparedStatement) error {
 			for _, m := range req.Manifests {
 				for _, t := range m.Tags {
 					lastPulledAt, ok := t.LastPulledAt.Unpack()
 					if !ok {
 						continue
 					}
-					_, err := stmt.Exec(repo.ID, m.Digest, t.Name, time.Unix(lastPulledAt, 0))
+					_, err := stmt.Exec(ctx, repo.ID, m.Digest, t.Name, time.Unix(lastPulledAt, 0))
 					if err != nil {
 						return err
 					}

@@ -25,7 +25,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.42.0
-	go.xyrillian.de/gg v1.21.0
+	go.xyrillian.de/gg v1.21.1-0.20261115222501-0aaaa36644ec
 	go.xyrillian.de/schwift/v2 v2.2.2
 )
 

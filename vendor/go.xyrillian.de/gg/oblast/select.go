@@ -287,21 +287,41 @@ func startSelectValueQuery(ctx context.Context, db gsql.Handle, query string, ar
 // or whatever the equivalent for the DB handle in question is.
 //
 // If there are no rows in the result set, [sql.ErrNoRows] is returned.
-func SelectOne[T any](ctx context.Context, db gsql.Handle, query string, args ...any) (T, error) {
+//
+// There are also [SelectTwo] or [SelectThree] for ad-hoc queries returning more than one value.
+// Beyond two or three return values, it is usually more readable to declare an (ad-hoc) struct type and use either [Store.SelectOne] or [TupleSelectOne].
+func SelectOne[T any](ctx context.Context, db gsql.Handle, query string, args ...any) (result T, err error) {
 	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
 	//       Any expression that does not depend on type R should be factored out into a reusable function.
 
-	var result T
-	err := selectOneValue(ctx, db, &result, query, args)
-	return result, err
+	err = selectOneRowOfValues(ctx, db, []any{&result}, query, args)
+	return
 }
 
-func selectOneValue(ctx context.Context, db gsql.Handle, target any, query string, args []any) error {
+// SelectTwo is like [SelectOne], but for queries returning exactly one row containing exactly *two* values.
+func SelectTwo[T, U any](ctx context.Context, db gsql.Handle, query string, args ...any) (result1 T, result2 U, err error) {
+	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
+	//       Any expression that does not depend on type R should be factored out into a reusable function.
+
+	err = selectOneRowOfValues(ctx, db, []any{&result1, &result2}, query, args)
+	return
+}
+
+// SelectThree is like [SelectOne], but for queries returning exactly one row containing exactly *three* values.
+func SelectThree[T, U, V any](ctx context.Context, db gsql.Handle, query string, args ...any) (result1 T, result2 U, result3 V, err error) {
+	// NOTE: This function body should be as short as possible to reduce the binary size after monomorphization.
+	//       Any expression that does not depend on type R should be factored out into a reusable function.
+
+	err = selectOneRowOfValues(ctx, db, []any{&result1, &result2, &result3}, query, args)
+	return
+}
+
+func selectOneRowOfValues(ctx context.Context, db gsql.Handle, targets []any, query string, args []any) error {
 	stmt, err := db.GSQLPrepare(ctx, query, false)
 	if err != nil {
 		return err
 	}
-	err = stmt.QueryRow(ctx, args, []any{target})
+	err = stmt.QueryRow(ctx, args, targets)
 	return errext.WithCleanup(err, "Stmt.Close", stmt.Close())
 }
 

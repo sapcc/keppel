@@ -11,6 +11,7 @@ import (
 
 	"github.com/sapcc/go-bits/httpext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -39,7 +40,7 @@ func filterAuthorized(ctx context.Context, ir IncomingRequest, uid keppel.UserId
 
 		case "repository":
 			ip := httpext.GetRequesterIPFor(ir.HTTPRequest)
-			filtered.Actions, err = filterRepoActions(ip, scope, uid, audience, db)
+			filtered.Actions, err = filterRepoActions(ctx, ip, scope, uid, audience, db)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +149,7 @@ func filterRegistryActions(ctx context.Context, uid keppel.UserIdentity, audienc
 	return filtered, nil
 }
 
-func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *gsql.DB) ([]string, error) {
+func filterRepoActions(ctx context.Context, ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *gsql.DB) ([]string, error) {
 	repoScope := scope.ParseRepositoryScope(audience)
 	if repoScope.RepositoryName == "" {
 		// this happens when we are not on a domain-remapped API and thus expect a
@@ -165,10 +166,10 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 		authTenantID     string
 		rbacPoliciesJSON []byte
 	)
-	err := db.QueryRow(
+	authTenantID, rbacPoliciesJSON, err := oblast.SelectTwo[string, []byte](ctx, db,
 		`SELECT auth_tenant_id, rbac_policies_json FROM accounts WHERE name = $1`,
 		repoScope.AccountName,
-	).Scan(&authTenantID, &rbacPoliciesJSON)
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		// if the account does not exist, we cannot give access to it
 		// (this is not an error, because an error would leak information on which accounts exist)

@@ -339,11 +339,11 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		if err != nil {
 			return err
 		}
-		err = maintainManifestBlobRefs(tx, *manifest, refsInfo.BlobRefs)
+		err = maintainManifestBlobRefs(ctx, tx, *manifest, refsInfo.BlobRefs)
 		if err != nil {
 			return err
 		}
-		err = maintainManifestManifestRefs(tx, *manifest, refsInfo.ManifestDigests)
+		err = maintainManifestManifestRefs(ctx, tx, *manifest, refsInfo.ManifestDigests)
 		if err != nil {
 			return err
 		}
@@ -569,15 +569,15 @@ func upsertTag(ctx context.Context, db gsql.Handle, t models.Tag) error {
 	return err
 }
 
-func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []blobRef) error {
+func maintainManifestBlobRefs(ctx context.Context, tx *gsql.Tx, m models.Manifest, referencedBlobs []blobRef) error {
 	// maintain media type on blobs (we have no way of knowing the media type of a
 	// blob when it gets uploaded by itself, but manifests always include the
 	// media type of each blob referenced therein; therefore now is our only
 	// chance to persist this information for future use)
 	query := `UPDATE blobs SET media_type = $1 WHERE id = $2 AND media_type != $1`
-	err := sqlext.WithPreparedStatement(tx, query, func(stmt *sql.Stmt) error {
+	err := gsql.WithPreparedStatement(ctx, tx, query, func(stmt gsql.PreparedStatement) error {
 		for _, blobRef := range referencedBlobs {
-			_, err := stmt.Exec(blobRef.MediaType, blobRef.ID)
+			_, err := stmt.Exec(ctx, blobRef.MediaType, blobRef.ID)
 			if err != nil {
 				return err
 			}
@@ -603,16 +603,16 @@ func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []
 
 	// create missing manifest_blob_refs
 	if len(referencedBlobs) > 0 {
-		err = sqlext.WithPreparedStatement(tx,
+		err = gsql.WithPreparedStatement(ctx, tx,
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
-			func(stmt *sql.Stmt) error {
+			func(stmt gsql.PreparedStatement) error {
 				for _, blobRef := range referencedBlobs {
 					if isExistingBlobIDRef[blobRef.ID] {
 						delete(isExistingBlobIDRef, blobRef.ID) // see below for why we do this
 						continue
 					}
 
-					_, err := stmt.Exec(m.RepositoryID, m.Digest, blobRef.ID)
+					_, err := stmt.Exec(ctx, m.RepositoryID, m.Digest, blobRef.ID)
 					if err != nil {
 						return err
 					}
@@ -629,11 +629,11 @@ func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []
 	// `isExistingBlobIDRef` in the previous loop, all entries left in it are
 	// definitely not in `referencedBlobIDs` and therefore need to be deleted)
 	if len(isExistingBlobIDRef) > 0 {
-		err = sqlext.WithPreparedStatement(tx,
+		err = gsql.WithPreparedStatement(ctx, tx,
 			`DELETE FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2 AND blob_id = $3`,
-			func(stmt *sql.Stmt) error {
+			func(stmt gsql.PreparedStatement) error {
 				for blobID := range isExistingBlobIDRef {
-					_, err := stmt.Exec(m.RepositoryID, m.Digest, blobID)
+					_, err := stmt.Exec(ctx, m.RepositoryID, m.Digest, blobID)
 					if err != nil {
 						return err
 					}
@@ -649,7 +649,7 @@ func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []
 	return nil
 }
 
-func maintainManifestManifestRefs(tx *gsql.Tx, m models.Manifest, referencedManifestDigests []string) error {
+func maintainManifestManifestRefs(ctx context.Context, tx *gsql.Tx, m models.Manifest, referencedManifestDigests []string) error {
 	// find existing manifest_manifest_refs entries for this manifest
 	isExistingManifestDigestRef := make(map[string]bool)
 	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`
@@ -665,16 +665,16 @@ func maintainManifestManifestRefs(tx *gsql.Tx, m models.Manifest, referencedMani
 
 	// create missing manifest_manifest_refs
 	if len(referencedManifestDigests) > 0 {
-		err = sqlext.WithPreparedStatement(tx,
+		err = gsql.WithPreparedStatement(ctx, tx,
 			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
-			func(stmt *sql.Stmt) error {
+			func(stmt gsql.PreparedStatement) error {
 				for _, childDigest := range referencedManifestDigests {
 					if isExistingManifestDigestRef[childDigest] {
 						delete(isExistingManifestDigestRef, childDigest) // see below for why we do this
 						continue
 					}
 
-					_, err := stmt.Exec(m.RepositoryID, m.Digest, childDigest)
+					_, err := stmt.Exec(ctx, m.RepositoryID, m.Digest, childDigest)
 					if err != nil {
 						return err
 					}
@@ -692,11 +692,11 @@ func maintainManifestManifestRefs(tx *gsql.Tx, m models.Manifest, referencedMani
 	// are definitely not in `referencedManifestDigests` and therefore need to be
 	// deleted)
 	if len(isExistingManifestDigestRef) > 0 {
-		err = sqlext.WithPreparedStatement(tx,
+		err = gsql.WithPreparedStatement(ctx, tx,
 			`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2 AND child_digest = $3`,
-			func(stmt *sql.Stmt) error {
+			func(stmt gsql.PreparedStatement) error {
 				for childDigest := range isExistingManifestDigestRef {
-					_, err := stmt.Exec(m.RepositoryID, m.Digest, childDigest)
+					_, err := stmt.Exec(ctx, m.RepositoryID, m.Digest, childDigest)
 					if err != nil {
 						return err
 					}

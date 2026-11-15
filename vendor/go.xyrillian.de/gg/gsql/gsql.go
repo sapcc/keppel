@@ -55,7 +55,7 @@ type Handle interface {
 }
 
 // Statement represents a prepared statement returned from the GSQLPrepare() method of [Handle].
-// The Exec and QueryRow methods shall work similarly to the respective functions on [*sql.Tx], as indicated in the comments.
+// The Exec and QueryRow methods shall work similarly to the respective functions on [*sql.Stmt], as indicated in the comments.
 //
 // You will not need to interact with this type except when implementing your own [Handle].
 type Statement interface {
@@ -65,7 +65,7 @@ type Statement interface {
 	// The returned Result object must remain usable after Close() is called on this Statement instance.
 	Exec(ctx context.Context, args []any) (sql.Result, error)
 
-	// QueryRow works like stmt.QueryRow(ctx, args...).Scan(slots...).
+	// QueryRow works like stmt.QueryRowContext(ctx, args...).Scan(slots...).
 	QueryRow(ctx context.Context, args []any, slots []any) error
 }
 
@@ -98,6 +98,8 @@ func NoneIfNoRows[T any](value T, err error) (Option[T], error) {
 
 // Exec is a shorthand for preparing and executing a one-off query that returns an [sql.Result].
 //
+// For executing the same query multiple times, see [WithPreparedStatement].
+//
 // For shorthands involving [Statement.QueryRow] instead of [Statement.Exec],
 // look at Select() and SelectOne() in [gg/oblast].
 //
@@ -109,4 +111,30 @@ func Exec(ctx context.Context, db Handle, query string, args ...any) (sql.Result
 	}
 	result, err := stmt.Exec(ctx, args)
 	return result, errext.WithCleanup(err, "Statement.Close", stmt.Close())
+}
+
+// WithPreparedStatement is a shorthand for preparing a query to be executed multiple times.
+// The provided action callback will be executed with access to the [PreparedStatement],
+// which will automatically be closed once the callback returns.
+//
+// For executing a query just once, see [Exec].
+func WithPreparedStatement(ctx context.Context, db Handle, query string, action func(stmt PreparedStatement) error) error {
+	stmt, err := db.GSQLPrepare(ctx, query, true)
+	if err != nil {
+		return err
+	}
+	err = action(PreparedStatement{stmt})
+	return errext.WithCleanup(err, "Statement.Close", stmt.Close())
+}
+
+// PreparedStatement is made available to actions executed within [WithPreparedStatement];
+// see documentation over there for details.
+type PreparedStatement struct {
+	stmt Statement
+}
+
+// Exec is like [Statement.Exec], but takes args as a variadic parameter for ergonomic reasons.
+func (p PreparedStatement) Exec(ctx context.Context, args ...any) (sql.Result, error) {
+	// TODO(v2): change Statement.Exec to variadic and remove this type, using Statement directly instead
+	return p.stmt.Exec(ctx, args)
 }

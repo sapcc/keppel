@@ -11,3 +11,5 @@ import "go.xyrillian.de/gg/testcapture"
 // Functions in this package use this type instead of [testing.TB] to allow
 // mocks of [testing.TB] to be substituted in tests for this package.
 type TestingTB = testcapture.TestingTB
+
+// TODO: with 1.27 generic methods, we can finally build a worthy successor to go-bits/must.{SucceedT,ReturnT}: must := assert.Must(t), then must.Return() and must.Succeed() as normal; normal must.{Succeed,Return} should panic if testing.Testing
