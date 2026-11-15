@@ -17,7 +17,9 @@
   "constraints": {
     "go": "1.27"
   },
-  "dependencyDashboardOSVVulnerabilitySummary": "all",
+  "dependencyDashboard": {
+    "osvVulnerabilitySummary": "all"
+  },
   "osvVulnerabilityAlerts": true,
   "postUpdateOptions": [
     "gomodTidy",
