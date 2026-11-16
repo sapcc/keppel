@@ -15,6 +15,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/errext"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -61,7 +62,7 @@ func (j *Janitor) announceAccountToFederation(ctx context.Context, account model
 		logg.Error("cannot announce account %q to federation: %s", account.Name, err.Error())
 	}
 
-	_, err = j.db.Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	_, err = gsql.Exec(ctx, j.db, accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
 
@@ -107,7 +108,7 @@ func (j *Janitor) syncAccountPlatformFilter(ctx context.Context, account models.
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			err = fmt.Errorf("cannot sync platform filter for account %q: unknown peer %q", account.Name, account.UpstreamPeerHostName)
-			_, err2 := j.db.Exec(accountPlatformFilterSyncDoneQuery, account.Name, nextSyncAt)
+			_, err2 := gsql.Exec(ctx, j.db, accountPlatformFilterSyncDoneQuery, account.Name, nextSyncAt)
 			return errext.WithCleanup(err, "next_platform_filter_sync_at update", err2)
 		}
 		return fmt.Errorf("cannot find peer %q for account %q: %w", account.UpstreamPeerHostName, account.Name, err)
@@ -116,16 +117,16 @@ func (j *Janitor) syncAccountPlatformFilter(ctx context.Context, account models.
 	upstreamPlatformFilter, err := j.processor().GetPlatformFilterFromPrimaryAccount(ctx, peer, account)
 	if err != nil {
 		err = fmt.Errorf("cannot sync platform filter for account %q from peer %q: %s", account.Name, account.UpstreamPeerHostName, err.Error())
-		_, err2 := j.db.Exec(accountPlatformFilterSyncDoneQuery, account.Name, nextSyncAt)
+		_, err2 := gsql.Exec(ctx, j.db, accountPlatformFilterSyncDoneQuery, account.Name, nextSyncAt)
 		return errext.WithCleanup(err, "next_platform_filter_sync_at update", err2)
 	}
 
 	if account.PlatformFilter.IsEqualTo(upstreamPlatformFilter) {
-		_, err = j.db.Exec(accountPlatformFilterSyncDoneQuery, account.Name, nextSyncAt)
+		_, err = gsql.Exec(ctx, j.db, accountPlatformFilterSyncDoneQuery, account.Name, nextSyncAt)
 		return err
 	}
 
 	logg.Info("updating platform filter for account %q from peer %q", account.Name, account.UpstreamPeerHostName)
-	_, err = j.db.Exec(accountPlatformFilterUpdateQuery, account.Name, upstreamPlatformFilter, nextSyncAt)
+	_, err = gsql.Exec(ctx, j.db, accountPlatformFilterUpdateQuery, account.Name, upstreamPlatformFilter, nextSyncAt)
 	return err
 }

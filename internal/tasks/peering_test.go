@@ -42,7 +42,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		var issuedPasswords []string
 		for range []int{0, 1, 2, 3, 4} {
 			// mark peer as stale, so IssueNewPasswordForNextPeer() will touch it
-			_ = must.ReturnT(s.DB.Exec(`UPDATE peers SET last_peered_at = $1 WHERE use_for_pull_delegation`, time.Now().Add(-1*time.Hour)))(t)
+			test.MustExec(t, s.DB, `UPDATE peers SET last_peered_at = $1 WHERE use_for_pull_delegation`, time.Now().Add(-1*time.Hour))
 
 			// test successful issuance of password
 			timeBeforeIssue := time.Now()
@@ -77,7 +77,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		}
 
 		// mark peer as stale, so IssueNewPasswordForNextPeer() will touch it
-		_ = must.ReturnT(s.DB.Exec(`UPDATE peers SET last_peered_at = $1 WHERE use_for_pull_delegation`, time.Now().Add(-1*time.Hour)))(t)
+		test.MustExec(t, s.DB, `UPDATE peers SET last_peered_at = $1 WHERE use_for_pull_delegation`, time.Now().Add(-1*time.Hour))
 
 		// test failing issuance of password
 		tt.Handlers["peer.example.org"] = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

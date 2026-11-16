@@ -374,7 +374,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 // MustExec is a test helper function that executes a DB query and fails the test if it returns an error.
 func MustExec(t *testing.T, db *gsql.DB, query string, args ...any) {
 	t.Helper()
-	_, err := db.Exec(query, args...)
+	_, err := gsql.Exec(t.Context(), db, query, args...)
 	must.SucceedT(t, err)
 }
 

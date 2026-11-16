@@ -22,6 +22,7 @@ import (
 
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
+	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
 )
 
@@ -331,8 +332,8 @@ var (
 )
 
 // MarkAccountForDeletion updates an accounts deletion status and does the necessary audit logging.
-func (p *Processor) MarkAccountForDeletion(account models.Account, actx keppel.AuditContext) error {
-	_, err := p.db.Exec(markAccountForDeletion, p.timeNow(), account.Name)
+func (p *Processor) MarkAccountForDeletion(ctx context.Context, account models.Account, actx keppel.AuditContext) error {
+	_, err := gsql.Exec(ctx, p.db, markAccountForDeletion, p.timeNow(), account.Name)
 	if err != nil {
 		return err
 	}

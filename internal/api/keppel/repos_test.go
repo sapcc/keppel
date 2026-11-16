@@ -59,7 +59,7 @@ func TestReposAPI(t *testing.T) {
 			NextValidationAt: blobPushedAt.Add(models.BlobValidationInterval),
 		}
 		must.SucceedT(t, models.BlobStore.Insert(ctx, s.DB, &blob))
-		must.SucceedT(t, keppel.MountBlobIntoRepo(s.DB, blob, filledRepo))
+		must.SucceedT(t, keppel.MountBlobIntoRepo(ctx, s.DB, blob, filledRepo))
 	}
 
 	// insert some dummy manifests and tags into one of the repos to check the manifest/tag counting

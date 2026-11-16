@@ -106,7 +106,7 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 	err = j.processor().ValidateExistingManifest(ctx, account.Reduced(), repo.Reduced(), &manifest, tagPolicies, actx)
 	if err != nil {
 		// on failure, log error message and schedule next validation sooner than usual
-		_, updateErr := j.db.Exec(validateManifestFinishQuery,
+		_, updateErr := gsql.Exec(ctx, j.db, validateManifestFinishQuery,
 			j.timeNow().Add(j.addJitter(models.ManifestValidationAfterErrorInterval)),
 			err.Error(), repo.ID, manifest.Digest,
 		)
@@ -117,7 +117,7 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 	}
 
 	// on success, reset error message and schedule next validation
-	_, err = j.db.Exec(validateManifestFinishQuery,
+	_, err = gsql.Exec(ctx, j.db, validateManifestFinishQuery,
 		nextValidationAt, "", repo.ID, manifest.Digest,
 	)
 	return err
@@ -173,7 +173,7 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 		if returnedError != nil {
 			timeUntilNextSync = 5 * time.Minute
 		}
-		_, err := j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(timeUntilNextSync)))
+		_, err := gsql.Exec(ctx, j.db, syncManifestDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(timeUntilNextSync)))
 		if err != nil {
 			if returnedError == nil {
 				returnedError = fmt.Errorf("could not update next_manifest_sync_at: %w", err)
@@ -210,7 +210,7 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 		}
 	}
 
-	_, err = j.db.Exec(syncManifestCleanupEmptyQuery, repo.ID)
+	_, err = gsql.Exec(ctx, j.db, syncManifestCleanupEmptyQuery, repo.ID)
 	return err
 }
 
@@ -893,7 +893,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 					blob.BlocksVulnScanning = Some(models.BlobVulnScanningNotBlocked)
 				}
 			}
-			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blob.BlocksVulnScanning, blob.ID)
+			_, err = gsql.Exec(ctx, j.db, `UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blob.BlocksVulnScanning, blob.ID)
 			if err != nil {
 				return false, layerBlobs, err
 			}

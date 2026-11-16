@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pathrouter"
 
@@ -218,7 +219,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	// unmount the blob from this particular repo (if it is mounted in other
 	// repos, it will still be accessible there; otherwise keppel-janitor will
 	// clean it up soon)
-	_, err = a.db.Exec(`DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
+	_, err = gsql.Exec(ctx, a.db, `DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, r, err) {
 		return
 	}

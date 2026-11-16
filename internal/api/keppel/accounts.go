@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pathrouter"
 
@@ -154,6 +155,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
@@ -168,7 +171,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().MarkAccountForDeletion(account, keppel.AuditContext{
+	err = a.processor().MarkAccountForDeletion(ctx, account, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -229,6 +232,8 @@ func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 
 func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
@@ -296,7 +301,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	_, err = a.db.Exec(`UPDATE accounts SET security_scan_policies_json = $1 WHERE name = $2`,
+	_, err = gsql.Exec(ctx, a.db, `UPDATE accounts SET security_scan_policies_json = $1 WHERE name = $2`,
 		string(jsonBuf), account.Name)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return

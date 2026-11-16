@@ -12,6 +12,7 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -85,11 +86,11 @@ func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, 
 	// metadata, and the sweep only touches stuff that was marked in the
 	// *previous* sweep. The only thing that we need to make sure is that unmark
 	// is strictly ordered before sweep.
-	_, err := j.db.Exec(blobMarkQuery, account.Name, canBeDeletedAt)
+	_, err := gsql.Exec(ctx, j.db, blobMarkQuery, account.Name, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
-	_, err = j.db.Exec(blobUnmarkQuery, account.Name)
+	_, err = gsql.Exec(ctx, j.db, blobUnmarkQuery, account.Name)
 	if err != nil {
 		return err
 	}
@@ -129,7 +130,7 @@ func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, 
 		}
 	}
 
-	_, err = j.db.Exec(blobSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	_, err = gsql.Exec(ctx, j.db, blobSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
 
@@ -175,7 +176,7 @@ func (j *Janitor) validateBlob(ctx context.Context, blob models.Blob, _ promethe
 	err = j.processor().ValidateExistingBlob(ctx, account.Reduced(), blob)
 	if err == nil {
 		// on success, reset error message and schedule next validation
-		_, err := j.db.Exec(validateBlobFinishQuery,
+		_, err := gsql.Exec(ctx, j.db, validateBlobFinishQuery,
 			j.timeNow().Add(j.addJitter(models.BlobValidationInterval)),
 			"", account.Name, blob.Digest,
 		)
@@ -184,7 +185,7 @@ func (j *Janitor) validateBlob(ctx context.Context, blob models.Blob, _ promethe
 		}
 	} else {
 		// on failure, log error message and schedule next validation sooner than usual
-		_, updateErr := j.db.Exec(validateBlobFinishQuery,
+		_, updateErr := gsql.Exec(ctx, j.db, validateBlobFinishQuery,
 			j.timeNow().Add(j.addJitter(models.BlobValidationAfterErrorInterval)),
 			err.Error(), account.Name, blob.Digest,
 		)

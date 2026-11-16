@@ -970,7 +970,7 @@ func TestCheckTrivySecurityStatusWithAccountBeingDeleted(t *testing.T) {
 		// upload an example image and change account to being deleted
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
 		image.MustUpload(t, s, fooRepoRef, "latest")
-		_ = must.ReturnT(j.db.Exec(`UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1'`))(t)
+		test.MustExec(t, j.db, `UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1'`)
 		tr.DBChanges().Ignore()
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 

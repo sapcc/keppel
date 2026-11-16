@@ -10,7 +10,6 @@ import (
 	"github.com/dlmiddlecote/sqlstats"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/must"
-	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
 	"go.xyrillian.de/gg/pgruntime"
 
@@ -55,19 +54,6 @@ var sqlMigrations = map[int64]string{
 			ADD PRIMARY KEY (repo_id, digest);
 	`,
 }
-
-// DBInterface is implemented by both [*gsql.DB] and [*gsql.Tx].
-// We are using this interface in function signatures instead of [gsql.Handle] to allow compatibility with go-bits/sqlext methods.
-type DBInterface interface {
-	gsql.Handle
-	sqlext.Executor
-}
-
-var (
-	// prove documented interface implementations
-	_ DBInterface = &gsql.DB{}
-	_ DBInterface = &gsql.Tx{}
-)
 
 // DBConfiguration returns the [pgruntime.ConnectionBehavior] object that [InitDB] uses to initialize the DB connection.
 // This is exported because test.NewSetup() needs to be able to access it.

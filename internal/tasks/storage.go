@@ -12,6 +12,7 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -89,7 +90,7 @@ func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ pr
 		return err
 	}
 
-	_, err = j.db.Exec(storageSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(6*time.Hour)))
+	_, err = gsql.Exec(ctx, j.db, storageSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(6*time.Hour)))
 	return err
 }
 

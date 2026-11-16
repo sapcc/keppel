@@ -251,7 +251,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *gsql.DB) {
 
 //nolint:unparam
 func testWithAccountIsDeleting(t *testing.T, db *gsql.DB, accountName models.AccountName, action func()) {
-	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName))(t)
+	test.MustExec(t, db, "UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName)
 	action()
-	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName))(t)
+	test.MustExec(t, db, "UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -95,13 +96,13 @@ func (j *Janitor) garbageCollectManifestsInRepo(ctx context.Context, repo models
 		// if there are no policies to apply, we can skip a whole bunch of work, but
 		// we still need to update the GCStatusJSON field on the repo's manifests to
 		// make sure those statuses don't refer to deleted GC policies
-		_, err = j.db.Exec(imageGCResetStatusQuery, repo.ID)
+		_, err = gsql.Exec(ctx, j.db, imageGCResetStatusQuery, repo.ID)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = j.db.Exec(imageGCRepoDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	_, err = gsql.Exec(ctx, j.db, imageGCRepoDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
 

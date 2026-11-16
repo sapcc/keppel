@@ -11,6 +11,7 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/gsql"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -77,7 +78,7 @@ func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Jo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo models.Repository, _ prometheus.Labels) error {
+func (j *Janitor) sweepBlobMountsInRepo(ctx context.Context, repo models.Repository, _ prometheus.Labels) error {
 	// allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
@@ -87,16 +88,16 @@ func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo models.Repositor
 	// metadata, and the sweep only touches stuff that was marked in the
 	// *previous* sweep. The only thing that we need to make sure is that unmark
 	// is strictly ordered before sweep.
-	_, err := j.db.Exec(blobMountMarkQuery, repo.ID, canBeDeletedAt)
+	_, err := gsql.Exec(ctx, j.db, blobMountMarkQuery, repo.ID, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
-	_, err = j.db.Exec(blobMountUnmarkQuery, repo.ID)
+	_, err = gsql.Exec(ctx, j.db, blobMountUnmarkQuery, repo.ID)
 	if err != nil {
 		return err
 	}
 	// delete blob-mounts that were marked in the last run
-	result, err := j.db.Exec(blobMountSweepMarkedQuery, repo.ID, j.timeNow())
+	result, err := gsql.Exec(ctx, j.db, blobMountSweepMarkedQuery, repo.ID, j.timeNow())
 	if err != nil {
 		return err
 	}
@@ -108,6 +109,6 @@ func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo models.Repositor
 		logg.Info("%d blob mounts sweeped in repo %s", rowsDeleted, repo.FullName())
 	}
 
-	_, err = j.db.Exec(blobMountSweepDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	_, err = gsql.Exec(ctx, j.db, blobMountSweepDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
