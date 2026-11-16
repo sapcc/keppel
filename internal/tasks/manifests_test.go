@@ -20,6 +20,7 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/assert"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -496,8 +497,7 @@ func TestManifestSyncJob(t *testing.T) {
 			// check that the manifest sync did not update the last_pulled_at timestamps
 			// in the primary DB (even though there were GET requests for the manifests
 			// there)
-			var lastPulledAt time.Time
-			must.SucceedT(t, s1.DB.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
+			lastPulledAt := must.ReturnT(oblast.SelectOne[time.Time](s1.Ctx, s1.DB, `SELECT MAX(last_pulled_at) FROM manifests`))(t)
 			if !lastPulledAt.Equal(initialLastPulledAt) {
 				t.Error("last_pulled_at timestamps on the primary side were touched")
 				t.Logf("  expected = %#v", initialLastPulledAt)
