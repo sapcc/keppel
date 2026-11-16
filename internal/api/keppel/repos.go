@@ -65,6 +65,8 @@ var repositoryGetQuery = sqlext.SimplifyWhitespace(`
 
 func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories")
+	ctx := r.Context()
+
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
@@ -89,31 +91,23 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 		Repos       []Repository `json:"repositories"`
 		IsTruncated bool         `json:"truncated,omitempty"`
 	}
-	err = sqlext.ForeachRow(a.db, query, bindValues, func(rows *sql.Rows) error {
-		var (
-			name                string
-			sizeBytes           *uint64
-			manifestCount       *uint64
-			maxManifestPushedAt *time.Time
-			tagCount            *uint64
-			maxTagPushedAt      *time.Time
-		)
-		err := rows.Scan(
-			&name,
-			&sizeBytes,
-			&manifestCount, &maxManifestPushedAt,
-			&tagCount, &maxTagPushedAt,
-		)
-		if err == nil {
-			result.Repos = append(result.Repos, Repository{
-				Name:          name,
-				ManifestCount: unpackUint64OrZero(manifestCount),
-				TagCount:      unpackUint64OrZero(tagCount),
-				SizeBytes:     unpackUint64OrZero(sizeBytes),
-				PushedAt:      maxTimeToUnix(maxTagPushedAt, maxManifestPushedAt),
-			})
-		}
-		return err
+	type record struct {
+		RepositoryName      string
+		SizeBytes           *uint64
+		ManifestCount       *uint64
+		MaxManifestPushedAt *time.Time
+		TagCount            *uint64
+		MaxTagPushedAt      *time.Time
+	}
+	err = oblast.TupleSelect[record](ctx, a.db, query, bindValues...).Foreach(func(r record) error {
+		result.Repos = append(result.Repos, Repository{
+			Name:          r.RepositoryName,
+			ManifestCount: unpackUint64OrZero(r.ManifestCount),
+			TagCount:      unpackUint64OrZero(r.TagCount),
+			SizeBytes:     unpackUint64OrZero(r.SizeBytes),
+			PushedAt:      maxTimeToUnix(r.MaxTagPushedAt, r.MaxManifestPushedAt),
+		})
+		return nil
 	})
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return

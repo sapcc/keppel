@@ -339,11 +339,11 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		if err != nil {
 			return err
 		}
-		err = maintainManifestBlobRefs(tx, *manifest, refsInfo.BlobRefs)
+		err = maintainManifestBlobRefs(ctx, tx, *manifest, refsInfo.BlobRefs)
 		if err != nil {
 			return err
 		}
-		err = maintainManifestManifestRefs(tx, *manifest, refsInfo.ManifestDigests)
+		err = maintainManifestManifestRefs(ctx, tx, *manifest, refsInfo.ManifestDigests)
 		if err != nil {
 			return err
 		}
@@ -569,7 +569,7 @@ func upsertTag(ctx context.Context, db gsql.Handle, t models.Tag) error {
 	return err
 }
 
-func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []blobRef) error {
+func maintainManifestBlobRefs(ctx context.Context, tx *gsql.Tx, m models.Manifest, referencedBlobs []blobRef) error {
 	// maintain media type on blobs (we have no way of knowing the media type of a
 	// blob when it gets uploaded by itself, but manifests always include the
 	// media type of each blob referenced therein; therefore now is our only
@@ -591,11 +591,9 @@ func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []
 	// find existing manifest_blob_refs entries for this manifest
 	isExistingBlobIDRef := make(map[int64]bool)
 	query = `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
-	err = sqlext.ForeachRow(tx, query, []any{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
-		var blobID int64
-		err := rows.Scan(&blobID)
+	err = oblast.Select[int64](ctx, tx, query, m.RepositoryID, m.Digest).Foreach(func(blobID int64) error {
 		isExistingBlobIDRef[blobID] = true
-		return err
+		return nil
 	})
 	if err != nil {
 		return err
@@ -649,15 +647,13 @@ func maintainManifestBlobRefs(tx *gsql.Tx, m models.Manifest, referencedBlobs []
 	return nil
 }
 
-func maintainManifestManifestRefs(tx *gsql.Tx, m models.Manifest, referencedManifestDigests []string) error {
+func maintainManifestManifestRefs(ctx context.Context, tx *gsql.Tx, m models.Manifest, referencedManifestDigests []string) error {
 	// find existing manifest_manifest_refs entries for this manifest
 	isExistingManifestDigestRef := make(map[string]bool)
 	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`
-	err := sqlext.ForeachRow(tx, query, []any{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
-		var childDigest string
-		err := rows.Scan(&childDigest)
+	err := oblast.Select[string](ctx, tx, query, m.RepositoryID, m.Digest).Foreach(func(childDigest string) error {
 		isExistingManifestDigestRef[childDigest] = true
-		return err
+		return nil
 	})
 	if err != nil {
 		return err

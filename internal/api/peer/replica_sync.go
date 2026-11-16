@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
+	"go.xyrillian.de/gg/oblast"
 	"go.xyrillian.de/gg/pathrouter"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -139,15 +140,10 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	var manifests []keppel.ManifestForSync
 	query = `SELECT digest FROM manifests WHERE repo_id = $1`
-	err = sqlext.ForeachRow(a.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
-		var digest digest.Digest
-		err = rows.Scan(&digest)
-		if err != nil {
-			return err
-		}
+	err = oblast.Select[digest.Digest](ctx, a.db, query, repo.ID).Foreach(func(d digest.Digest) error {
 		manifests = append(manifests, keppel.ManifestForSync{
-			Digest: digest,
-			Tags:   tagsByDigest[digest],
+			Digest: d,
+			Tags:   tagsByDigest[d],
 		})
 		return nil
 	})

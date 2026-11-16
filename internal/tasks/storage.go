@@ -13,6 +13,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	"go.xyrillian.de/gg/gsql"
+	"go.xyrillian.de/gg/oblast"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -104,11 +105,9 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 	// enumerate blobs known to the DB
 	isKnownStorageID := make(map[string]bool)
 	query := `SELECT storage_id FROM blobs WHERE account_name = $1`
-	err := sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
-		var storageID string
-		err := rows.Scan(&storageID)
+	err := oblast.Select[string](ctx, j.db, query, account.Name).Foreach(func(storageID string) error {
 		isKnownStorageID[storageID] = true
-		return err
+		return nil
 	})
 	if err != nil {
 		return err
@@ -116,11 +115,9 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 
 	// blobs in the backing storage may also correspond to uploads in progress
 	query = `SELECT storage_id FROM uploads WHERE repo_id IN (SELECT id FROM repos WHERE account_name = $1)`
-	err = sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
-		var storageID string
-		err := rows.Scan(&storageID)
+	err = oblast.Select[string](ctx, j.db, query, account.Name).Foreach(func(storageID string) error {
 		isKnownStorageID[storageID] = true
-		return err
+		return nil
 	})
 	if err != nil {
 		return err
