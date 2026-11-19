@@ -64,7 +64,7 @@ github.com/go-redis/redis_rate/v10
 # github.com/golang-jwt/jwt/v5 v5.3.1
 ## explicit; go 1.21
 github.com/golang-jwt/jwt/v5
-# github.com/gophercloud/gophercloud/v2 v2.15.0
+# github.com/gophercloud/gophercloud/v2 v2.16.0
 ## explicit; go 1.25.0
 github.com/gophercloud/gophercloud/v2
 github.com/gophercloud/gophercloud/v2/openstack
@@ -136,7 +136,7 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/pandatix/go-abnf v0.5.3
+# github.com/pandatix/go-abnf v0.5.5
 ## explicit; go 1.26.0
 github.com/pandatix/go-abnf
 # github.com/prometheus/client_golang v1.25.0
@@ -150,7 +150,7 @@ github.com/prometheus/client_golang/prometheus/promhttp/internal
 # github.com/prometheus/client_model v0.6.3
 ## explicit; go 1.23
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.73.1
+# github.com/prometheus/common v0.74.0
 ## explicit; go 1.26.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -191,7 +191,7 @@ github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20261112131659-2726a2c437f4
+# github.com/sapcc/go-bits v0.0.0-20261119170052-2c0267f1a934
 ## explicit; go 1.27
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg

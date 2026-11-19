@@ -7,14 +7,16 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 )
 
 // DefaultUserAgent is the default User-Agent string set in the request header.
 const (
-	DefaultUserAgent         = "gophercloud/v2.15.0"
+	DefaultUserAgent         = "gophercloud/v2.16.0"
 	DefaultMaxBackoffRetries = 60
 )
 
@@ -84,6 +86,20 @@ type ProviderClient struct {
 	// authentication functions for different Identity service versions.
 	ReauthFunc func(context.Context) error
 
+	// ReauthBeforeTokenExpiration specifies how long before the token expires
+	// the client should reauthenticate proactively, before issuing a request
+	// that would carry the expiring token. If non-zero and the token's
+	// expiration time is known, a request made within this window of the
+	// expiration triggers ReauthFunc before it is sent. If the
+	// reauthentication fails, the request proceeds with the current token and
+	// a 401 response triggers the existing reauth-and-retry behavior. A zero
+	// value disables proactive reauthentication.
+	//
+	// Proactive reauthentication is only active when ReauthFunc is set. The
+	// margin should be smaller than the token lifetime; otherwise every
+	// request triggers a reauthentication.
+	ReauthBeforeTokenExpiration time.Duration
+
 	// Throwaway determines whether if this client is a throw-away client. It's a copy of user's provider client
 	// with the token and reauth func zeroed. Such client can be used to perform reauthorization.
 	Throwaway bool
@@ -107,6 +123,11 @@ type ProviderClient struct {
 	reauthmut *reauthlock
 
 	authResult AuthResult
+
+	// tokenExpiry is the expiration time of the currently cached token, if
+	// known. It is populated from the AuthResult when the result exposes the
+	// token's expiration.
+	tokenExpiry time.Time
 }
 
 // reauthlock represents a set of attributes used to help in the reauthentication process.
@@ -170,6 +191,17 @@ func (client *ProviderClient) authenticatedHeaders(ctx context.Context) (map[str
 	if t == "" {
 		return nil, nil
 	}
+	if client.ReauthFunc != nil && client.ReauthBeforeTokenExpiration > 0 {
+		if expiry := client.TokenExpiry(); !expiry.IsZero() && !time.Now().Add(client.ReauthBeforeTokenExpiration).Before(expiry) {
+			// The token expires within the margin (or already did): reauthenticate
+			// before sending. If the reauthentication fails, proceed with the
+			// current token; a 401 response triggers the existing reauth-and-retry
+			// behavior.
+			if err := client.Reauthenticate(ctx, t); err == nil {
+				t = client.Token()
+			}
+		}
+	}
 	return map[string]string{"X-Auth-Token": t}, nil
 }
 
@@ -204,6 +236,16 @@ func (client *ProviderClient) Token() string {
 	return client.TokenID
 }
 
+// TokenExpiry safely returns the expiration time of the cached token, or the
+// zero time if it is unknown.
+func (client *ProviderClient) TokenExpiry() time.Time {
+	if client.mut != nil {
+		client.mut.RLock()
+		defer client.mut.RUnlock()
+	}
+	return client.tokenExpiry
+}
+
 // SetToken safely sets the value of the auth token in the ProviderClient. Applications may
 // use this method in a custom ReauthFunc.
 //
@@ -215,6 +257,7 @@ func (client *ProviderClient) SetToken(t string) {
 	}
 	client.TokenID = t
 	client.authResult = nil
+	client.tokenExpiry = time.Time{}
 }
 
 // SetTokenAndAuthResult safely sets the value of the auth token in the
@@ -236,6 +279,10 @@ func (client *ProviderClient) SetTokenAndAuthResult(r AuthResult) error {
 	}
 	client.TokenID = tokenID
 	client.authResult = r
+	client.tokenExpiry = time.Time{}
+	if e, ok := r.(interface{ TokenExpiry() time.Time }); ok {
+		client.tokenExpiry = e.TokenExpiry()
+	}
 	return nil
 }
 
@@ -252,6 +299,7 @@ func (client *ProviderClient) CopyTokenFrom(other *ProviderClient) {
 	}
 	client.TokenID = other.TokenID
 	client.authResult = other.authResult
+	client.tokenExpiry = other.tokenExpiry
 }
 
 // IsThrowaway safely reads the value of the client Throwaway field.
@@ -365,6 +413,75 @@ func (client *ProviderClient) Request(ctx context.Context, method, url string, o
 	})
 }
 
+// httpClientForRequest returns a copy of client.HTTPClient to issue one request
+// with. When the caller has not set a redirect policy, the copy gets
+// stripTokenOnCrossOriginRedirect, so the token never travels to another
+// origin than the one it was sent to. A CheckRedirect set by the caller is
+// used as is.
+func (client *ProviderClient) httpClientForRequest() *http.Client {
+	httpClient := client.HTTPClient
+	if httpClient.CheckRedirect == nil {
+		httpClient.CheckRedirect = stripTokenOnCrossOriginRedirect
+	}
+	return &httpClient
+}
+
+// stripTokenOnCrossOriginRedirect is the redirect policy applied when the
+// caller sets none. It keeps net/http's limit of ten redirects and follows
+// every redirect, but a redirect to another origin (scheme, host or port)
+// than the original request goes out without X-Auth-Token.
+//
+// net/http removes Authorization on a cross-host redirect by itself and knows
+// nothing about the OpenStack token header. Without this policy a redirect
+// from a configured endpoint, for example from a proxy or load balancer
+// rewrite, a lapsed DNS name a service still redirects to, or an https to
+// http downgrade, hands the token to whatever host the Location header
+// names. The original request is the reference, so a chain that leaves the
+// origin and comes back does not regain the token.
+func stripTokenOnCrossOriginRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if leftOrigin(via, req) {
+		req.Header.Del("X-Auth-Token")
+	}
+	return nil
+}
+
+// leftOrigin reports whether req, or any redirect before it, is on another
+// origin than the original request. net/http rebuilds every redirected
+// request from the original one, so once a chain has left the origin the
+// token must stay off even on a hop that comes back.
+func leftOrigin(via []*http.Request, req *http.Request) bool {
+	origin := via[0].URL
+	for _, hop := range via[1:] {
+		if !sameOrigin(origin, hop.URL) {
+			return true
+		}
+	}
+	return !sameOrigin(origin, req.URL)
+}
+
+// sameOrigin reports whether two URLs share scheme, host and effective port.
+func sameOrigin(a, b *url.URL) bool {
+	return strings.EqualFold(a.Scheme, b.Scheme) &&
+		strings.EqualFold(a.Hostname(), b.Hostname()) &&
+		portOrDefault(a) == portOrDefault(b)
+}
+
+func portOrDefault(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	}
+	return ""
+}
+
 func (client *ProviderClient) doRequest(ctx context.Context, method, url string, options *RequestOpts, state *requestState) (*http.Response, error) {
 	var body io.Reader
 	var contentType *string
@@ -432,7 +549,7 @@ func (client *ProviderClient) doRequest(ctx context.Context, method, url string,
 	prereqtok := req.Header.Get("X-Auth-Token")
 
 	// Issue the request.
-	resp, err := client.HTTPClient.Do(req)
+	resp, err := client.httpClientForRequest().Do(req)
 	if err != nil {
 		if client.RetryFunc != nil {
 			var e error
