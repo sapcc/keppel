@@ -12,7 +12,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.16.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/klauspost/compress v1.20.4
+	github.com/klauspost/compress v1.20.5
 	github.com/lib/pq v1.12.3
 	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260831232431-97274622c111
 	github.com/opencontainers/go-digest v1.0.0
@@ -21,7 +21,7 @@ require (
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.25.1
-	github.com/sapcc/go-bits v0.0.0-20261119170052-2c0267f1a934
+	github.com/sapcc/go-bits v0.0.0-20261126170205-c4438fd89447
 	github.com/spf13/cobra v1.10.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.42.0
@@ -46,7 +46,7 @@ require (
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.74.0 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
-	github.com/rabbitmq/amqp091-go v1.16.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.17.0 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect

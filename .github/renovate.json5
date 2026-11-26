@@ -76,8 +76,7 @@
       "matchFileNames": [
         ".github/workflows/checks.yaml",
         ".github/workflows/ci.yaml",
-        ".github/workflows/codeql.yaml",
-        ".github/workflows/run-go-makefile-maker.yaml"
+        ".github/workflows/codeql.yaml"
       ],
       "enabled": false
     },
