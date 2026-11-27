@@ -1,4 +1,4 @@
-# cel.dev/cel-go v0.33.2
+# cel.dev/cel-go v0.33.4
 ## explicit; go 1.23.0
 cel.dev/cel-go/cel
 cel.dev/cel-go/cel/async
@@ -162,16 +162,20 @@ github.com/prometheus/procfs/internal/parsers
 # github.com/rabbitmq/amqp091-go v1.17.0
 ## explicit; go 1.20
 github.com/rabbitmq/amqp091-go
-# github.com/redis/go-redis/v9 v9.23.0
+# github.com/redis/go-redis/v9 v9.24.0
 ## explicit; go 1.26.0
 github.com/redis/go-redis/v9
 github.com/redis/go-redis/v9/auth
 github.com/redis/go-redis/v9/internal
 github.com/redis/go-redis/v9/internal/auth/streaming
+github.com/redis/go-redis/v9/internal/callbackqueue
+github.com/redis/go-redis/v9/internal/circuitbreaker
+github.com/redis/go-redis/v9/internal/failuredetector
 github.com/redis/go-redis/v9/internal/hashtag
 github.com/redis/go-redis/v9/internal/hscan
 github.com/redis/go-redis/v9/internal/interfaces
 github.com/redis/go-redis/v9/internal/maintnotifications/logs
+github.com/redis/go-redis/v9/internal/multidb
 github.com/redis/go-redis/v9/internal/otel
 github.com/redis/go-redis/v9/internal/pool
 github.com/redis/go-redis/v9/internal/proto
@@ -232,7 +236,7 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
-# go.podman.io/image/v5 v5.42.0
+# go.podman.io/image/v5 v5.42.1
 ## explicit; go 1.26.0
 go.podman.io/image/v5/docker/reference
 go.podman.io/image/v5/internal/manifest
@@ -243,7 +247,7 @@ go.podman.io/image/v5/pkg/compression/internal
 go.podman.io/image/v5/pkg/compression/types
 go.podman.io/image/v5/pkg/strslice
 go.podman.io/image/v5/types
-# go.podman.io/storage v1.65.0
+# go.podman.io/storage v1.65.1
 ## explicit; go 1.26.0
 go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.12.0
